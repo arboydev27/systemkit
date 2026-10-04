@@ -1,5 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#1765d1"/>
-  <path d="M14 23 32 14l18 9-18 9-18-9Z" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/>
-  <path d="m14 32 18 9 18-9M14 41l18 9 18-9" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <title>SystemKit</title>
+  <style>
+    .tile { fill: #171717; }
+    .layers { stroke: #fff; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #f5f5f5; }
+      .layers { stroke: #171717; }
+    }
+  </style>
+  <rect class="tile" width="64" height="64" rx="14"/>
+  <g class="layers" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 23 32 14l18 9-18 9-18-9Z"/>
+    <path d="m14 32 18 9 18-9M14 41l18 9 18-9"/>
+  </g>
 </svg>
