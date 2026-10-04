@@ -37,7 +37,7 @@ button { font: inherit; }
 button:not(:disabled) { cursor: pointer; }
 button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-h1[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
+h1[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outline: none; }
 button svg { flex: none; }
 ::selection { background: var(--accent-line); color: var(--ink); }
 
