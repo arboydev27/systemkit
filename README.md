@@ -1,6 +1,6 @@
 # SystemKit
 
-SystemKit is an interactive reference for learning system design one architectural decision at a time. The first chapter follows the journey from a single server to a system that can serve a large audience.
+SystemKit is an interactive reference for learning system design one decision at a time. Chapter 01 teaches a reusable design framework; Chapter 02 applies those decisions while growing a service from one server to a large audience.
 
 ## Run locally
 
@@ -27,6 +27,12 @@ This product teaches load balancing, caching, replication, queues, and sharding.
 
 ## Content and sources
 
-The lessons, questions, and diagrams are original teaching material informed by Alex Xu's *System Design Interview: An Insider's Guide*, chapter 1, “Scale from Zero to Millions of Users.” The supplied *System Design Interview* PDF and *System Design Cheat Sheet* PDF were also available as background references. SystemKit does not bundle or reproduce those PDFs. The diagrams express the concepts in a new layout; they are not traced from the book.
+The lessons, questions, and diagrams are original teaching material informed by Alex Xu's *System Design Interview: An Insider's Guide*. The supplied PDFs used as sources are:
 
-The first chapter is designed around 12 short lessons, architecture stages, decision scenarios, and self-check questions. Multiple-choice explanations are guidance, not proof of mastery; learners should be able to explain the tradeoffs in their own words.
+- *System Design - The Framework.pdf*: chapter 3, “A Framework for System Design Interviews,” pages 1–9 of the supplied excerpt. SystemKit presents the method as general engineering practice under the title “System Design Framework.”
+- *System Design - Scale to Million Users.pdf*: the scaling chapter, presented as Chapter 02 in SystemKit.
+- *System Design Interview.pdf* and *System Design Cheat Sheet.pdf*: background references.
+
+SystemKit does not bundle or reproduce those PDFs. Its diagrams express the concepts in a new layout; they are not traced from the book.
+
+Each chapter uses short lessons, visual explanations, decision scenarios, and self-check questions. Progress is saved separately per chapter. Multiple-choice explanations are guidance, not proof of mastery; learners should be able to explain the tradeoffs in their own words.
