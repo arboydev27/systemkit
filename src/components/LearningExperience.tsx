@@ -17,9 +17,17 @@ import {
 import { chapters } from "@/content/chapters";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { FrameworkDiagram } from "./FrameworkDiagram";
+import { EstimationDiagram } from "./EstimationDiagram";
+import { UrlShortenerDiagram } from "./UrlShortenerDiagram";
+import { ChatDiagram } from "./ChatDiagram";
+import { YouTubeDiagram } from "./YouTubeDiagram";
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
+const NumbersDiagram = memo(EstimationDiagram);
+const ShortLinkDiagram = memo(UrlShortenerDiagram);
+const MessageDiagram = memo(ChatDiagram);
+const VideoDiagram = memo(YouTubeDiagram);
 
 const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 
@@ -78,6 +86,7 @@ function padded(index: number) {
 export function LearningExperience() {
   const [chapterId, setChapterId] = useState(chapters[0].id);
   const chapter = chapters.find((item) => item.id === chapterId) ?? chapters[0];
+  const nextChapter = chapters[chapters.findIndex((item) => item.id === chapter.id) + 1];
   const { steps, questions } = chapter;
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [ready, setReady] = useState(false);
@@ -254,7 +263,7 @@ export function LearningExperience() {
           <div className="sidebar-head">
             <span className="section-label">LEARNING PATH</span>
             <div className="sidebar-title"><BookOpen size={18} /> <span>System design</span></div>
-            <p>Learn the method, then apply it to a growing system.</p>
+            <p>A guided path from first principles to familiar systems.</p>
           </div>
 
           <nav className="chapter-navigation" aria-label="Chapters">
@@ -324,7 +333,12 @@ export function LearningExperience() {
               <span className="diagram-caption"><span className="caption-pulse" /> Explore the flow</span>
             </div>
             <div className="diagram-stage">
-              {chapter.id === "framework" ? <MethodDiagram id={step.diagramId} /> : <LessonDiagram id={step.diagramId} />}
+              {chapter.id === "framework" ? <MethodDiagram id={step.diagramId} /> :
+                chapter.id === "estimation" ? <NumbersDiagram id={step.diagramId} /> :
+                chapter.id === "url" ? <ShortLinkDiagram id={step.diagramId} /> :
+                chapter.id === "chat" ? <MessageDiagram id={step.diagramId} /> :
+                chapter.id === "youtube" ? <VideoDiagram id={step.diagramId} /> :
+                <LessonDiagram id={step.diagramId} />}
             </div>
             <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>
           </section>
@@ -453,7 +467,7 @@ export function LearningExperience() {
               {isComplete ? <RotateCcw size={17} /> : <Check size={17} />}
               {isComplete ? "Mark as incomplete" : "Mark lesson complete"}
             </button>
-            {activeIndex + 1 < steps.length ? <button className="next-button" type="button" onClick={() => selectStep(steps[activeIndex + 1].id)}>Next lesson <ArrowRight size={17} /></button> : chapter.id === "framework" ? <button className="next-button" type="button" onClick={() => selectChapter("scaling")}>Next chapter <ArrowRight size={17} /></button> : null}
+            {activeIndex + 1 < steps.length ? <button className="next-button" type="button" onClick={() => selectStep(steps[activeIndex + 1].id)}>Next lesson <ArrowRight size={17} /></button> : nextChapter ? <button className="next-button" type="button" onClick={() => selectChapter(nextChapter.id)}>Next chapter: {nextChapter.title} <ArrowRight size={17} /></button> : null}
           </div>
           <p id="completion-hint" className="completion-hint">
             {isComplete ? "Lesson complete. You can revisit any checkpoint." : `${correctCount} of ${stepQuestions.length} checkpoints answered correctly to complete this lesson.`}

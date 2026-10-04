@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SystemKit — Learn System Design",
   description:
-    "A visual, hands-on guide to the system design framework and scaling decisions.",
+    "A visual, hands-on path through system design fundamentals, estimation, URL shortening, chat, and video delivery.",
   icons: { icon: "/favicon.svg" },
 };
 

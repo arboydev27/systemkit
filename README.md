@@ -1,6 +1,6 @@
 # SystemKit
 
-SystemKit is an interactive reference for learning system design one decision at a time. Chapter 01 teaches a reusable design framework; Chapter 02 applies those decisions while growing a service from one server to a large audience.
+SystemKit is an interactive reference for learning system design one decision at a time. Its six-chapter core path begins with a reusable framework and a growing service, then moves through estimation, URL shortening, chat, and video delivery.
 
 ## Run locally
 
@@ -31,7 +31,9 @@ The lessons, questions, and diagrams are original teaching material informed by 
 
 - *System Design - The Framework.pdf*: chapter 3, “A Framework for System Design Interviews,” pages 1–9 of the supplied excerpt. SystemKit presents the method as general engineering practice under the title “System Design Framework.”
 - *System Design - Scale to Million Users.pdf*: the scaling chapter, presented as Chapter 02 in SystemKit.
-- *System Design Interview.pdf* and *System Design Cheat Sheet.pdf*: background references.
+- *System Design Interview.pdf*: chapter 2 on estimation, chapter 8 on URL shortening, and chapter 12 on chat, presented as Chapters 03–05 in SystemKit.
+- *System Design - Design Youtube.pdf*: the video platform chapter, presented as Chapter 06 in SystemKit.
+- *System Design Cheat Sheet.pdf*: a background reference.
 
 SystemKit does not bundle or reproduce those PDFs. Its diagrams express the concepts in a new layout; they are not traced from the book.
 
