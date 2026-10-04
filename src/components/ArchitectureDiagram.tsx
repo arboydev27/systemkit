@@ -42,7 +42,7 @@ const scenes: Record<string, Scene> = {
     ],
     connections: [
       { points: [[193, 221], [249, 221], [249, 114], [288, 114]], label: "look up", labelAt: [220, 150] },
-      { points: [[288, 137], [270, 137], [270, 244], [193, 244]], tone: "sync", label: "IP address", labelAt: [329, 170] },
+      { points: [[288, 137], [270, 137], [270, 244], [193, 244]], label: "IP address", labelAt: [329, 170] },
       { points: [[193, 236], [225, 236], [225, 317], [548, 317], [548, 236], [592, 236]], label: "HTTP request", labelAt: [389, 297] },
     ],
     note: "Simple to launch; one failure can take the whole service offline.",
@@ -117,7 +117,7 @@ const scenes: Record<string, Scene> = {
     connections: [
       { points: [[169, 226], [202, 226], [202, 116], [242, 116]], label: "assets", labelAt: [207, 156] },
       { points: [[169, 241], [202, 241], [202, 330], [242, 330]], label: "data", labelAt: [201, 300] },
-      { points: [[406, 116], [677, 116]], tone: "sync", label: "miss → fetch", labelAt: [540, 92], dashed: true },
+      { points: [[406, 116], [677, 116]], label: "miss → fetch", labelAt: [540, 92] },
       { points: [[406, 330], [487, 330]], tone: "read", label: "check", labelAt: [446, 309] },
       { points: [[653, 330], [755, 330]], tone: "read", label: "miss", labelAt: [702, 309] },
     ],
@@ -209,20 +209,20 @@ const scenes: Record<string, Scene> = {
 };
 
 const palette: Record<NodeKind, { fill: string; border: string }> = {
-  person: { fill: "#f8f4eb", border: "#887b68" },
-  network: { fill: "#f1f3fb", border: "#6978aa" },
-  server: { fill: "#edf4f0", border: "#5b8776" },
-  database: { fill: "#f3effa", border: "#8770a3" },
-  cache: { fill: "#fff4dc", border: "#aa8641" },
-  queue: { fill: "#fff0e8", border: "#ba765b" },
-  storage: { fill: "#eef2f9", border: "#6d84a2" },
+  person: { fill: "var(--arch-paper)", border: "var(--arch-stroke)" },
+  network: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
+  server: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
+  database: { fill: "var(--arch-node-deep)", border: "var(--arch-stroke)" },
+  cache: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
+  queue: { fill: "var(--arch-node-deep)", border: "var(--arch-stroke)" },
+  storage: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
 };
 
 const lineColors: Record<Tone, string> = {
-  request: "#555e68",
-  read: "#5274ab",
-  write: "#b66b4f",
-  sync: "#8a759b",
+  request: "var(--arch-connection)",
+  read: "var(--arch-read)",
+  write: "var(--arch-write)",
+  sync: "var(--arch-sync)",
 };
 
 function HandDrawnNode({ node }: { node: Node }) {
@@ -233,12 +233,12 @@ function HandDrawnNode({ node }: { node: Node }) {
 
   return (
     <g>
-      <path d={outline} fill={colors.fill} stroke={colors.border} strokeWidth="2" strokeLinejoin="round" />
+      <path d={outline} fill={colors.fill} stroke={colors.border} strokeWidth="2" strokeLinejoin="round" strokeDasharray={kind === "network" ? "7 4" : undefined} />
       <path
         d={`M ${x + 12} ${y + 4} L ${x + width - 10} ${y + 5} M ${x + 4} ${y + 13} L ${x + 4} ${y + height - 12}`}
         fill="none"
         stroke={colors.border}
-        strokeOpacity="0.36"
+        strokeOpacity="0.44"
         strokeWidth="1"
         strokeLinecap="round"
       />
@@ -266,7 +266,7 @@ function ConnectionLine({ connection, markerIds }: { connection: Connection; mar
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray={connection.dashed ? "7 7" : undefined}
+        strokeDasharray={tone === "write" ? "8 4" : tone === "sync" || connection.dashed ? "2 5" : undefined}
         markerEnd={connection.arrow === false ? undefined : `url(#${markerIds[tone]})`}
       />
       {connection.label && connection.labelAt && (
@@ -307,8 +307,8 @@ export function ArchitectureDiagram({ id, className }: { id: string; className?:
               </marker>
             ))}
           </defs>
-          <rect width="1000" height="470" rx="18" fill="#fbfaf7" />
-          <path d="M 28 51 L 970 51" stroke="#deddd7" strokeWidth="1" strokeDasharray="3 7" />
+          <rect width="1000" height="470" rx="18" fill="var(--arch-paper)" />
+          <path d="M 28 51 L 970 51" stroke="var(--arch-rule)" strokeWidth="1" strokeDasharray="3 7" />
           <text x="28" y="34" className="architecture-heading">{scene.title}</text>
           {scene.connections.map((connection, index) => (
             <ConnectionLine key={index} connection={connection} markerIds={markerIds} />
@@ -319,26 +319,58 @@ export function ArchitectureDiagram({ id, className }: { id: string; className?:
       </div>
       <figcaption>{scene.summary}</figcaption>
       <style>{`
-        .architecture-figure { margin: 0; min-width: 0; max-width: 100%; color: #25303b; container-type: inline-size; }
+        .architecture-figure {
+          --arch-paper: #ffffff;
+          --arch-node: #f7f7f7;
+          --arch-node-soft: #f2f2f2;
+          --arch-node-deep: #eaeaea;
+          --arch-ink: #222222;
+          --arch-secondary: #505050;
+          --arch-stroke: #4b4b4b;
+          --arch-connection: #555555;
+          --arch-read: #292929;
+          --arch-write: #343434;
+          --arch-sync: #646464;
+          --arch-rule: #d5d5d5;
+          --arch-border: #c8c8c8;
+          margin: 0; min-width: 0; max-width: 100%; color: var(--arch-ink); container-type: inline-size;
+        }
         .architecture-scroll-hint { display: none; }
-        .architecture-viewport { box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid #e1e2df; border-radius: 18px; background: #fbfaf7; scrollbar-width: thin; touch-action: pan-x pan-y; overscroll-behavior-inline: contain; }
-        .architecture-viewport:focus-visible { outline: 3px solid #4269b0; outline-offset: 3px; }
-        .architecture-viewport svg { display: block; width: 100%; min-width: 720px; height: auto; }
-        .architecture-figure figcaption { margin-top: 0.7rem; color: var(--muted, #5a6470); font-size: 0.875rem; line-height: 1.55; }
-        .architecture-heading { font: 600 18px system-ui, -apple-system, sans-serif; fill: #26323d; letter-spacing: -0.02em; }
-        .architecture-node-title { font: 650 16px system-ui, -apple-system, sans-serif; fill: #26323d; letter-spacing: -0.015em; }
-        .architecture-node-detail { font: 13px system-ui, -apple-system, sans-serif; fill: #58636f; }
-        .architecture-edge-label { font: 600 13px system-ui, -apple-system, sans-serif; fill: #555e68; paint-order: stroke; stroke: #fbfaf7; stroke-width: 5px; stroke-linejoin: round; }
-        .architecture-read { fill: #5274ab; }
-        .architecture-write { fill: #a95d43; }
-        .architecture-sync { fill: #8a759b; }
-        .architecture-note { font: 13px system-ui, -apple-system, sans-serif; fill: #69717a; }
+        .architecture-viewport { box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--arch-border); border-radius: 18px; background: var(--arch-paper); scrollbar-width: thin; touch-action: pan-x pan-y; overscroll-behavior-inline: contain; }
+        .architecture-viewport:focus-visible { outline: 3px solid var(--accent, var(--arch-ink)); outline-offset: 3px; }
+        .architecture-viewport svg { display: block; width: 100%; min-width: 960px; height: auto; }
+        .architecture-figure figcaption { margin-top: 0.7rem; color: var(--muted, var(--arch-secondary)); font-size: 0.875rem; line-height: 1.55; }
+        .architecture-heading { font: 600 18px system-ui, -apple-system, sans-serif; fill: var(--arch-ink); letter-spacing: -0.02em; }
+        .architecture-node-title { font: 650 16px system-ui, -apple-system, sans-serif; fill: var(--arch-ink); letter-spacing: -0.015em; }
+        .architecture-node-detail { font: 13px system-ui, -apple-system, sans-serif; fill: var(--arch-secondary); }
+        .architecture-edge-label { font: 600 13px system-ui, -apple-system, sans-serif; fill: var(--arch-connection); paint-order: stroke; stroke: var(--arch-paper); stroke-width: 5px; stroke-linejoin: round; }
+        .architecture-read { fill: var(--arch-read); }
+        .architecture-write { fill: var(--arch-write); }
+        .architecture-sync { fill: var(--arch-sync); }
+        .architecture-note { font: 13px system-ui, -apple-system, sans-serif; fill: var(--arch-secondary); }
         @container (max-width: 760px) {
-          .architecture-scroll-hint { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.5rem; color: var(--muted, #536270); font: 600 0.76rem system-ui, -apple-system, sans-serif; }
+          .architecture-scroll-hint { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.5rem; color: var(--muted, var(--arch-secondary)); font: 600 0.76rem system-ui, -apple-system, sans-serif; }
           .architecture-scroll-hint span:last-child { font-size: 1.05rem; }
         }
+        @media (prefers-color-scheme: dark) {
+          .architecture-figure {
+            --arch-paper: #1d1d1f;
+            --arch-node: #29292c;
+            --arch-node-soft: #323235;
+            --arch-node-deep: #3a3a3d;
+            --arch-ink: #f1f1f2;
+            --arch-secondary: #c5c5c8;
+            --arch-stroke: #bcbcc0;
+            --arch-connection: #b6b6ba;
+            --arch-read: #f0f0f1;
+            --arch-write: #d8d8db;
+            --arch-sync: #bcbcc0;
+            --arch-rule: #57575b;
+            --arch-border: #67676c;
+          }
+        }
         @media (prefers-reduced-motion: reduce) { .architecture-figure *, .architecture-figure *::before, .architecture-figure *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-        @media (prefers-contrast: more) { .architecture-viewport { border-color: #25303b; } .architecture-node-detail, .architecture-note { fill: #26323d; } }
+        @media (prefers-contrast: more) { .architecture-figure { --arch-stroke: var(--arch-ink); --arch-secondary: var(--arch-ink); --arch-border: var(--arch-ink); --arch-connection: var(--arch-ink); --arch-read: var(--arch-ink); --arch-write: var(--arch-ink); --arch-sync: var(--arch-ink); } }
       `}</style>
     </figure>
   );
