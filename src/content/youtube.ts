@@ -1,0 +1,120 @@
+import type { Question, Step } from './chapter';
+
+export const youtubeSteps: Step[] = [
+  {
+    id: 'youtube-scope', title: 'Set the video workload', eyebrow: '01 · Scope and demand',
+    summary: 'Separate publishing from watching, then size the expensive paths before choosing services.',
+    body: [
+      'Start with two jobs: a creator uploads a video and a viewer plays it on a phone, browser, or TV. Agree on maximum source size, supported devices, geographic reach, startup time, availability, and whether live streaming is in scope. Comments, recommendations, and subscriptions can wait; each adds a different system.',
+      'Use behavior rather than registered users to estimate demand. As an exercise, five million daily viewers watching five 300 MB videos imply about 7.5 PB delivered per day. If 10% upload one 300 MB source daily, originals alone add about 150 TB per day before renditions, replication, and retention. These illustrative inputs are not current YouTube measurements. State peak-to-average ratios and recalculate when an assumption changes. Playback may dominate network egress, transcoding compute, and uploads storage.',
+    ],
+    takeaways: ['Size watch traffic, upload bytes, derived renditions, and peaks separately.', 'Treat every figure as an assumption to validate, not a precise production forecast.'],
+    diagramId: 'youtube-scope', scenario: 'A teammate says five million people use the service, so five million requests per day should size it. What is missing?',
+    scenarioAnswer: 'Ask how many are active, how many videos they watch and upload, video sizes and lengths, peak patterns, device mix, and retention. One viewing session requests many media segments.',
+  },
+  {
+    id: 'youtube-upload', title: 'Accept an upload safely', eyebrow: '02 · Durable ingestion',
+    summary: 'Let the API authorize an upload while object storage receives the large bytes directly.',
+    body: [
+      'The client asks the API to create an upload. After authentication, quota, and size checks, the API creates a pending video record and issues a short-lived permission scoped to one object key. The client sends the file directly to object storage. The API records the owner and expected object so a guessed key cannot publish someone else’s upload.',
+      'For unstable networks, use multipart or resumable uploads with checksums and a completion step. Parts are byte ranges; they need not match codec Groups of Pictures. When storage confirms a complete object, verify size, checksum, and media type before processing. Retry the same upload session to avoid duplicates. A “received” response means the original is durable, not that playback is ready. Expire abandoned sessions and parts.',
+    ],
+    takeaways: ['Authorize a narrow direct upload, then verify the stored object.', 'Keep upload completion distinct from playable publication.'],
+    diagramId: 'youtube-upload', scenario: 'A 900 MB upload stops at 85%. How can the creator continue without sending the first 85% again?',
+    scenarioAnswer: 'Resume missing byte ranges in the same session, verify the assembled object, and finalize the existing pending video.',
+  },
+  {
+    id: 'youtube-pipeline', title: 'Process video off the request path', eyebrow: '03 · Transcoding pipeline',
+    summary: 'Use a queued task graph so independent work runs in parallel and failed tasks can retry.',
+    body: [
+      'Once the source is verified, an ingestion event starts a processing job. A scheduler builds a directed acyclic graph: inspect first; then audio encoding, video renditions, thumbnails, and optional moderation can run where dependencies allow. Workers read the durable original and write outputs to object storage. Queue messages carry object keys and job IDs, not the media itself.',
+      'A preprocessor can inspect tracks and create aligned media chunks for parallel encoding. The scheduler releases each DAG stage when its prerequisites finish, and a resource manager matches tasks to available workers. Persist temporary media needed for retries, then remove it after confirmed publication. These processing chunks have codec constraints; they are a separate concern from resumable upload parts.',
+      'Queues absorb bursts but backlog still needs limits and monitoring. Persist task state, lease work, retry transient failures with bounds, and send persistent failures to an operator-visible dead-letter path. Make outputs idempotent because a worker can fail after writing but before acknowledging. Publish only after required renditions and manifest exist. A malformed source is a terminal validation error; repeating the same transcode will not repair it.',
+    ],
+    takeaways: ['Express dependencies explicitly; parallelize only independent tasks.', 'Retries need durable state, idempotent outputs, and a terminal failure path.'],
+    diagramId: 'youtube-pipeline', scenario: 'A worker dies after writing the 720p output but before acknowledging. What happens on redelivery?',
+    scenarioAnswer: 'A replacement checks the deterministic output key and task state, verifies the output, and marks it complete or safely overwrites it. Publication still waits for required outputs.',
+  },
+  {
+    id: 'youtube-renditions', title: 'Make one source fit many screens', eyebrow: '04 · Encoding and packaging',
+    summary: 'Produce compatible renditions and short segments so a player can adapt quality.',
+    body: [
+      'A container such as MP4 packages tracks; a codec such as H.264 compresses video. Devices differ in supported codecs, resolutions, and bandwidth. Encode a deliberately limited ladder of bitrate and resolution combinations. More renditions improve fit but cost compute and storage.',
+      'Package each rendition into short, independently decodable segments and publish a manifest listing them. Align segment boundaries so the player switches quality cleanly. HLS and MPEG-DASH are HTTP-based playback approaches; choose against actual client compatibility. On a changing mobile connection, the player can request a lower-bitrate next segment to protect its buffer. Very short segments add requests; long ones delay adaptation and may waste bytes.',
+    ],
+    takeaways: ['Codec, container, bitrate, rendition, segment, and manifest solve different problems.', 'Align segment boundaries and choose the rendition ladder for supported devices.'],
+    diagramId: 'youtube-renditions', scenario: 'A viewer moves from Wi-Fi to a slow train connection halfway through a video. What prepared assets enable a quality change?',
+    scenarioAnswer: 'A manifest and aligned segments for multiple compatible bitrates let the player request a lower-quality next segment without restarting.',
+  },
+  {
+    id: 'youtube-metadata', title: 'Publish only a playable video', eyebrow: '05 · Metadata and visibility',
+    summary: 'Keep queryable metadata separate from media bytes and make state changes explicit.',
+    body: [
+      'Store ownership, title, visibility, duration, status, and pointers to manifests or thumbnails in a metadata database. Keep original and encoded bytes in object storage. A cache can accelerate hot metadata reads, but the database remains authoritative; invalidate or update cached entries after writes.',
+      'A viewer opening a watch page asks the API for metadata and access policy. It returns a permitted manifest location only when status is ready; before then the interface shows processing or a clear failure. Completion may span storage and database operations without one atomic transaction. Use a durable state machine and idempotent events; verify required media objects before moving to ready. Reconciliation can find stuck jobs, orphaned objects, and missing outputs.',
+    ],
+    takeaways: ['Metadata describes and authorizes media; object storage holds the bytes.', 'Publication is a validated state transition, not a queue acknowledgment alone.'],
+    diagramId: 'youtube-metadata', scenario: 'A worker reports success, but the manifest is absent from storage. Should the watch page expose the video?',
+    scenarioAnswer: 'No. Keep it processing or failed until required objects are verified. Retry or reconcile, then publish only when playback works.',
+  },
+  {
+    id: 'youtube-playback', title: 'Deliver segments near the viewer', eyebrow: '06 · Playback path',
+    summary: 'The API answers who may watch; the CDN serves media; the player manages buffer and quality.',
+    body: [
+      'The watch page fetches metadata and a manifest location from the API. The player requests the manifest and segments through a nearby CDN edge. A hit returns from that edge; a miss fetches from origin backed by encoded object storage, then can populate the edge. Bulk video bytes should not repeatedly pass through the general API tier.',
+      'The player estimates bandwidth and buffer health, then chooses the next segment. A conservative starting rendition may improve time to first frame; increasing quality too early risks rebuffering. Private or licensed video still needs playback authorization and origin controls. The CDN distributes media but is not its durable home; takedowns may require cache purge or short expiry.',
+    ],
+    takeaways: ['Separate metadata authorization from bulk media delivery.', 'CDN, origin, and adaptive player behavior form one playback path.'],
+    diagramId: 'youtube-playback', scenario: 'A new video is requested in a distant region and the edge has no segments. What serves the first viewer?',
+    scenarioAnswer: 'The edge fetches authorized manifest and segments from origin storage, forwards them, and may cache eligible assets for later viewers.',
+  },
+  {
+    id: 'youtube-cost', title: 'Spend capacity where demand is', eyebrow: '07 · Cost and scale',
+    summary: 'Measure popularity and egress before expanding every rendition and region.',
+    body: [
+      'At video scale, delivered bytes can dominate cost. Estimate egress from watched minutes and delivered bitrate, adjusted for devices, cache-hit rate, and geography. Published prices change; use measured bills and playback quality to compare strategies.',
+      'Hot titles benefit from CDN caching and broad placement. Cold titles may remain at origin or keep fewer precomputed renditions, but misses increase startup time and on-demand encoding can delay playback. A cold title can go viral. Set a promotion path based on demand, and control waste with bounded rendition ladders, storage lifecycle rules, and sensible cache policies. A private CDN needs sustained volume and measured savings to justify operating it.',
+    ],
+    takeaways: ['Use bytes, bitrate, geography, popularity, and cache metrics to model delivery cost.', 'Cold-content savings trade off against startup latency and unexpected demand.'],
+    diagramId: 'youtube-cost', scenario: 'A small fraction of the catalog gets most views. What can be optimized without treating every title alike?',
+    scenarioAnswer: 'Cache and distribute hot titles widely; evaluate fewer renditions or origin serving for cold titles. Monitor misses, startup delay, and demand changes.',
+  },
+  {
+    id: 'youtube-operations', title: 'Plan for failure and removal', eyebrow: '08 · Reliability and trust',
+    summary: 'Define recovery, observability, and policy enforcement across upload, processing, and playback.',
+    body: [
+      'Recoverable upload and worker failures should resume or retry with bounds; bad source formats should fail clearly. Replicate durable objects and metadata against the availability target and test restore paths. A stalled queue delays newly uploaded videos becoming ready while existing videos may still play.',
+      'Measure upload completion, pending-video age, queue lag, transcode failure, CDN hit rate, time to first frame, rebuffering, and egress. Trace one video ID through upload and publication, and one session through playback. Access control, rights claims, malware checks, abuse reports, and takedowns need product policy and operating workflows. Removal must block new access, change metadata, and invalidate or expire cached media. DRM, encryption, and watermarking are different controls with different guarantees.',
+    ],
+    takeaways: ['Measure the creator path and viewer path independently.', 'Design takedown and recovery as end-to-end flows across storage, metadata, and caches.'],
+    diagramId: 'youtube-operations', scenario: 'A rights holder requests immediate removal of a popular video. Why is hiding its database row insufficient?',
+    scenarioAnswer: 'Issued media URLs or CDN copies may still serve segments. Revoke or expire access, purge eligible CDN content, and verify removal across the path.',
+  },
+];
+
+export const youtubeQuestions: Question[] = [
+  { id: 'yq01', stepId: 'youtube-scope', difficulty: 'Apply', prompt: 'Which inputs best estimate daily video delivery?', options: ['Registered accounts and table count', 'Number of API servers', 'Views, average delivered bytes per view, and geography', 'Number of creators alone'], correctIndex: 2, explanation: 'Delivered bytes depend on viewing behavior and quality; geography affects paths and costs.' },
+  { id: 'yq02', stepId: 'youtube-scope', difficulty: 'Diagnose', prompt: 'An estimate counts 150 TB of originals per day as total storage. What is missing?', options: ['Only API logs', 'Renditions, replication, temporary outputs, and retention', 'A shorter video title', 'A larger cache key'], correctIndex: 1, explanation: 'Processing, replication, and retention multiply stored bytes beyond originals.' },
+  { id: 'yq03', stepId: 'youtube-scope', difficulty: 'Recall', prompt: 'Why scope live video separately from uploaded video?', options: ['Live video never uses encoding', 'Live video has no viewers', 'Live video uses only metadata', 'Its latency and recovery constraints differ'], correctIndex: 3, explanation: 'Real-time production leaves less time for batching, retries, and long queues.' },
+  { id: 'yq04', stepId: 'youtube-upload', difficulty: 'Apply', prompt: 'How should a client send a large video while API servers focus on control requests?', options: ['Request a scoped upload permission, then upload to object storage', 'Put the file in the metadata database', 'Send all bytes through a login endpoint', 'Publish before the file arrives'], correctIndex: 0, explanation: 'The API authenticates and records intent; object storage receives bulk bytes under a temporary permission.' },
+  { id: 'yq05', stepId: 'youtube-upload', difficulty: 'Diagnose', prompt: 'A mobile upload disconnects after most parts finish. What avoids restarting?', options: ['Make the CDN store the original', 'Increase metadata cache TTL', 'Resume missing byte ranges in the same session', 'Skip verification'], correctIndex: 2, explanation: 'A resumable session tracks accepted parts and sends only missing bytes before verification.' },
+  { id: 'yq06', stepId: 'youtube-upload', difficulty: 'Recall', prompt: 'What does successful original upload establish?', options: ['Every rendition is ready', 'The source is durably received and can enter processing', 'The CDN has every segment', 'Every rights check passed'], correctIndex: 1, explanation: 'Upload completion and playback readiness are distinct states.' },
+  { id: 'yq07', stepId: 'youtube-pipeline', difficulty: 'Apply', prompt: 'Which tasks can run in parallel after source inspection?', options: ['A task and its unmet prerequisite', 'Publish ready before encoding', 'Only one task per video', 'Independent audio, rendition, and thumbnail jobs'], correctIndex: 3, explanation: 'The DAG encodes dependencies; independent tasks use separate workers.' },
+  { id: 'yq08', stepId: 'youtube-pipeline', difficulty: 'Diagnose', prompt: 'A task is delivered twice after an acknowledgment timeout. What prevents duplicate visible output?', options: ['Idempotent results keyed to video and rendition', 'Longer titles', 'A larger thumbnail', 'A CDN miss'], correctIndex: 0, explanation: 'Retries verify or replace the same deterministic result.' },
+  { id: 'yq09', stepId: 'youtube-pipeline', difficulty: 'Diagnose', prompt: 'A malformed source keeps failing identically. What should happen?', options: ['Retry forever', 'Mark ready anyway', 'Stop with a clear terminal error', 'Scale CDN edges'], correctIndex: 2, explanation: 'Invalid input is not a transient worker failure.' },
+  { id: 'yq10', stepId: 'youtube-renditions', difficulty: 'Recall', prompt: 'What is a playback manifest for?', options: ['Authenticating upload parts', 'Listing available renditions and segments', 'Storing original bytes', 'Replacing encoding'], correctIndex: 1, explanation: 'The manifest tells the player which segment streams are available.' },
+  { id: 'yq11', stepId: 'youtube-renditions', difficulty: 'Apply', prompt: 'Why align segment boundaries across quality levels?', options: ['Remove metadata reads', 'Shorten titles', 'Avoid storing audio', 'Switch renditions at a matching playback point'], correctIndex: 3, explanation: 'Aligned boundaries preserve continuity when bitrate changes.' },
+  { id: 'yq12', stepId: 'youtube-renditions', difficulty: 'Diagnose', prompt: 'A team encodes 40 variants for every video without measuring demand. What is the tradeoff?', options: ['Compute and storage grow without clear benefit', 'CDN misses vanish', 'Every device needs all 40', 'Segments are unnecessary'], correctIndex: 0, explanation: 'An excessive ladder creates rarely selected outputs.' },
+  { id: 'yq13', stepId: 'youtube-metadata', difficulty: 'Apply', prompt: 'What should a watch API return for a video still processing?', options: ['Ready and a guessed URL', 'The whole original', 'Processing without a playable URL', 'A CDN key as proof'], correctIndex: 2, explanation: 'The API should show real state instead of advertising unavailable media.' },
+  { id: 'yq14', stepId: 'youtube-metadata', difficulty: 'Diagnose', prompt: 'A completion event arrives before the required manifest. What prevents broken publication?', options: ['Longer cache TTL', 'Verify outputs before the ready transition', 'More load balancers', 'Ignore storage'], correctIndex: 1, explanation: 'A queue event alone does not prove playable artifacts exist.' },
+  { id: 'yq15', stepId: 'youtube-metadata', difficulty: 'Recall', prompt: 'Where should title and ownership live relative to encoded bytes?', options: ['Only in CDN', 'Only in client memory', 'Inside every segment', 'In metadata storage, with bytes in object storage'], correctIndex: 3, explanation: 'Small queryable records and large media have different access patterns.' },
+  { id: 'yq16', stepId: 'youtube-playback', difficulty: 'Apply', prompt: 'An edge has no copy of a new segment. What should a normal cache miss do?', options: ['Fetch from authorized origin, return it, cache when allowed', 'Ask metadata DB for video bytes', 'Wait for all regions', 'Upload original again'], correctIndex: 0, explanation: 'An edge can fill from origin while serving the first viewer.' },
+  { id: 'yq17', stepId: 'youtube-playback', difficulty: 'Diagnose', prompt: 'Playback stalls on a weak network. What should adaptation consider?', options: ['Uploader device', 'Title length', 'Recent throughput and buffer health', 'API server count'], correctIndex: 2, explanation: 'A lower-bitrate upcoming segment can preserve continuity.' },
+  { id: 'yq18', stepId: 'youtube-playback', difficulty: 'Recall', prompt: 'Why avoid proxying every segment through general API servers?', options: ['API cannot return JSON', 'Bulk traffic belongs on CDN and origin', 'CDNs cannot serve HTTP', 'Metadata is unnecessary'], correctIndex: 1, explanation: 'Media byte volume is much higher than control traffic.' },
+  { id: 'yq19', stepId: 'youtube-cost', difficulty: 'Apply', prompt: 'What should guide regional caching of a mostly local title?', options: ['Uploader favorite color', 'Equal replicas everywhere', 'Longest TTL only', 'Observed viewer geography and cache performance'], correctIndex: 3, explanation: 'Regional demand determines where copies justify their cost.' },
+  { id: 'yq20', stepId: 'youtube-cost', difficulty: 'Diagnose', prompt: 'Cold videos encode only on first play; one goes viral. What risk appears?', options: ['Startup delay and encoding backlog', 'Every cache becomes a DB', 'Upload permissions become permanent', 'Metadata vanishes'], correctIndex: 0, explanation: 'On-demand work can cause burst latency and capacity problems.' },
+  { id: 'yq21', stepId: 'youtube-cost', difficulty: 'Recall', prompt: 'Which metric connects playback demand to delivery spend?', options: ['Question count', 'Font size', 'Bytes delivered by region and cache tier', 'Page headings'], correctIndex: 2, explanation: 'Egress depends on delivered bytes and routing.' },
+  { id: 'yq22', stepId: 'youtube-operations', difficulty: 'Diagnose', prompt: 'Processing queue age rises but existing videos play. Which path is degraded?', options: ['Only login', 'Creator-to-ready processing', 'All CDN reads', 'Only DNS'], correctIndex: 1, explanation: 'Backlog delays publication while ready media may continue playing.' },
+  { id: 'yq23', stepId: 'youtube-operations', difficulty: 'Apply', prompt: 'A rights violation requires removal. Which action set is complete?', options: ['Delete just its title', 'Clear one browser', 'Leave signed URLs active', 'Block access, change visibility, purge or expire cached media'], correctIndex: 3, explanation: 'Takedown spans authorization, metadata, and distributed bytes.' },
+  { id: 'yq24', stepId: 'youtube-operations', difficulty: 'Apply', prompt: 'Which signals distinguish upload health from watch health?', options: ['Upload completion and queue age; startup and rebuffering', 'Only accounts', 'Only DB rows', 'Only thumbnail size'], correctIndex: 0, explanation: 'Measure both end-to-end journeys separately.' },
+];
