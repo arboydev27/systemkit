@@ -1,6 +1,6 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
-type NodeKind = "person" | "network" | "server" | "database" | "cache" | "queue" | "storage";
+type NodeKind = "browser" | "dns" | "balancer" | "server" | "combined" | "database" | "cdn" | "cache" | "queue" | "worker" | "storage" | "router" | "region" | "telemetry";
 type Tone = "request" | "read" | "write" | "sync";
 
 type Node = {
@@ -36,9 +36,9 @@ const scenes: Record<string, Scene> = {
     summary:
       "A person looks up the domain through DNS, then sends a request to one machine that runs both the web application and database. That machine is a single point of failure.",
     nodes: [
-      { id: "visitor", x: 55, y: 193, width: 138, title: "Visitor", detail: "browser", kind: "person" },
-      { id: "dns", x: 288, y: 86, width: 145, title: "DNS", detail: "domain → IP", kind: "network" },
-      { id: "server", x: 592, y: 193, width: 235, title: "One server", detail: "web app + database", kind: "server" },
+      { id: "visitor", x: 55, y: 193, width: 138, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "dns", x: 288, y: 86, width: 145, title: "DNS", detail: "domain → IP", kind: "dns" },
+      { id: "server", x: 592, y: 193, width: 235, title: "One server", detail: "web app + database", kind: "combined" },
     ],
     connections: [
       { points: [[193, 221], [249, 221], [249, 114], [288, 114]], label: "look up", labelAt: [220, 150] },
@@ -52,7 +52,7 @@ const scenes: Record<string, Scene> = {
     summary:
       "Requests reach the web application, which talks to a database on another machine. Each tier can now be sized and operated independently, although each remains a single point of failure.",
     nodes: [
-      { id: "visitor", x: 44, y: 183, width: 138, title: "Visitor", detail: "browser", kind: "person" },
+      { id: "visitor", x: 44, y: 183, width: 138, title: "Visitor", detail: "browser", kind: "browser" },
       { id: "web", x: 319, y: 183, width: 180, title: "Web server", detail: "application", kind: "server" },
       { id: "db", x: 686, y: 183, width: 180, title: "Database", detail: "persistent data", kind: "database" },
     ],
@@ -68,8 +68,8 @@ const scenes: Record<string, Scene> = {
     summary:
       "A load balancer sends incoming requests to two web servers. If one web server fails, it can route requests to the other. The database is still shared and can remain a bottleneck.",
     nodes: [
-      { id: "visitors", x: 28, y: 203, width: 148, title: "Visitors", detail: "many requests", kind: "person" },
-      { id: "balancer", x: 260, y: 203, width: 168, title: "Load balancer", detail: "healthy routes", kind: "network" },
+      { id: "visitors", x: 28, y: 203, width: 148, title: "Visitors", detail: "many requests", kind: "browser" },
+      { id: "balancer", x: 260, y: 203, width: 168, title: "Load balancer", detail: "healthy routes", kind: "balancer" },
       { id: "web-a", x: 525, y: 105, width: 164, title: "Web A", detail: "application", kind: "server" },
       { id: "web-b", x: 525, y: 299, width: 164, title: "Web B", detail: "application", kind: "server" },
       { id: "db", x: 785, y: 203, width: 164, title: "Database", detail: "shared data", kind: "database" },
@@ -105,10 +105,10 @@ const scenes: Record<string, Scene> = {
   "cache-cdn": {
     title: "Two caches, two jobs",
     summary:
-      "A CDN serves nearby copies of static assets such as images. Dynamic requests reach the web server, which checks an application cache before querying the database on a cache miss.",
+      "A CDN serves nearby static assets and fetches an asset from origin on a miss. For dynamic data, the web server checks the application cache; on a miss, the web server queries the database and fills the cache.",
     nodes: [
-      { id: "visitors", x: 24, y: 205, width: 145, title: "Visitors", detail: "browser", kind: "person" },
-      { id: "cdn", x: 242, y: 88, width: 164, title: "CDN edge", detail: "static assets", kind: "cache" },
+      { id: "visitors", x: 24, y: 205, width: 145, title: "Visitors", detail: "browser", kind: "browser" },
+      { id: "cdn", x: 242, y: 88, width: 164, title: "CDN edge", detail: "static assets", kind: "cdn" },
       { id: "web", x: 242, y: 302, width: 164, title: "Web tier", detail: "dynamic pages", kind: "server" },
       { id: "origin", x: 677, y: 88, width: 190, title: "Origin", detail: "source assets", kind: "storage" },
       { id: "cache", x: 487, y: 302, width: 166, title: "App cache", detail: "hot data", kind: "cache" },
@@ -117,22 +117,24 @@ const scenes: Record<string, Scene> = {
     connections: [
       { points: [[169, 226], [202, 226], [202, 116], [242, 116]], label: "assets", labelAt: [207, 156] },
       { points: [[169, 241], [202, 241], [202, 330], [242, 330]], label: "data", labelAt: [201, 300] },
-      { points: [[406, 116], [677, 116]], label: "miss → fetch", labelAt: [540, 92] },
-      { points: [[406, 330], [487, 330]], tone: "read", label: "check", labelAt: [446, 309] },
-      { points: [[653, 330], [755, 330]], tone: "read", label: "miss", labelAt: [702, 309] },
+      { points: [[406, 109], [677, 109]], label: "miss: fetch", labelAt: [540, 88] },
+      { points: [[677, 132], [406, 132]], tone: "read", label: "return / fill", labelAt: [540, 153] },
+      { points: [[406, 330], [487, 330]], tone: "read", label: "check / fill", labelAt: [446, 309] },
+      { points: [[487, 348], [406, 348]], tone: "read", label: "hit / miss", labelAt: [446, 377] },
+      { points: [[406, 353], [425, 353], [425, 397], [727, 397], [727, 348], [755, 348]], tone: "read", label: "on miss: web queries DB", labelAt: [585, 421] },
     ],
-    note: "A CDN reduces distance; an app cache reduces repeated database work.",
+    note: "The web tier handles application cache misses; origin handles CDN misses.",
   },
   stateless: {
     title: "Keep sessions outside web servers",
     summary:
       "The load balancer can send each request to any web server. Both web servers use a shared session store, so a visitor stays signed in even when requests move between servers.",
     nodes: [
-      { id: "visitor", x: 20, y: 205, width: 135, title: "Visitor", detail: "signed in", kind: "person" },
-      { id: "balancer", x: 213, y: 205, width: 168, title: "Load balancer", kind: "network" },
+      { id: "visitor", x: 20, y: 205, width: 135, title: "Visitor", detail: "signed in", kind: "browser" },
+      { id: "balancer", x: 213, y: 205, width: 168, title: "Load balancer", kind: "balancer" },
       { id: "web-a", x: 460, y: 94, width: 153, title: "Web A", detail: "stateless", kind: "server" },
       { id: "web-b", x: 460, y: 310, width: 153, title: "Web B", detail: "stateless", kind: "server" },
-      { id: "session", x: 748, y: 205, width: 205, title: "Session store", detail: "shared state", kind: "cache" },
+      { id: "session", x: 748, y: 205, width: 205, title: "Session store", detail: "durable shared state", kind: "cache" },
     ],
     connections: [
       { points: [[155, 233], [213, 233]] },
@@ -146,13 +148,13 @@ const scenes: Record<string, Scene> = {
   "multi-dc": {
     title: "Bring the service nearer to users",
     summary:
-      "GeoDNS directs a visitor toward a healthy, nearby data center. Each region has a web tier and data. Cross-region data replication keeps regions coordinated, though failover also needs careful traffic and data planning.",
+      "GeoDNS directs a visitor toward a healthy, nearby region. This example shows Region A as the writer and one-way data replication to Region B. Failover requires traffic rerouting and a data promotion plan.",
     nodes: [
-      { id: "visitors", x: 22, y: 203, width: 132, title: "Visitors", detail: "worldwide", kind: "person" },
-      { id: "geodns", x: 212, y: 203, width: 150, title: "GeoDNS", detail: "region routing", kind: "network" },
-      { id: "us-web", x: 474, y: 83, width: 170, title: "Region A", detail: "web tier", kind: "server" },
+      { id: "visitors", x: 22, y: 203, width: 132, title: "Visitors", detail: "worldwide", kind: "browser" },
+      { id: "geodns", x: 212, y: 203, width: 150, title: "GeoDNS", detail: "region routing", kind: "dns" },
+      { id: "us-web", x: 474, y: 83, width: 170, title: "Web A", detail: "regional tier", kind: "region" },
       { id: "us-db", x: 746, y: 83, width: 172, title: "Data A", detail: "regional data", kind: "database" },
-      { id: "eu-web", x: 474, y: 320, width: 170, title: "Region B", detail: "web tier", kind: "server" },
+      { id: "eu-web", x: 474, y: 320, width: 170, title: "Web B", detail: "regional tier", kind: "region" },
       { id: "eu-db", x: 746, y: 320, width: 172, title: "Data B", detail: "regional data", kind: "database" },
     ],
     connections: [
@@ -161,31 +163,34 @@ const scenes: Record<string, Scene> = {
       { points: [[362, 231], [419, 231], [419, 348], [474, 348]] },
       { points: [[644, 111], [746, 111]], tone: "read" },
       { points: [[644, 348], [746, 348]], tone: "read" },
-      { points: [[832, 139], [832, 320]], tone: "sync", label: "data sync", labelAt: [854, 230], dashed: true, arrow: false },
+      { points: [[832, 139], [832, 320]], tone: "sync", label: "A → B copy", labelAt: [881, 230], dashed: true },
     ],
-    note: "A regional outage should route people to a healthy region.",
+    note: "Illustrative one-way topology; promoting B safely requires a failover plan.",
   },
   queue: {
     title: "Move slow work out of the request",
     summary:
-      "The web tier accepts an upload and enqueues image processing. A worker takes the job asynchronously and saves processed images to object storage. The queue absorbs bursts when workers are busy.",
+      "The web tier stores the original upload durably, then enqueues its object key. A worker reads that original asynchronously, resizes it, and writes a processed image to object storage. The queue absorbs bursts.",
     nodes: [
-      { id: "visitor", x: 15, y: 205, width: 138, title: "Visitor", detail: "uploads photo", kind: "person" },
+      { id: "visitor", x: 15, y: 205, width: 138, title: "Visitor", detail: "uploads photo", kind: "browser" },
       { id: "web", x: 209, y: 205, width: 155, title: "Web tier", detail: "accept upload", kind: "server" },
       { id: "queue", x: 425, y: 205, width: 155, title: "Job queue", detail: "pending work", kind: "queue" },
-      { id: "worker-a", x: 647, y: 101, width: 147, title: "Worker A", detail: "resize", kind: "server" },
-      { id: "worker-b", x: 647, y: 309, width: 147, title: "Worker B", detail: "resize", kind: "server" },
+      { id: "worker-a", x: 647, y: 101, width: 147, title: "Worker A", detail: "resize", kind: "worker" },
+      { id: "worker-b", x: 647, y: 309, width: 147, title: "Worker B", detail: "resize", kind: "worker" },
       { id: "storage", x: 831, y: 205, width: 150, title: "Storage", detail: "images", kind: "storage" },
     ],
     connections: [
       { points: [[153, 233], [209, 233]] },
-      { points: [[364, 233], [425, 233]], tone: "write", label: "publish", labelAt: [396, 210] },
+      { points: [[364, 233], [425, 233]], tone: "write", label: "2. key", labelAt: [396, 210] },
+      { points: [[364, 255], [391, 255], [391, 402], [919, 402], [919, 263]], tone: "write", label: "1. store original", labelAt: [492, 422] },
       { points: [[580, 233], [613, 233], [613, 129], [647, 129]], label: "consume", labelAt: [622, 165] },
       { points: [[580, 233], [613, 233], [613, 337], [647, 337]] },
-      { points: [[794, 129], [813, 129], [813, 233], [831, 233]], tone: "write" },
+      { points: [[867, 205], [867, 75], [720, 75], [720, 101]], tone: "read", label: "3. read original", labelAt: [790, 67] },
+      { points: [[867, 263], [867, 385], [720, 385], [720, 367]], tone: "read" },
+      { points: [[794, 144], [813, 144], [813, 233], [831, 233]], tone: "write" },
       { points: [[794, 337], [813, 337], [813, 248], [831, 248]], tone: "write" },
     ],
-    note: "The upload request can finish before processing finishes.",
+    note: "The queue holds a reference; object storage holds the original and result.",
   },
   sharding: {
     title: "Divide data by a stable key",
@@ -193,29 +198,118 @@ const scenes: Record<string, Scene> = {
       "The application uses a user's ID to choose one of three database shards. Each shard stores a different portion of users and accepts reads and writes for that portion. Shards are partitions, unlike replicas, which copy the same data.",
     nodes: [
       { id: "web", x: 32, y: 208, width: 165, title: "Web tier", detail: "request", kind: "server" },
-      { id: "router", x: 274, y: 208, width: 185, title: "Shard router", detail: "hash user ID", kind: "network" },
+      { id: "router", x: 274, y: 208, width: 185, title: "Shard router", detail: "user_id % 3", kind: "router" },
       { id: "shard-0", x: 721, y: 60, width: 202, title: "Shard 0", detail: "users 0, 3, 6…", kind: "database" },
       { id: "shard-1", x: 721, y: 206, width: 202, title: "Shard 1", detail: "users 1, 4, 7…", kind: "database" },
       { id: "shard-2", x: 721, y: 352, width: 202, title: "Shard 2", detail: "users 2, 5, 8…", kind: "database" },
     ],
     connections: [
       { points: [[197, 236], [274, 236]] },
-      { points: [[459, 227], [550, 227], [550, 88], [721, 88]], label: "key % 3 = 0", labelAt: [640, 67] },
-      { points: [[459, 236], [721, 234]], label: "key % 3 = 1", labelAt: [590, 213] },
-      { points: [[459, 246], [550, 246], [550, 380], [721, 380]], label: "key % 3 = 2", labelAt: [640, 403] },
+      { points: [[459, 227], [550, 227], [550, 88], [721, 88]], label: "user_id % 3 = 0", labelAt: [640, 67] },
+      { points: [[459, 236], [721, 234]], label: "user_id % 3 = 1", labelAt: [590, 213] },
+      { points: [[459, 246], [550, 246], [550, 380], [721, 380]], label: "user_id % 3 = 2", labelAt: [640, 403] },
     ],
     note: "Each shard holds different records; distribution quality depends on the key.",
+  },
+  cache: {
+    title: "Let the web tier manage a cache miss",
+    summary: "The web server checks the application cache first. A hit returns quickly. On a miss, the web server reads the database, responds to the visitor, and fills the cache for later requests.",
+    nodes: [
+      { id: "visitor", x: 32, y: 205, width: 145, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "web", x: 285, y: 205, width: 170, title: "Web tier", detail: "owns miss path", kind: "server" },
+      { id: "cache", x: 697, y: 93, width: 180, title: "App cache", detail: "hot data", kind: "cache" },
+      { id: "db", x: 697, y: 307, width: 180, title: "Database", detail: "source of truth", kind: "database" },
+    ],
+    connections: [
+      { points: [[177, 233], [285, 233]], label: "request", labelAt: [231, 214] },
+      { points: [[455, 217], [560, 217], [560, 121], [697, 121]], tone: "read", label: "1. check", labelAt: [612, 107] },
+      { points: [[697, 143], [585, 143], [585, 238], [455, 238]], tone: "read", label: "2. hit / miss", labelAt: [635, 163] },
+      { points: [[455, 253], [540, 253], [540, 335], [697, 335]], tone: "read", label: "3. miss: query DB", labelAt: [622, 317] },
+      { points: [[697, 353], [510, 353], [510, 258], [455, 258]], tone: "read", label: "result", labelAt: [609, 376] },
+      { points: [[455, 209], [488, 209], [488, 74], [697, 74], [697, 104]], tone: "write", label: "4. on miss: fill", labelAt: [592, 66] },
+    ],
+    note: "Keep persistent data in the database; set a TTL and invalidation policy.",
+  },
+  cdn: {
+    title: "Serve assets near the visitor",
+    summary: "The browser requests a versioned static asset from a nearby CDN edge. A cache hit returns it there. On a miss, the edge fetches the asset from origin and stores a copy for subsequent visitors.",
+    nodes: [
+      { id: "visitor", x: 38, y: 205, width: 150, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "edge", x: 325, y: 205, width: 185, title: "CDN edge", detail: "nearby copy", kind: "cdn" },
+      { id: "origin", x: 754, y: 205, width: 186, title: "Origin", detail: "source asset", kind: "storage" },
+    ],
+    connections: [
+      { points: [[188, 220], [325, 220]], label: "asset request", labelAt: [254, 198] },
+      { points: [[325, 246], [188, 246]], tone: "read", label: "hit: return", labelAt: [255, 273] },
+      { points: [[510, 220], [754, 220]], label: "miss: fetch", labelAt: [633, 198] },
+      { points: [[754, 246], [510, 246]], tone: "read", label: "return and fill", labelAt: [632, 273] },
+    ],
+    note: "Version asset URLs when a change must bypass older cached copies.",
+  },
+  observability: {
+    title: "See what the system is doing",
+    summary: "Requests pass through the load balancer to the web tier and its dependencies. The web tier, database, and cache send metrics, logs, and traces to a monitor, which can alert operators when service health degrades.",
+    nodes: [
+      { id: "visitor", x: 12, y: 205, width: 135, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "balancer", x: 172, y: 205, width: 154, title: "Balancer", detail: "traffic", kind: "balancer" },
+      { id: "web", x: 353, y: 205, width: 160, title: "Web tier", detail: "requests", kind: "server" },
+      { id: "db", x: 580, y: 82, width: 170, title: "Database", detail: "query health", kind: "database" },
+      { id: "cache", x: 580, y: 325, width: 170, title: "App cache", detail: "hit rate", kind: "cache" },
+      { id: "monitor", x: 802, y: 205, width: 175, title: "Monitor", detail: "signals + alerts", kind: "telemetry" },
+    ],
+    connections: [
+      { points: [[147, 233], [172, 233]] },
+      { points: [[326, 233], [353, 233]] },
+      { points: [[513, 219], [550, 219], [550, 110], [580, 110]], tone: "read" },
+      { points: [[513, 247], [550, 247], [550, 353], [580, 353]], tone: "read" },
+      { points: [[513, 233], [802, 233]], tone: "sync", label: "logs / traces", labelAt: [656, 211], dashed: true },
+      { points: [[750, 110], [775, 110], [775, 217], [802, 217]], tone: "sync", dashed: true },
+      { points: [[750, 353], [775, 353], [775, 249], [802, 249]], tone: "sync", dashed: true },
+    ],
+    note: "Track latency, errors, traffic, resource use, and dependency health.",
+  },
+  synthesis: {
+    title: "Choose components for the workload",
+    summary: "Static assets can go through a CDN. Dynamic requests pass through a load balancer to the web tier. The web tier checks a cache, reads the database on a miss, and sends slow work through a queue to workers. Add each component only for a clear bottleneck or reliability need.",
+    nodes: [
+      { id: "visitor", x: 20, y: 205, width: 142, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "cdn", x: 215, y: 89, width: 155, title: "CDN edge", detail: "static assets", kind: "cdn" },
+      { id: "balancer", x: 215, y: 307, width: 170, title: "Balancer", detail: "dynamic traffic", kind: "balancer" },
+      { id: "web", x: 442, y: 307, width: 155, title: "Web tier", detail: "application", kind: "server" },
+      { id: "queue", x: 653, y: 89, width: 155, title: "Job queue", detail: "slow tasks", kind: "queue" },
+      { id: "worker", x: 835, y: 89, width: 150, title: "Worker", detail: "async work", kind: "worker" },
+      { id: "cache", x: 653, y: 307, width: 155, title: "App cache", detail: "hot data", kind: "cache" },
+      { id: "db", x: 835, y: 307, width: 150, title: "Database", detail: "durable data", kind: "database" },
+    ],
+    connections: [
+      { points: [[162, 220], [185, 220], [185, 117], [215, 117]], label: "static", labelAt: [179, 163] },
+      { points: [[162, 246], [185, 246], [185, 335], [215, 335]], label: "dynamic", labelAt: [179, 289] },
+      { points: [[385, 335], [442, 335]] },
+      { points: [[597, 323], [653, 323]], tone: "read", label: "check", labelAt: [625, 304] },
+      { points: [[653, 307], [653, 289], [597, 289], [597, 307]], tone: "read", label: "cache hit", labelAt: [625, 278] },
+      { points: [[597, 351], [620, 351], [620, 394], [816, 394], [816, 351], [835, 351]], tone: "read", label: "DB on cache miss", labelAt: [721, 417] },
+      { points: [[520, 307], [520, 117], [653, 117]], tone: "write", label: "enqueue", labelAt: [550, 226] },
+      { points: [[808, 117], [835, 117]], label: "consume", labelAt: [821, 72] },
+    ],
+    note: "Match each addition to a measured need; complexity has a cost.",
   },
 };
 
 const palette: Record<NodeKind, { fill: string; border: string }> = {
-  person: { fill: "var(--arch-paper)", border: "var(--arch-stroke)" },
-  network: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
+  browser: { fill: "var(--arch-paper)", border: "var(--arch-stroke)" },
+  dns: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
+  balancer: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
   server: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
+  combined: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
   database: { fill: "var(--arch-node-deep)", border: "var(--arch-stroke)" },
+  cdn: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
   cache: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
   queue: { fill: "var(--arch-node-deep)", border: "var(--arch-stroke)" },
+  worker: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
   storage: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
+  router: { fill: "var(--arch-node-soft)", border: "var(--arch-stroke)" },
+  region: { fill: "var(--arch-node)", border: "var(--arch-stroke)" },
+  telemetry: { fill: "var(--arch-node-deep)", border: "var(--arch-stroke)" },
 };
 
 const lineColors: Record<Tone, string> = {
@@ -225,6 +319,28 @@ const lineColors: Record<Tone, string> = {
   sync: "var(--arch-sync)",
 };
 
+function NodePictogram({ kind }: { kind: NodeKind }) {
+  // Each pictogram has its own silhouette so a node is identifiable before its label is read.
+  const marks: Record<NodeKind, ReactNode> = {
+    browser: <><rect x="5" y="8" width="30" height="20" rx="2" /><path d="M5 13h30M3 32h34l-4-4H7z" /><circle cx="9" cy="11" r=".7" fill="currentColor" stroke="none" /></>,
+    dns: <><circle cx="20" cy="20" r="14" /><path d="M6 20h28M20 6c-5 4-7 9-7 14s2 10 7 14M20 6c5 4 7 9 7 14s-2 10-7 14M9 13h22M9 27h22" /></>,
+    balancer: <><path d="M4 20h11M15 20l7-10h5M15 20l7 10h5" /><rect x="27" y="5" width="9" height="10" rx="1" /><rect x="27" y="25" width="9" height="10" rx="1" /><path d="m9 16 4 4-4 4" /></>,
+    server: <><rect x="7" y="5" width="26" height="30" rx="2" /><path d="M7 15h26M7 25h26M13 10h11M13 20h11M13 30h11" /><circle cx="28" cy="10" r="1" fill="currentColor" stroke="none" /><circle cx="28" cy="20" r="1" fill="currentColor" stroke="none" /><circle cx="28" cy="30" r="1" fill="currentColor" stroke="none" /></>,
+    combined: <><rect x="4" y="6" width="18" height="28" rx="2" /><path d="M4 15h18M4 24h18M9 10h7M9 19h7M9 29h7" /><ellipse cx="30" cy="15" rx="7" ry="3" /><path d="M23 15v16c0 2 3 3 7 3s7-1 7-3V15M23 23c0 2 3 3 7 3s7-1 7-3" /></>,
+    database: <><ellipse cx="20" cy="9" rx="13" ry="5" /><path d="M7 9v22c0 3 6 5 13 5s13-2 13-5V9M7 20c0 3 6 5 13 5s13-2 13-5" /></>,
+    cdn: <><circle cx="20" cy="20" r="14" /><path d="M6 20h28M20 6c-4 5-6 9-6 14s2 9 6 14M20 6c4 5 6 9 6 14s-2 9-6 14" /><path d="M27 7h9v9M36 7l-8 8" /></>,
+    cache: <><rect x="9" y="9" width="22" height="22" rx="2" /><path d="M14 3v6M22 3v6M29 3v6M14 31v6M22 31v6M29 31v6M3 14h6M3 22h6M3 29h6M31 14h6M31 22h6M31 29h6M22 13l-6 9h6l-3 6 8-10h-6l1-5" /></>,
+    queue: <><rect x="6" y="7" width="24" height="7" rx="1" /><rect x="10" y="17" width="24" height="7" rx="1" /><rect x="6" y="27" width="24" height="7" rx="1" /><path d="m31 28 4 3-4 3" /></>,
+    worker: <><circle cx="20" cy="20" r="11" /><circle cx="20" cy="20" r="4" /><path d="M20 4v5M20 31v5M4 20h5M31 20h5M9 9l4 4M27 27l4 4M31 9l-4 4M13 27l-4 4" /></>,
+    storage: <><path d="M7 12h26l-3 23H10z" /><ellipse cx="20" cy="12" rx="13" ry="5" /><path d="M13 29l5-6 4 4 3-3 4 5z" /><circle cx="15" cy="20" r="1" fill="currentColor" stroke="none" /></>,
+    router: <><rect x="4" y="15" width="10" height="10" rx="1" /><path d="M14 20h8M22 20V7h6M22 20h6M22 20v13h6" /><rect x="28" y="3" width="9" height="8" rx="1" /><rect x="28" y="16" width="9" height="8" rx="1" /><rect x="28" y="29" width="9" height="8" rx="1" /></>,
+    region: <><path d="M4 14h32M7 14V35h26V14M12 14V7h16v7M13 21h5M23 21h5M13 27h5M23 27h5M17 35v-4h6v4" /></>,
+    telemetry: <><rect x="5" y="6" width="30" height="28" rx="2" /><path d="M9 26h4l3-10 5 13 4-8 3 3h3M10 11h20" /></>,
+  };
+
+  return <g className="architecture-pictogram" transform="translate(8 9)" aria-hidden="true">{marks[kind]}</g>;
+}
+
 function HandDrawnNode({ node }: { node: Node }) {
   const { x, y, width, title, detail, kind } = node;
   const height = 58;
@@ -233,7 +349,7 @@ function HandDrawnNode({ node }: { node: Node }) {
 
   return (
     <g>
-      <path d={outline} fill={colors.fill} stroke={colors.border} strokeWidth="2" strokeLinejoin="round" strokeDasharray={kind === "network" ? "7 4" : undefined} />
+      <path d={outline} fill={colors.fill} stroke={colors.border} strokeWidth="2" strokeLinejoin="round" />
       <path
         d={`M ${x + 12} ${y + 4} L ${x + width - 10} ${y + 5} M ${x + 4} ${y + 13} L ${x + 4} ${y + height - 12}`}
         fill="none"
@@ -242,11 +358,12 @@ function HandDrawnNode({ node }: { node: Node }) {
         strokeWidth="1"
         strokeLinecap="round"
       />
-      <text x={x + width / 2} y={y + (detail ? 27 : 36)} textAnchor="middle" className="architecture-node-title">
+      <g transform={`translate(${x} ${y})`}><rect x="7" y="8" width="42" height="42" rx="9" fill="var(--arch-icon-fill)" stroke="var(--arch-icon-border)" strokeWidth="1" /><NodePictogram kind={kind} /></g>
+      <text x={x + 54} y={y + (detail ? 27 : 35)} className="architecture-node-title">
         {title}
       </text>
       {detail && (
-        <text x={x + width / 2} y={y + 45} textAnchor="middle" className="architecture-node-detail">
+        <text x={x + 54} y={y + 45} className="architecture-node-detail">
           {detail}
         </text>
       )}
@@ -310,6 +427,14 @@ export function ArchitectureDiagram({ id, className }: { id: string; className?:
           <rect width="1000" height="470" rx="18" fill="var(--arch-paper)" />
           <path d="M 28 51 L 970 51" stroke="var(--arch-rule)" strokeWidth="1" strokeDasharray="3 7" />
           <text x="28" y="34" className="architecture-heading">{scene.title}</text>
+          {id === "multi-dc" && (
+            <g aria-hidden="true">
+              <rect x="450" y="63" width="490" height="109" rx="13" fill="var(--arch-region-fill)" stroke="var(--arch-rule)" strokeWidth="1.5" />
+              <text x="461" y="78" className="architecture-region-label">REGION A</text>
+              <rect x="450" y="300" width="490" height="110" rx="13" fill="var(--arch-region-fill)" stroke="var(--arch-rule)" strokeWidth="1.5" />
+              <text x="461" y="315" className="architecture-region-label">REGION B</text>
+            </g>
+          )}
           {scene.connections.map((connection, index) => (
             <ConnectionLine key={index} connection={connection} markerIds={markerIds} />
           ))}
@@ -333,22 +458,27 @@ export function ArchitectureDiagram({ id, className }: { id: string; className?:
           --arch-sync: #646464;
           --arch-rule: #d5d5d5;
           --arch-border: #c8c8c8;
+          --arch-icon-fill: #ffffff;
+          --arch-icon-border: #bcbcbc;
+          --arch-region-fill: #fafafa;
           margin: 0; min-width: 0; max-width: 100%; color: var(--arch-ink); container-type: inline-size;
         }
         .architecture-scroll-hint { display: none; }
         .architecture-viewport { box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--arch-border); border-radius: 18px; background: var(--arch-paper); scrollbar-width: thin; touch-action: pan-x pan-y; overscroll-behavior-inline: contain; }
         .architecture-viewport:focus-visible { outline: 3px solid var(--accent, var(--arch-ink)); outline-offset: 3px; }
-        .architecture-viewport svg { display: block; width: 100%; min-width: 960px; height: auto; }
+        .architecture-viewport svg { display: block; width: 100%; min-width: 940px; height: auto; }
         .architecture-figure figcaption { margin-top: 0.7rem; color: var(--muted, var(--arch-secondary)); font-size: 0.875rem; line-height: 1.55; }
         .architecture-heading { font: 600 18px system-ui, -apple-system, sans-serif; fill: var(--arch-ink); letter-spacing: -0.02em; }
-        .architecture-node-title { font: 650 16px system-ui, -apple-system, sans-serif; fill: var(--arch-ink); letter-spacing: -0.015em; }
-        .architecture-node-detail { font: 13px system-ui, -apple-system, sans-serif; fill: var(--arch-secondary); }
+        .architecture-node-title { font: 650 14px system-ui, -apple-system, sans-serif; fill: var(--arch-ink); letter-spacing: -0.025em; }
+        .architecture-node-detail { font: 12px system-ui, -apple-system, sans-serif; fill: var(--arch-secondary); }
+        .architecture-pictogram { color: var(--arch-ink); fill: none; stroke: currentColor; stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; }
         .architecture-edge-label { font: 600 13px system-ui, -apple-system, sans-serif; fill: var(--arch-connection); paint-order: stroke; stroke: var(--arch-paper); stroke-width: 5px; stroke-linejoin: round; }
         .architecture-read { fill: var(--arch-read); }
         .architecture-write { fill: var(--arch-write); }
         .architecture-sync { fill: var(--arch-sync); }
         .architecture-note { font: 13px system-ui, -apple-system, sans-serif; fill: var(--arch-secondary); }
-        @container (max-width: 760px) {
+        .architecture-region-label { font: 700 9px system-ui, -apple-system, sans-serif; letter-spacing: 0.08em; fill: var(--arch-secondary); }
+        @container (max-width: 940px) {
           .architecture-scroll-hint { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.5rem; color: var(--muted, var(--arch-secondary)); font: 600 0.76rem system-ui, -apple-system, sans-serif; }
           .architecture-scroll-hint span:last-child { font-size: 1.05rem; }
         }
@@ -367,10 +497,13 @@ export function ArchitectureDiagram({ id, className }: { id: string; className?:
             --arch-sync: #bcbcc0;
             --arch-rule: #57575b;
             --arch-border: #67676c;
+            --arch-icon-fill: #1d1d1f;
+            --arch-icon-border: #77777b;
+            --arch-region-fill: #242427;
           }
         }
         @media (prefers-reduced-motion: reduce) { .architecture-figure *, .architecture-figure *::before, .architecture-figure *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-        @media (prefers-contrast: more) { .architecture-figure { --arch-stroke: var(--arch-ink); --arch-secondary: var(--arch-ink); --arch-border: var(--arch-ink); --arch-connection: var(--arch-ink); --arch-read: var(--arch-ink); --arch-write: var(--arch-ink); --arch-sync: var(--arch-ink); } }
+        @media (prefers-contrast: more) { .architecture-figure { --arch-stroke: var(--arch-ink); --arch-secondary: var(--arch-ink); --arch-border: var(--arch-ink); --arch-icon-border: var(--arch-ink); --arch-connection: var(--arch-ink); --arch-read: var(--arch-ink); --arch-write: var(--arch-ink); --arch-sync: var(--arch-ink); } }
       `}</style>
     </figure>
   );

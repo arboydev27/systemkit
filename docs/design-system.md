@@ -41,6 +41,12 @@ Ratios below use WCAG relative luminance for the listed sRGB pairs. Normal text 
 
 Use immediate press feedback and restrained transitions for navigation or answer selection. Reserve spring motion for elements people directly manipulate; any such movement must remain interruptible. Respect `prefers-reduced-motion` with a static or short opacity response, and make translucent chrome solid under `prefers-reduced-transparency`. The favicon itself is static.
 
+## Architecture illustrations
+
+Use a consistent, recognizable pictogram for each system role: a laptop for a browser, a globe for DNS, branching routes for a load balancer, a rack for a server, a cylinder for a database, a chip for an application cache, stacked jobs for a queue, and a storage vessel for object storage. Pair every pictogram with a visible label and a short role description. The icons support fast scanning; they do not carry meaning alone.
+
+Give each lesson its own diagram when the architecture being taught differs. Make the direction of a data flow explicit, especially cache misses and fills, replication, and asynchronous jobs. Keep the on-page SVG and editable Excalidraw source aligned. On narrow screens, show the scroll hint and retain keyboard access to the full diagram instead of shrinking labels until they are hard to read.
+
 ## Guidance used
 
 Apple HIG `color.md › Best practices` and `dark-mode.md › Best practices` call for role-based colors that adapt to both appearances. `accessibility.md › Vision` provides the text contrast thresholds and asks that meaning not rely on color alone. `branding.md › Best practices` supports restrained brand color and content-first screens. `icons.md › Best practices` favors a simple vector shape. The Apple motion skill’s “Reduced motion & accessibility” and “Response” sections inform the interaction rules above. For this web app, the principles are translated into CSS custom properties and media queries.

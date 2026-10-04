@@ -98,12 +98,12 @@ h1, h2, h3, p { margin-top: 0; }
 h1 { margin: 14px 0 16px; font-size: clamp(2.3rem, 4.4vw, 3.9rem); line-height: 1.07; letter-spacing: -.065em; font-weight: 760; }
 .lesson-summary { max-width: 660px; margin: 0; color: var(--ink-soft); font-size: clamp(1rem, 1.35vw, 1.125rem); line-height: 1.64; }
 .lesson-number { margin-top: -19px; color: var(--lesson-number); font-size: clamp(5rem, 9vw, 8.7rem); line-height: 1; font-weight: 780; letter-spacing: -.095em; user-select: none; }
-.diagram-section { margin-bottom: 51px; }
+.diagram-section { width: calc(100% + 100px); margin: 0 0 51px -50px; }
 .section-heading-row { display: flex; justify-content: space-between; align-items: end; gap: 15px; margin-bottom: 17px; }
 .section-heading-row h2, .lesson-article h2, .quiz-intro h2 { margin: 7px 0 0; font-size: 22px; line-height: 1.25; letter-spacing: -.038em; }
 .diagram-caption { display: inline-flex; align-items: center; gap: 8px; padding-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 620; }
 .caption-pulse { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; }
-.diagram-stage { min-height: 300px; display: grid; place-items: center; overflow: auto; padding: 28px; border: 1px solid var(--line); border-radius: 16px; background-color: var(--diagram); background-image: radial-gradient(var(--diagram-dot) .8px, transparent .8px); background-size: 17px 17px; box-shadow: var(--shadow); }
+.diagram-stage { min-height: 300px; display: grid; place-items: center; overflow: auto; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background-color: var(--diagram); background-image: radial-gradient(var(--diagram-dot) .8px, transparent .8px); background-size: 17px 17px; box-shadow: var(--shadow); }
 .diagram-stage > * { width: 100%; max-width: 100%; }
 .diagram-stage svg { max-width: 100%; height: auto; }
 .diagram-footnote { display: flex; align-items: center; gap: 7px; margin-top: 11px; color: var(--muted); font-size: 12px; }
@@ -203,6 +203,7 @@ h1 { margin: 14px 0 16px; font-size: clamp(2.3rem, 4.4vw, 3.9rem); line-height: 
   .lesson-side { display: none; }
   .lesson-number { display: none; }
   .lesson-heading { margin-top: 37px; }
+  .diagram-section { width: auto; margin-left: 0; }
 }
 
 @media (max-width: 700px) {
