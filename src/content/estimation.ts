@@ -1,0 +1,91 @@
+import type { Question, Step } from './chapter';
+
+export const estimationSteps: Step[] = [
+  {
+    id: 'estimate-workload',
+    title: 'Start with user behavior',
+    eyebrow: '01 · Inputs before answers',
+    summary: 'An account count becomes useful only when you know what active people do.',
+    body: [
+      'Begin with a small set of stated assumptions: daily active users, actions per active user, read-to-write mix, item size, retention, and expected peaks. Registered accounts alone cannot tell you how many requests arrive today. Keep each assumption beside its unit so another person can challenge it.',
+      'For example, a service with one million daily active people who each open a feed ten times has roughly ten million feed opens per day. If only a fifth of registered accounts are active, using all accounts as daily users would inflate the estimate fivefold. The goal is a plausible workload model, not a precise forecast.',
+    ],
+    takeaways: ['Start with active behavior and a time window.', 'Write assumptions and units before calculating capacity.'],
+    diagramId: 'estimate-workload',
+    scenario: 'A product has five million accounts. Which three usage figures would you request before estimating its read traffic?',
+    scenarioAnswer: 'Ask for the daily active share, reads or sessions per active person per day, and a peak-to-average factor or hourly traffic curve. The account count by itself gives none of those rates.',
+  },
+  {
+    id: 'estimate-traffic',
+    title: 'Turn daily actions into peak traffic',
+    eyebrow: '02 · Requests per second',
+    summary: 'Convert a daily total into a rate, then account for its busiest periods.',
+    body: [
+      'Average requests per second are daily requests divided by 86,400 seconds. Ten million reads per day average about 116 reads per second. Real people are not evenly distributed across the day, so an assumed fivefold peak gives roughly 580 reads per second. Keep reads and writes separate because they stress different parts of a system.',
+      'A peak multiplier is an assumption until traffic measurements replace it. If the service has strong regional or event-driven spikes, use the observed peak window instead. Size against the burst the product must actually survive, then leave room for a failed instance, growth, or imperfect load balancing.',
+    ],
+    takeaways: ['Daily total ÷ 86,400 = average requests per second.', 'Peak demand and failure headroom matter more than the average alone.'],
+    diagramId: 'estimate-traffic',
+    scenario: 'A service expects 8.64 million reads per day and a fourfold busy-hour peak. What read rate should the first capacity discussion use?',
+    scenarioAnswer: 'The average is 8,640,000 ÷ 86,400 = 100 reads per second. A fourfold peak suggests about 400 reads per second before additional failure or growth headroom.',
+  },
+  {
+    id: 'estimate-data',
+    title: 'Budget storage and transfer separately',
+    eyebrow: '03 · Bytes over time',
+    summary: 'A stored byte and a delivered byte create different costs and bottlenecks.',
+    body: [
+      'Estimate logical storage as new items per day × average stored bytes × retention days. If 200,000 images arrive daily at an average of 4 MB, that is about 800 GB of new image data each day and about 292 TB over a year using decimal units. This is before replicas, transformed versions, indexes, backups, and metadata.',
+      'Delivery is a separate calculation: views × bytes delivered per view. A popular asset can be stored once but transferred millions of times. A CDN may reduce origin traffic while total delivery remains high. Record whether sizes are compressed and whether media has multiple renditions. State your units: 1 GB is 10⁹ bytes, while 1 GiB is 2³⁰ bytes.',
+    ],
+    takeaways: ['Storage follows writes, item size, and retention.', 'Bandwidth follows reads and bytes delivered; replicas and renditions add physical storage.'],
+    diagramId: 'estimate-data',
+    scenario: 'One video is stored once but watched 100,000 times. Which estimates change with the watch count?',
+    scenarioAnswer: 'Transfer and read traffic grow with views. The original stored file does not multiply by the watch count, although renditions, replicas, and caches add physical copies.',
+  },
+  {
+    id: 'estimate-limits',
+    title: 'Give latency and availability a budget',
+    eyebrow: '04 · Quality targets',
+    summary: 'Translate a response goal and uptime target into constraints a design can test.',
+    body: [
+      'A response-time target is a budget shared by network travel, application work, data access, and serialization. Memory access, disk access, and travel between regions have very different costs, but old benchmark tables are not a substitute for measuring your hardware and path. For a 200 ms target, a slow 180 ms database call leaves almost no room for the rest. Measure tail latency later; averages can hide the requests users experience as slow.',
+      'Availability percentages also need a time window. At 99.9% availability over a 30-day month, the allowed unavailable time is 0.1% × 30 × 24 × 60 = 43.2 minutes. That figure is a target, not a guarantee from adding replicas. Recovery procedures, dependencies, deployments, and monitoring determine what users actually experience.',
+    ],
+    takeaways: ['Split latency across the full request path and check its slowest cases.', 'Convert availability targets to time and plan the failures that could consume it.'],
+    diagramId: 'estimate-limits',
+    scenario: 'A page has a 200 ms target, but the database alone takes 180 ms at the 95th percentile. What does the estimate reveal?',
+    scenarioAnswer: 'The database consumes nearly the entire target, leaving only 20 ms for network and application work at that percentile. Measure the full path and improve the dominant cost or revisit the target.',
+  },
+  {
+    id: 'estimate-decisions',
+    title: 'Use the estimate to make one decision',
+    eyebrow: '05 · Sensitivity and headroom',
+    summary: 'Test which assumption changes the architecture, then validate it with real load.',
+    body: [
+      'Suppose a web instance sustains 300 requests per second in a representative load test. A 1,200-request-per-second peak needs four instances only if all four run at their limit. With a target of at most 70% utilization, each contributes about 210 requests per second, so the first estimate is six healthy instances. If one must fail without overload, provision and test for that failure too.',
+      'Change one assumption at a time: daily activity, peak multiplier, object size, or retention. If doubling one input changes the component choice, that input deserves measurement. Round estimates enough to compare options, then replace guesses with traffic data, load tests, and a clear capacity trigger.',
+    ],
+    takeaways: ['Headroom and failure targets change the required instance count.', 'An estimate is useful when it guides a choice and identifies what to measure next.'],
+    diagramId: 'estimate-decisions',
+    scenario: 'A proposed design works only if peak traffic is less than twice the average, but nobody has measured peaks. What should the team do?',
+    scenarioAnswer: 'Treat the multiplier as a high-impact uncertainty. Measure comparable traffic or load-test several peak scenarios, then choose capacity and a trigger for adding more. Do not present the twofold assumption as a fact.',
+  },
+];
+
+export const estimationQuestions: Question[] = [
+  { id: 'eq01', stepId: 'estimate-workload', difficulty: 'Recall', prompt: 'Which input most directly turns registered accounts into daily request demand?', options: ['Number of database tables', 'Daily active users and actions per active user', 'Total number of regions', 'Age of the product'], correctIndex: 1, explanation: 'Request demand comes from active behavior during a time window, not the total number of accounts.' },
+  { id: 'eq02', stepId: 'estimate-workload', difficulty: 'Diagnose', prompt: 'An estimate treats every registered account as active each day. What is the main risk?', options: ['It necessarily undercounts writes', 'It measures latency instead of traffic', 'It may overstate daily traffic substantially', 'It excludes object storage'], correctIndex: 2, explanation: 'Many accounts may be inactive. State or measure the active share before deriving daily actions.' },
+  { id: 'eq03', stepId: 'estimate-traffic', difficulty: 'Apply', prompt: 'About how many average requests per second are 8.64 million requests per day?', options: ['10', '100', '1,000', '8,640'], correctIndex: 1, explanation: '8,640,000 ÷ 86,400 seconds per day = 100 requests per second on average.' },
+  { id: 'eq04', stepId: 'estimate-traffic', difficulty: 'Diagnose', prompt: 'Why should a service not size capacity solely from average requests per second?', options: ['Averages ignore busy periods and failure headroom', 'Every request has the same size', 'Average rates are always larger than peaks', 'Storage estimates replace traffic estimates'], correctIndex: 0, explanation: 'People and events create peaks; healthy capacity also needs margin for failures and growth.' },
+  { id: 'eq05', stepId: 'estimate-traffic', difficulty: 'Apply', prompt: 'The average is 100 reads per second and the measured peak is four times higher. What peak should you plan around?', options: ['25 reads/s', '104 reads/s', '400 reads/s', '4,000 reads/s'], correctIndex: 2, explanation: 'Multiply the average 100 reads/s by the measured peak factor of four.' },
+  { id: 'eq06', stepId: 'estimate-data', difficulty: 'Apply', prompt: '200,000 uploads each averaging 4 MB add about how much logical data per day?', options: ['80 GB', '800 GB', '8 TB', '800 TB'], correctIndex: 1, explanation: '200,000 × 4 MB = 800,000 MB, or about 800 GB in decimal units.' },
+  { id: 'eq07', stepId: 'estimate-data', difficulty: 'Diagnose', prompt: 'One stored image is viewed a million times. Which quantity scales mainly with those views?', options: ['Its retention period', 'The size of the original file', 'The number of object identifiers', 'Bytes delivered to viewers'], correctIndex: 3, explanation: 'Each view transfers bytes even though the original object is stored once.' },
+  { id: 'eq08', stepId: 'estimate-data', difficulty: 'Recall', prompt: 'What is missing from a logical storage estimate when planning physical capacity?', options: ['Replicas, renditions, indexes, and backups', 'The number of browser tabs', 'The CSS bundle name', 'The availability percentage alone'], correctIndex: 0, explanation: 'Extra physical copies and supporting structures can use much more space than the source data alone.' },
+  { id: 'eq13', stepId: 'estimate-data', difficulty: 'Recall', prompt: 'Which statement keeps binary and decimal storage units distinct?', options: ['A GiB and a GB are exactly equal', 'A GB is 2³⁰ bytes', 'A GiB is 2³⁰ bytes; a GB is 10⁹ bytes', 'A GiB is always smaller than a GB'], correctIndex: 2, explanation: 'Binary units use powers of two; decimal units use powers of ten. Label the unit to avoid a hidden conversion error.' },
+  { id: 'eq09', stepId: 'estimate-limits', difficulty: 'Apply', prompt: 'A 200 ms response budget includes a 180 ms database call. What remains for all other work?', options: ['180 ms', '20 ms', '200 ms', '380 ms'], correctIndex: 1, explanation: '200 − 180 = 20 ms for the network, application, and response work combined.' },
+  { id: 'eq10', stepId: 'estimate-limits', difficulty: 'Apply', prompt: 'Roughly how much downtime does 99.9% availability permit in a 30-day month?', options: ['4.3 seconds', '4.3 minutes', '43.2 minutes', '7.2 hours'], correctIndex: 2, explanation: '0.1% of 30 × 24 × 60 minutes is 43.2 minutes.' },
+  { id: 'eq14', stepId: 'estimate-limits', difficulty: 'Diagnose', prompt: 'A design relies on a decade-old latency table to promise a 200 ms response time. What should happen next?', options: ['Treat the table as a guarantee', 'Ignore network time', 'Use only average database latency', 'Measure the current end-to-end path and its slow requests'], correctIndex: 3, explanation: 'Hardware and paths change. A real response target needs measurements across the full request, especially slower requests.' },
+  { id: 'eq11', stepId: 'estimate-decisions', difficulty: 'Apply', prompt: 'Peak load is 1,200 requests/s. Each instance sustains 300 requests/s, but target utilization is 70%. What is the first healthy-instance estimate?', options: ['4', '5', '6', '12'], correctIndex: 2, explanation: 'Effective capacity is 300 × 0.7 = 210 requests/s per instance; 1,200 ÷ 210 rounds up to six.' },
+  { id: 'eq12', stepId: 'estimate-decisions', difficulty: 'Diagnose', prompt: 'A peak multiplier is unknown and doubling it changes the architecture choice. What is the best next step?', options: ['Hide the uncertainty', 'Assume the lower value is correct', 'Choose every scaling component', 'Measure or test plausible peak scenarios'], correctIndex: 3, explanation: 'A sensitive assumption should become a measurement or load-test target before committing to capacity.' },
+];
