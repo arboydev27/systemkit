@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SystemKit — Scale to a Million Users",
+  title: "SystemKit — Learn System Design",
   description:
-    "A visual, hands-on guide to scaling a system from one server to millions of users.",
+    "A visual, hands-on guide to the system design framework and scaling decisions.",
   icons: { icon: "/favicon.svg" },
 };
 

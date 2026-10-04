@@ -14,12 +14,14 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { steps, questions } from "@/content/chapter";
+import { chapters } from "@/content/chapters";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
+import { FrameworkDiagram } from "./FrameworkDiagram";
 
 const LessonDiagram = memo(ArchitectureDiagram);
+const MethodDiagram = memo(FrameworkDiagram);
 
-const STORAGE_KEY = "systemkit:chapter-one:v1";
+const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 
 type Progress = {
   completed: string[];
@@ -31,9 +33,9 @@ type Progress = {
 
 const emptyProgress: Progress = { completed: [], answers: {}, scenarioDrafts: {}, revealedScenarios: [] };
 
-function readProgress(): Progress {
+function readProgress(storageKey: string): Progress {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(storageKey);
     if (!stored) return emptyProgress;
     const parsed: unknown = JSON.parse(stored);
     if (!parsed || typeof parsed !== "object") return emptyProgress;
@@ -74,9 +76,12 @@ function padded(index: number) {
 }
 
 export function LearningExperience() {
+  const [chapterId, setChapterId] = useState(chapters[0].id);
+  const chapter = chapters.find((item) => item.id === chapterId) ?? chapters[0];
+  const { steps, questions } = chapter;
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [ready, setReady] = useState(false);
-  const [activeStepId, setActiveStepId] = useState(steps[0]?.id ?? "");
+  const [activeStepId, setActiveStepId] = useState(chapters[0].steps[0]?.id ?? "");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -84,22 +89,30 @@ export function LearningExperience() {
   const firstOptionRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const saved = readProgress();
-    setProgress(saved);
-    if (saved.activeStepId && steps.some((step) => step.id === saved.activeStepId)) {
-      setActiveStepId(saved.activeStepId);
+    let initialChapter = chapters[0];
+    try {
+      const savedId = window.localStorage.getItem(ACTIVE_CHAPTER_KEY);
+      initialChapter = chapters.find((item) => item.id === savedId) ?? initialChapter;
+    } catch {
+      // Chapter navigation still works if storage is blocked.
     }
+    const saved = readProgress(initialChapter.storageKey);
+    setChapterId(initialChapter.id);
+    setProgress(saved);
+    setActiveStepId(saved.activeStepId && initialChapter.steps.some((step) => step.id === saved.activeStepId)
+      ? saved.activeStepId : initialChapter.steps[0]?.id ?? "");
     setReady(true);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...progress, activeStepId }));
+      window.localStorage.setItem(chapter.storageKey, JSON.stringify({ ...progress, activeStepId }));
+      window.localStorage.setItem(ACTIVE_CHAPTER_KEY, chapter.id);
     } catch {
       // The lesson stays usable in browsers that block local storage.
     }
-  }, [progress, activeStepId, ready]);
+  }, [progress, activeStepId, ready, chapter]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -139,6 +152,25 @@ export function LearningExperience() {
         top: 0,
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
       });
+    });
+  }
+
+  function selectChapter(id: string) {
+    const nextChapter = chapters.find((item) => item.id === id);
+    if (!nextChapter || nextChapter.id === chapter.id) {
+      setMenuOpen(false);
+      return;
+    }
+    const saved = readProgress(nextChapter.storageKey);
+    setChapterId(nextChapter.id);
+    setProgress(saved);
+    setActiveStepId(saved.activeStepId && nextChapter.steps.some((item) => item.id === saved.activeStepId)
+      ? saved.activeStepId : nextChapter.steps[0]?.id ?? "");
+    setQuestionIndex(0);
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => {
+      headingRef.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
     });
   }
 
@@ -210,7 +242,7 @@ export function LearningExperience() {
           <span className="brand-context">Learning library</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-chapter">Chapter 01 <span aria-hidden="true">/</span> Scale to a Million Users</span>
+          <span className="topbar-chapter">Chapter {chapter.number} <span aria-hidden="true">/</span> {chapter.title}</span>
           <span className="topbar-progress">{ready ? completionPercentage : 0}% complete</span>
         </div>
       </header>
@@ -221,9 +253,19 @@ export function LearningExperience() {
         <div className="sidebar-inner">
           <div className="sidebar-head">
             <span className="section-label">LEARNING PATH</span>
-            <div className="sidebar-title"><BookOpen size={18} /> <span>From zero to scale</span></div>
-            <p>Build the architecture one decision at a time.</p>
+            <div className="sidebar-title"><BookOpen size={18} /> <span>System design</span></div>
+            <p>Learn the method, then apply it to a growing system.</p>
           </div>
+
+          <nav className="chapter-navigation" aria-label="Chapters">
+            <span className="nav-overline">CHAPTERS</span>
+            {chapters.map((item) => (
+              <button key={item.id} type="button" className={`chapter-link ${item.id === chapter.id ? "is-active" : ""}`}
+                aria-current={item.id === chapter.id ? "page" : undefined} onClick={() => selectChapter(item.id)}>
+                <span className="chapter-link-number">{item.number}</span><span>{item.title}</span>
+              </button>
+            ))}
+          </nav>
 
           <div className="progress-block" aria-label={`${completedCount} of ${steps.length} lessons complete`}>
             <div className="progress-label"><span>Chapter progress</span><strong>{completedCount} / {steps.length}</strong></div>
@@ -231,7 +273,7 @@ export function LearningExperience() {
           </div>
 
           <nav className="step-navigation" aria-label="Lessons">
-            <span className="nav-overline">THE ARCHITECTURE</span>
+            <span className="nav-overline">{chapter.lessonLabel}</span>
             <ol>
               {steps.map((item, index) => {
                 const active = item.id === step.id;
@@ -262,7 +304,7 @@ export function LearningExperience() {
 
       <main id="lesson-content" className="main-content" tabIndex={-1}>
         <div className="main-wrap">
-          <div className="breadcrumb"><span>LEARN</span><span aria-hidden="true">/</span><span>SCALE TO A MILLION USERS</span><span aria-hidden="true">/</span><strong>{padded(activeIndex)}</strong></div>
+          <div className="breadcrumb"><span>LEARN</span><span aria-hidden="true">/</span><span>{chapter.title.toUpperCase()}</span><span aria-hidden="true">/</span><strong>{padded(activeIndex)}</strong></div>
 
           <div className="lesson-heading">
             <div className="lesson-heading-main">
@@ -277,14 +319,14 @@ export function LearningExperience() {
             <div className="section-heading-row">
               <div>
                 <span className="section-kicker">SYSTEM VIEW</span>
-                <h2 id="diagram-heading">The architecture</h2>
+                <h2 id="diagram-heading">{chapter.diagramHeading}</h2>
               </div>
               <span className="diagram-caption"><span className="caption-pulse" /> Explore the flow</span>
             </div>
             <div className="diagram-stage">
-              <LessonDiagram id={step.diagramId} />
+              {chapter.id === "framework" ? <MethodDiagram id={step.diagramId} /> : <LessonDiagram id={step.diagramId} />}
             </div>
-            <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> Follow each connection from the user to the data layer.</div>
+            <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>
           </section>
 
           <div className="content-grid">
@@ -411,7 +453,7 @@ export function LearningExperience() {
               {isComplete ? <RotateCcw size={17} /> : <Check size={17} />}
               {isComplete ? "Mark as incomplete" : "Mark lesson complete"}
             </button>
-            {activeIndex + 1 < steps.length ? <button className="next-button" type="button" onClick={() => selectStep(steps[activeIndex + 1].id)}>Next lesson <ArrowRight size={17} /></button> : null}
+            {activeIndex + 1 < steps.length ? <button className="next-button" type="button" onClick={() => selectStep(steps[activeIndex + 1].id)}>Next lesson <ArrowRight size={17} /></button> : chapter.id === "framework" ? <button className="next-button" type="button" onClick={() => selectChapter("scaling")}>Next chapter <ArrowRight size={17} /></button> : null}
           </div>
           <p id="completion-hint" className="completion-hint">
             {isComplete ? "Lesson complete. You can revisit any checkpoint." : `${correctCount} of ${stepQuestions.length} checkpoints answered correctly to complete this lesson.`}
