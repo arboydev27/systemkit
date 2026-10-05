@@ -1,0 +1,121 @@
+{
+  "rate-scope": {
+    "title": "A quota needs a precise scope",
+    "description": "An identity and action select a rule; the resulting decision either forwards the request or returns a throttle response.",
+    "note": "A shared IP can represent many legitimate users.",
+    "nodes": [
+      {"x":35,"y":154,"w":178,"title":"Caller","detail":"user · key · IP","kind":"person"},
+      {"x":286,"y":154,"w":205,"title":"Policy key","detail":"identity + operation","kind":"key"},
+      {"x":569,"y":154,"w":190,"title":"Quota rule","detail":"amount + period","kind":"clock"},
+      {"x":812,"y":71,"w":154,"title":"Allow","detail":"forward request","kind":"check"},
+      {"x":812,"y":257,"w":154,"title":"Throttle","detail":"429 + retry","kind":"shield"}
+    ],
+    "edges": [
+      {"from":[213,195],"to":[286,195],"label":"identify"},
+      {"from":[491,195],"to":[569,195],"label":"look up"},
+      {"from":[759,183],"to":[812,112],"label":"room"},
+      {"from":[759,208],"to":[812,298],"label":"full"}
+    ]
+  },
+  "rate-placement": {
+    "title": "Check before expensive work",
+    "description": "The gateway or middleware consults rules and shared counters before the API server receives allowed traffic.",
+    "note": "Client pacing helps, but server-side enforcement owns the guarantee.",
+    "nodes": [
+      {"x":31,"y":160,"w":168,"title":"Client","detail":"sends request","kind":"person"},
+      {"x":268,"y":160,"w":204,"title":"Gateway","detail":"enforce quota","kind":"shield"},
+      {"x":535,"y":66,"w":185,"title":"Rules","detail":"policy cache","kind":"key"},
+      {"x":535,"y":260,"w":185,"title":"Counters","detail":"shared fast state","kind":"store"},
+      {"x":786,"y":160,"w":182,"title":"API service","detail":"allowed work","kind":"server"}
+    ],
+    "edges": [
+      {"from":[199,201],"to":[268,201],"label":"request"},
+      {"from":[472,185],"to":[535,107],"label":"load rule"},
+      {"from":[472,216],"to":[535,301],"label":"decide"},
+      {"from":[720,301],"to":[786,201],"label":"allow"}
+    ]
+  },
+  "rate-token": {
+    "title": "A bucket permits a bounded burst",
+    "description": "The bucket refills at a steady rate, holds no more than its capacity, and spends one token per accepted request.",
+    "note": "Example: capacity 10; refill 2 per second; one token per request.",
+    "nodes": [
+      {"x":42,"y":157,"w":180,"title":"Time","detail":"2 tokens / second","kind":"clock"},
+      {"x":330,"y":117,"w":260,"title":"Token bucket","detail":"capacity 10 · current 7","kind":"bucket"},
+      {"x":704,"y":60,"w":245,"title":"Request allowed","detail":"spend one token","kind":"check"},
+      {"x":704,"y":260,"w":245,"title":"Request throttled","detail":"no token remains","kind":"shield"}
+    ],
+    "edges": [
+      {"from":[222,198],"to":[330,158],"label":"refill"},
+      {"from":[590,151],"to":[704,101],"label":"available"},
+      {"from":[590,200],"to":[704,301],"label":"empty"}
+    ]
+  },
+  "rate-windows": {
+    "title": "The boundary changes the answer",
+    "description": "A fixed counter resets at the minute boundary, while a rolling window still includes recent requests from the previous minute.",
+    "note": "Two adjacent full fixed windows can create a short, oversized burst.",
+    "nodes": [
+      {"x":48,"y":103,"w":244,"title":"Minute A","detail":"100 near its end","kind":"clock"},
+      {"x":365,"y":103,"w":244,"title":"Minute B","detail":"100 near its start","kind":"clock"},
+      {"x":704,"y":72,"w":248,"title":"Fixed counter","detail":"allows both blocks","kind":"check"},
+      {"x":704,"y":263,"w":248,"title":"Sliding window","detail":"sees the combined burst","kind":"shield"}
+    ],
+    "edges": [
+      {"from":[292,144],"to":[365,144],"label":"reset"},
+      {"from":[609,138],"to":[704,113],"label":"per block"},
+      {"from":[609,166],"to":[704,304],"label":"look back"}
+    ]
+  },
+  "rate-atomic": {
+    "title": "One slot cannot be spent twice",
+    "description": "Concurrent workers must check and change shared state as a single atomic decision.",
+    "note": "A separate read, check, then write loses the race at the threshold.",
+    "nodes": [
+      {"x":42,"y":79,"w":205,"title":"Worker A","detail":"request one","kind":"server"},
+      {"x":42,"y":262,"w":205,"title":"Worker B","detail":"request two","kind":"server"},
+      {"x":357,"y":161,"w":267,"title":"Atomic decision","detail":"check + mutate together","kind":"shield"},
+      {"x":739,"y":79,"w":215,"title":"Allow","detail":"consumes slot 100","kind":"check"},
+      {"x":739,"y":262,"w":215,"title":"Reject","detail":"counter is full","kind":"shield"}
+    ],
+    "edges": [
+      {"from":[247,120],"to":[357,190],"label":"arrives"},
+      {"from":[247,303],"to":[357,213],"label":"arrives"},
+      {"from":[624,188],"to":[739,120],"label":"first"},
+      {"from":[624,215],"to":[739,303],"label":"next"}
+    ]
+  },
+  "rate-distributed": {
+    "title": "Many workers, one logical allowance",
+    "description": "Requests may land on either limiter; both use shared counter state to enforce the same quota.",
+    "note": "Regional local counters trade exact global limits for lower latency.",
+    "nodes": [
+      {"x":34,"y":163,"w":183,"title":"Caller","detail":"changing route","kind":"person"},
+      {"x":309,"y":69,"w":206,"title":"Limiter A","detail":"stateless worker","kind":"server"},
+      {"x":309,"y":261,"w":206,"title":"Limiter B","detail":"stateless worker","kind":"server"},
+      {"x":682,"y":163,"w":269,"title":"Shared counters","detail":"one quota per policy key","kind":"store"}
+    ],
+    "edges": [
+      {"from":[217,192],"to":[309,110],"label":"route 1"},
+      {"from":[217,213],"to":[309,302],"label":"route 2"},
+      {"from":[515,110],"to":[682,192],"label":"atomic"},
+      {"from":[515,302],"to":[682,213],"label":"atomic"}
+    ]
+  },
+  "rate-operate": {
+    "title": "Protect capacity without blocking good users",
+    "description": "Limiter decisions produce client signals and metrics; operators tune a rule using both rejected traffic and downstream health.",
+    "note": "A falling CPU graph alone does not prove a good policy.",
+    "nodes": [
+      {"x":34,"y":161,"w":191,"title":"Limiter","detail":"allow or throttle","kind":"shield"},
+      {"x":315,"y":62,"w":249,"title":"Client response","detail":"429 · Retry-After","kind":"person"},
+      {"x":315,"y":260,"w":249,"title":"Metrics","detail":"rejects · latency · errors","kind":"chart"},
+      {"x":706,"y":161,"w":249,"title":"Policy tuning","detail":"false blocks + load","kind":"key"}
+    ],
+    "edges": [
+      {"from":[225,185],"to":[315,103],"label":"explain"},
+      {"from":[225,215],"to":[315,301],"label":"record"},
+      {"from":[564,301],"to":[706,202],"label":"review"}
+    ]
+  }
+}

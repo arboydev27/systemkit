@@ -1,0 +1,112 @@
+import type { Question, Step } from './chapter';
+
+export const rateLimiterSteps: Step[] = [
+  {
+    id: 'rate-scope', title: 'Define what is being limited', eyebrow: '01 · Contract',
+    summary: 'A limit has an identity, an action, a quota, a time scale, and a response.',
+    body: [
+      'Start with the reason for throttling: protect an expensive endpoint, contain abuse, or allocate a fair share of capacity. Specify the key (authenticated user, API key, IP address, or a combination), the operation, the allowed amount, and the time period. A per-IP login limit can punish people behind a shared network; a per-user limit does not help before sign-in. The correct identity depends on the threat and product contract.',
+      'State whether the quota must be strict, whether brief bursts are useful, and what happens when the store is unavailable. Decide if excess requests are rejected, delayed, or queued; a synchronous API commonly returns HTTP 429 with a useful retry signal. Set latency and accuracy targets before selecting an algorithm.',
+    ],
+    takeaways: ['A rate limit is a policy scoped to an identity and operation.', 'Define burst, failure, and client response behavior before implementation.'],
+    diagramId: 'rate-scope',
+    scenario: 'A university shares one public IP, and students report being blocked from signing in. What would you revisit?',
+    scenarioAnswer: 'A single IP quota is treating many legitimate users as one client. Use a policy that considers account or device identity where trustworthy, and retain a separate IP-level abuse guard with a suitable threshold.',
+  },
+  {
+    id: 'rate-placement', title: 'Choose where requests are checked', eyebrow: '02 · Placement',
+    summary: 'The gate must run before the expensive work and share policy across instances.',
+    body: [
+      'Client-side throttling can improve behavior, but an untrusted client can bypass it. A gateway or middleware can reject requests before application work; an application-level limiter can use richer business context. Existing gateway features, control over custom rules, and the cost of adding a new hop drive the choice.',
+      'A typical path is client → load balancer → limiter → API service. The limiter reads the current rule and counter, makes one decision, then forwards an allowed request or returns a throttle response. Keep policy configuration separate from fast-changing counters. A centrally shared counter store lets many stateless limiter instances enforce one logical quota.',
+    ],
+    takeaways: ['Place enforcement before the resource it protects.', 'Separate rule distribution from counter updates.'],
+    diagramId: 'rate-placement',
+    scenario: 'A mobile app already waits between calls. Why does the API still need its own limiter?',
+    scenarioAnswer: 'The app can be modified or replaced, and other clients may call the API. Server-side enforcement is necessary for a shared, trustworthy quota.',
+  },
+  {
+    id: 'rate-token', title: 'Allow controlled bursts with tokens', eyebrow: '03 · Token bucket',
+    summary: 'Capacity sets burst size; refill rate sets the long-run pace.',
+    body: [
+      'A token bucket stores up to a capacity of tokens. Tokens refill over time. Each request consumes a token if one is available; otherwise it is throttled. A capacity of 10 and a refill of 2 tokens per second permits a burst of 10 after idleness, then sustains roughly 2 requests per second. Refill is capped at capacity, so unused allowance does not grow without bound.',
+      'This is useful when ordinary traffic arrives in short bursts but its average should remain bounded. A leaky bucket instead drains a finite queue at a steady pace, which is helpful when downstream work needs a smooth output rate. Queueing adds wait time; when the queue fills, requests must be rejected or handled by another explicit policy.',
+    ],
+    takeaways: ['Token capacity and refill rate control different behavior.', 'Leaky bucket smooths output but introduces queue delay.'],
+    diagramId: 'rate-token',
+    scenario: 'An API may accept ten rapid actions after idle time but only two per second thereafter. Which parameters fit?',
+    scenarioAnswer: 'Use a token bucket with capacity 10 and refill rate 2 tokens per second, assuming each action costs one token. Specify how precise the burst guarantee must be across distributed instances.',
+  },
+  {
+    id: 'rate-windows', title: 'Pick the accuracy and memory tradeoff', eyebrow: '04 · Window algorithms',
+    summary: 'Counting requests by time is simple until traffic lands on a boundary.',
+    body: [
+      'A fixed window counter increments one value per identity per time block. It is cheap, but a client can send a full quota just before a boundary and another just after it. The result can be almost twice the configured amount in a short span. A sliding window log checks timestamps over the true rolling period and is more precise, but stores many timestamps and costs more memory.',
+      'A sliding window counter combines counts from the current and previous blocks, weighting the previous block by how much of it overlaps the rolling period. It uses little memory and softens boundary spikes, but assumes requests in the previous block were spread evenly. Choose it when approximation is acceptable; choose a stricter method when a hard rolling-window cap is essential.',
+    ],
+    takeaways: ['Fixed windows can admit boundary bursts.', 'Sliding logs favor precision; sliding counters favor lower memory.'],
+    diagramId: 'rate-windows',
+    scenario: 'A strict rule permits at most 100 requests in every rolling minute. Is a fixed-minute counter enough?',
+    scenarioAnswer: 'No. A client can use 100 requests at the end of one minute and 100 at the start of the next. Use a rolling-window algorithm with the precision needed for the strict guarantee.',
+  },
+  {
+    id: 'rate-atomic', title: 'Make each decision atomic', eyebrow: '05 · Concurrency',
+    summary: 'A read, check, and write sequence can approve too many simultaneous requests.',
+    body: [
+      'Two limiter workers can both read a counter below the threshold and both approve. If they independently write the same incremented value, one update is lost and the quota is breached. The check and counter change must form one atomic operation. A shared in-memory store can execute a small script or use an appropriate atomic data structure; simply calling increment after a separate read does not solve the race.',
+      'Use expiry to reclaim counters, but set it consistently with the algorithm. Preserve enough state for the chosen window or token refill. Monitor store latency because every enforced request may depend on this path. If the store fails, an explicit fail-open or fail-closed policy should reflect the endpoint: availability may dominate for low-risk reads, while expensive or abuse-sensitive operations may need protection.',
+    ],
+    takeaways: ['The quota decision and state mutation must be atomic.', 'Counter expiry and store-failure policy are part of correctness.'],
+    diagramId: 'rate-atomic',
+    scenario: 'The counter is 99 of 100, and two workers each read 99 and approve. What must change?',
+    scenarioAnswer: 'Run the check and update atomically against shared state, so only the first worker consumes the last slot and the second receives a throttle decision.',
+  },
+  {
+    id: 'rate-distributed', title: 'Enforce one quota across many servers', eyebrow: '06 · Distribution',
+    summary: 'Stateless workers need a common view of each client’s allowance.',
+    body: [
+      'If each limiter keeps a private counter, a caller can exceed its quota by reaching different workers. Sticky sessions reduce the symptom but complicate scaling and recovery. A shared counter store gives all workers the same decision state. At regional scale, one remote store adds latency; local regional counters improve speed but allow some overshoot while totals converge. That is a product tradeoff, not exact global enforcement.',
+      'Partition counters by a stable key when one store cannot handle the workload. Replication and failover need careful handling: losing recent counter state can temporarily reset allowance. Estimate requests per second, state size, and acceptable overshoot before distributing the decision. A strict global cap may require a more coordinated path than an eventually consistent regional quota.',
+    ],
+    takeaways: ['Private counters multiply the effective quota.', 'Regional latency and global accuracy must be negotiated explicitly.'],
+    diagramId: 'rate-distributed',
+    scenario: 'A caller alternates between two data centers and receives twice its stated global quota. Why?',
+    scenarioAnswer: 'Each region is likely enforcing an independent counter. Use a coordinated global decision or explicitly allocate regional sub-quotas with a documented overshoot bound.',
+  },
+  {
+    id: 'rate-operate', title: 'Explain throttling and tune the rule', eyebrow: '07 · Operations',
+    summary: 'A useful limiter tells clients when to retry and tells operators whom it affects.',
+    body: [
+      'Return 429 for rejected synchronous requests and a Retry-After value when a meaningful wait can be computed. Quota and remaining-allowance headers can help clients pace themselves; keep their semantics consistent with the algorithm. Clients should back off, avoid retry storms, and cache or batch work where appropriate. Queueing is suitable only when the API contract permits delayed processing.',
+      'Track allowed and rejected requests by rule, endpoint, and safe aggregate client segment; measure decision latency, counter-store errors, and downstream load. A high reject rate may mean the rule is too strict, an attack is active, or the key groups unrelated users. Review both false blocks and capacity protection. Load-test boundary bursts and concurrent requests, then tune based on the actual traffic shape.',
+    ],
+    takeaways: ['A 429 response should lead to predictable client behavior.', 'Monitor both the protection gained and legitimate traffic blocked.'],
+    diagramId: 'rate-operate',
+    scenario: 'After a new rule ships, database load falls but checkout failures surge. Is the limiter successful?',
+    scenarioAnswer: 'No. The rule protects capacity but may be blocking valid checkout traffic. Segment rejects, inspect key choice and thresholds, then tune the policy while retaining the necessary protection.',
+  },
+];
+
+export const rateLimiterQuestions: Question[] = [
+  { id:'rq01',stepId:'rate-scope',difficulty:'Apply',prompt:'What must a useful limit rule identify?',options:['Only a cache vendor','Identity, action, quota, and time period','Only the client IP','Only peak server capacity'],correctIndex:1,explanation:'A quota must say whose activity is counted, which action counts, how much is allowed, and over what time scale.' },
+  { id:'rq02',stepId:'rate-scope',difficulty:'Diagnose',prompt:'Students behind one campus IP are blocked from login. What likely needs revisiting?',options:['The HTTP method','The shared IP as the only quota key','The JSON response size','The DNS TTL'],correctIndex:1,explanation:'A per-IP quota can combine many legitimate people into one counter. Reconsider the identity and use layered abuse limits.' },
+  { id:'rq03',stepId:'rate-scope',difficulty:'Recall',prompt:'Which status commonly signals a rejected request due to rate limiting?',options:['201','301','404','429'],correctIndex:3,explanation:'HTTP 429 means Too Many Requests.' },
+  { id:'rq04',stepId:'rate-placement',difficulty:'Apply',prompt:'Why enforce a public API quota before application work?',options:['To avoid spending protected resources on requests that will be rejected','To remove all need for auth','To make client limits trustworthy','To persist every request'],correctIndex:0,explanation:'Early enforcement protects downstream computation and storage capacity.' },
+  { id:'rq05',stepId:'rate-placement',difficulty:'Diagnose',prompt:'A mobile app throttles itself, but scripted callers overwhelm the API. What is missing?',options:['More client animation','A server-side enforcement point','A larger CDN','A different URL path'],correctIndex:1,explanation:'Untrusted callers can bypass client pacing. The server must enforce its own policy.' },
+  { id:'rq06',stepId:'rate-placement',difficulty:'Recall',prompt:'Which state changes on nearly every limited request?',options:['Product documentation','Policy description','Counter or bucket state','DNS record'],correctIndex:2,explanation:'Rules change relatively slowly; counter or token state changes as requests arrive.' },
+  { id:'rq07',stepId:'rate-token',difficulty:'Apply',prompt:'A bucket has capacity 10, refill 2 per second, and has been idle. What can it allow immediately?',options:['At most 2 requests','At most 10 one-token requests','Unlimited requests','Exactly 20 requests'],correctIndex:1,explanation:'Idleness refills tokens only to the capacity of 10; each one-token request consumes one.' },
+  { id:'rq08',stepId:'rate-token',difficulty:'Diagnose',prompt:'A downstream worker needs a steady processing pace, and small delays are acceptable. Which fits best?',options:['A leaky bucket with a bounded queue','A permanent 301','No admission control','A DNS cache'],correctIndex:0,explanation:'A leaky bucket smooths output by draining queued work at a fixed pace, subject to bounded waiting and overflow policy.' },
+  { id:'rq09',stepId:'rate-token',difficulty:'Recall',prompt:'In a token bucket, what sets the maximum burst after idle time?',options:['Refill rate','Bucket capacity','Response size','Number of API servers'],correctIndex:1,explanation:'Capacity caps accumulated tokens and therefore the immediate one-token burst.' },
+  { id:'rq10',stepId:'rate-windows',difficulty:'Diagnose',prompt:'Why can a 100-per-minute fixed window allow almost 200 requests in a short interval?',options:['A counter is always eventually consistent','Requests straddle a window boundary','The client retries every 429','A 302 is cached'],correctIndex:1,explanation:'The client can spend one window’s quota just before reset and the next immediately after.' },
+  { id:'rq11',stepId:'rate-windows',difficulty:'Apply',prompt:'Which algorithm most directly enforces a strict rolling-window count?',options:['Fixed window counter','Sliding window log','Unbounded queue','Client-side timer'],correctIndex:1,explanation:'The log tracks timestamps in the actual rolling interval, at a higher memory cost.' },
+  { id:'rq12',stepId:'rate-windows',difficulty:'Recall',prompt:'What makes a sliding window counter approximate?',options:['It assumes requests in the previous block were evenly spread','It has no counters','It ignores current requests','It requires a single server'],correctIndex:0,explanation:'Weighting a whole previous block by overlap assumes an even distribution within that block.' },
+  { id:'rq13',stepId:'rate-atomic',difficulty:'Diagnose',prompt:'Two workers both read 99/100 and both approve. What is the core bug?',options:['The window is too long','The check and update are not atomic','The API uses JSON','The limit is too high'],correctIndex:1,explanation:'Separate read, decision, and write operations allow both workers to consume the same apparent last slot.' },
+  { id:'rq14',stepId:'rate-atomic',difficulty:'Apply',prompt:'Which implementation protects a shared quota under concurrency?',options:['A separate read followed by INCR','An atomic check-and-update operation','A longer client timeout','A sticky browser cookie'],correctIndex:1,explanation:'The decision and mutation must execute as one atomic unit against shared state.' },
+  { id:'rq15',stepId:'rate-atomic',difficulty:'Apply',prompt:'If the counter store fails, what should determine fail-open versus fail-closed behavior?',options:['The color of the dashboard','Endpoint risk and availability requirements','The number of CSS files','The client language'],correctIndex:1,explanation:'The policy should reflect whether blocking valid traffic or admitting potentially harmful excess is more costly for that endpoint.' },
+  { id:'rq16',stepId:'rate-distributed',difficulty:'Diagnose',prompt:'Why do two private limiter counters risk doubling a caller’s quota?',options:['Each worker sees only its own requests','Redis deletes every key','The load balancer changes HTTP status codes','The client has two devices'],correctIndex:0,explanation:'Without shared state or coordinated allocation, each worker can independently grant the full quota.' },
+  { id:'rq17',stepId:'rate-distributed',difficulty:'Apply',prompt:'What tradeoff appears when regions enforce local counters and synchronize later?',options:['Exact global enforcement with zero latency','Lower decision latency with possible global overshoot','No need to monitor errors','Guaranteed zero storage'],correctIndex:1,explanation:'Local decisions are faster, but an eventually consistent global total can exceed a strict shared cap.' },
+  { id:'rq18',stepId:'rate-distributed',difficulty:'Recall',prompt:'Why are sticky sessions a fragile quota strategy?',options:['They require all requests to use POST','They complicate scaling and recovery when workers change','They delete all client identity','They guarantee global accuracy'],correctIndex:1,explanation:'Routing a client to one worker ties correctness to placement and makes failure or rebalance difficult.' },
+  { id:'rq19',stepId:'rate-operate',difficulty:'Apply',prompt:'What should a throttled synchronous client usually receive?',options:['A 429 and a meaningful retry signal','A 201 and no body','A 301 to the database','A silent disconnect'],correctIndex:0,explanation:'A clear 429 and Retry-After when computable let clients pace retries rather than hammer the service.' },
+  { id:'rq20',stepId:'rate-operate',difficulty:'Diagnose',prompt:'Database load falls after a rule ships, but valid checkout requests are rejected. What should operators inspect?',options:['Only database CPU','Rejects by rule and key choice alongside legitimate failure rate','Only page views','Only image cache hit rate'],correctIndex:1,explanation:'The rule may protect capacity while harming valid users. Segment rejects and adjust identity or thresholds.' },
+  { id:'rq21',stepId:'rate-operate',difficulty:'Recall',prompt:'When is queueing excess requests appropriate?',options:['Always, regardless of API promise','Only when delayed processing matches the API contract','Only when the request is a GET','Never for any system'],correctIndex:1,explanation:'Queueing changes response timing and semantics, so it must be part of the endpoint’s contract.' },
+];
