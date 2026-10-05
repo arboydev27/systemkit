@@ -112,9 +112,7 @@ export function LearningExperience() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const firstOptionRef = useRef<HTMLButtonElement>(null);
-  const chapterNavigationRef = useRef<HTMLElement>(null);
-  const activeChapterLinkRef = useRef<HTMLButtonElement>(null);
-  const stepNavigationRef = useRef<HTMLElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const activeStepLinkRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -145,22 +143,16 @@ export function LearningExperience() {
 
   useEffect(() => {
     if (!ready) return;
-    const navigation = chapterNavigationRef.current;
-    const activeLink = activeChapterLinkRef.current;
-    if (!navigation || !activeLink) return;
-    const list = navigation.getBoundingClientRect();
-    const active = activeLink.getBoundingClientRect();
-    navigation.scrollTop += active.top - list.top - (list.height - active.height) / 2;
-  }, [chapter.id, ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-    const navigation = stepNavigationRef.current;
+    const navigation = sidebarRef.current;
     const activeLink = activeStepLinkRef.current;
     if (!navigation || !activeLink) return;
     const list = navigation.getBoundingClientRect();
     const active = activeLink.getBoundingClientRect();
-    navigation.scrollTop += active.top - list.top - (list.height - active.height) / 2;
+    if (active.bottom > list.bottom - 16) {
+      navigation.scrollTop += active.bottom - list.bottom + 16;
+    } else if (active.top < list.top + 64) {
+      navigation.scrollTop += active.top - list.top - 64;
+    }
   }, [activeStepId, chapter.id, ready]);
 
   useEffect(() => {
@@ -298,7 +290,7 @@ export function LearningExperience() {
 
       {menuOpen ? <button type="button" className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} /> : null}
 
-      <aside id="chapter-sidebar" className={`sidebar ${menuOpen ? "sidebar-open" : ""}`} aria-label="Chapter navigation">
+      <aside ref={sidebarRef} id="chapter-sidebar" className={`sidebar ${menuOpen ? "sidebar-open" : ""}`} aria-label="Chapter navigation">
         <div className="sidebar-inner">
           <div className="sidebar-head">
             <span className="section-label">LEARNING PATH</span>
@@ -306,43 +298,48 @@ export function LearningExperience() {
             <p>A guided path from first principles to familiar systems.</p>
           </div>
 
-          <nav ref={chapterNavigationRef} className="chapter-navigation" aria-label="Chapters">
+          <nav className="chapter-navigation" aria-label="Chapters and lessons">
             <span className="nav-overline">CHAPTERS</span>
-            {chapters.map((item) => (
-              <button key={item.id} ref={item.id === chapter.id ? activeChapterLinkRef : undefined} type="button" className={`chapter-link ${item.id === chapter.id ? "is-active" : ""}`}
-                aria-current={item.id === chapter.id ? "page" : undefined} onClick={() => selectChapter(item.id)}>
-                <span className="chapter-link-number">{item.number}</span><span>{item.title}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="progress-block" aria-label={`${completedCount} of ${steps.length} lessons complete`}>
-            <div className="progress-label"><span>Chapter progress</span><strong>{completedCount} / {steps.length}</strong></div>
-            <div className="progress-track"><span style={{ width: `${completionPercentage}%` }} /></div>
-          </div>
-
-          <nav ref={stepNavigationRef} className="step-navigation" aria-label="Lessons">
-            <span className="nav-overline">{chapter.lessonLabel}</span>
-            <ol>
-              {steps.map((item, index) => {
-                const active = item.id === step.id;
-                const complete = progress.completed.includes(item.id);
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      ref={active ? activeStepLinkRef : undefined}
-                      className={`step-link ${active ? "is-active" : ""}`}
-                      aria-current={active ? "step" : undefined}
-                      onClick={() => selectStep(item.id)}
-                    >
-                      <span className="step-index" aria-hidden="true">{complete ? <Check size={14} strokeWidth={2.5} /> : padded(index)}</span>
-                      <span className="step-link-title">{item.title}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
+            {chapters.map((item) => {
+              const selected = item.id === chapter.id;
+              return (
+                <div key={item.id} className={`chapter-group ${selected ? "is-open" : ""}`}>
+                  <button type="button" className={`chapter-link ${selected ? "is-active" : ""}`}
+                    aria-current={selected ? "page" : undefined}
+                    aria-expanded={selected}
+                    aria-controls={selected ? `chapter-lessons-${item.id}` : undefined}
+                    onClick={() => selectChapter(item.id)}>
+                    <span className="chapter-link-number">{item.number}</span>
+                    <span className="chapter-link-title">{item.title}</span>
+                    <ChevronDown className="chapter-link-chevron" size={15} aria-hidden="true" />
+                  </button>
+                  {selected ? (
+                    <div className="chapter-inline-content">
+                      <div className="chapter-inline-progress" aria-label={`${completedCount} of ${steps.length} lessons complete`}>
+                        <span>{chapter.lessonLabel}</span><span>{completedCount} / {steps.length}</span>
+                      </div>
+                      <ol id={`chapter-lessons-${item.id}`} className="chapter-lessons">
+                        {steps.map((lesson, index) => {
+                          const active = lesson.id === step.id;
+                          const complete = progress.completed.includes(lesson.id);
+                          return (
+                            <li key={lesson.id}>
+                              <button type="button" ref={active ? activeStepLinkRef : undefined}
+                                className={`step-link ${active ? "is-active" : ""}`}
+                                aria-current={active ? "step" : undefined}
+                                onClick={() => selectStep(lesson.id)}>
+                                <span className="step-index" aria-hidden="true">{complete ? <Check size={14} strokeWidth={2.5} /> : padded(index)}</span>
+                                <span className="step-link-title">{lesson.title}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </nav>
 
           <div className="sidebar-foot">
