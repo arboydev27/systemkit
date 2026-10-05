@@ -4,10 +4,14 @@ import { estimationQuestions, estimationSteps } from "./estimation";
 import { urlQuestions, urlSteps } from "./url-shortener";
 import { chatQuestions, chatSteps } from "./chat";
 import { youtubeQuestions, youtubeSteps } from "./youtube";
+import { notificationQuestions, notificationSteps } from "./notifications";
+import { rateLimiterQuestions, rateLimiterSteps } from "./rate-limiter";
+import { feedQuestions, feedSteps } from "./news-feed";
+import { autocompleteQuestions, autocompleteSteps } from "./autocomplete";
 import type { Question, Step } from "./chapter";
 
 export type Chapter = {
-  id: "framework" | "scaling" | "estimation" | "url" | "chat" | "youtube";
+  id: "framework" | "scaling" | "estimation" | "url" | "chat" | "youtube" | "notification" | "rate-limiter" | "news-feed" | "autocomplete";
   number: string;
   title: string;
   lessonLabel: string;
@@ -84,5 +88,49 @@ export const chapters: Chapter[] = [
     storageKey: "systemkit:youtube:v1",
     steps: youtubeSteps,
     questions: youtubeQuestions,
+  },
+  {
+    id: "notification",
+    number: "07",
+    title: "Notification System",
+    lessonLabel: "DELIVERY DESIGN STUDY",
+    diagramHeading: "The delivery path",
+    diagramHint: "Follow a notification from event to channel delivery and recovery.",
+    storageKey: "systemkit:notification:v1",
+    steps: notificationSteps,
+    questions: notificationQuestions,
+  },
+  {
+    id: "rate-limiter",
+    number: "08",
+    title: "Rate Limiter",
+    lessonLabel: "TRAFFIC CONTROL DESIGN STUDY",
+    diagramHeading: "The decision path",
+    diagramHint: "Trace the quota decision before a request reaches the API.",
+    storageKey: "systemkit:rate-limiter:v1",
+    steps: rateLimiterSteps,
+    questions: rateLimiterQuestions,
+  },
+  {
+    id: "news-feed",
+    number: "09",
+    title: "News Feed",
+    lessonLabel: "FANOUT DESIGN STUDY",
+    diagramHeading: "The feed path",
+    diagramHint: "Compare how posts reach readers through fanout and retrieval.",
+    storageKey: "systemkit:news-feed:v1",
+    steps: feedSteps,
+    questions: feedQuestions,
+  },
+  {
+    id: "autocomplete",
+    number: "10",
+    title: "Search Autocomplete",
+    lessonLabel: "SEARCH DESIGN STUDY",
+    diagramHeading: "The suggestion path",
+    diagramHint: "Follow a prefix from request to ranked suggestions.",
+    storageKey: "systemkit:autocomplete:v1",
+    steps: autocompleteSteps,
+    questions: autocompleteQuestions,
   },
 ];

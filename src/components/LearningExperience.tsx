@@ -21,6 +21,10 @@ import { EstimationDiagram } from "./EstimationDiagram";
 import { UrlShortenerDiagram } from "./UrlShortenerDiagram";
 import { ChatDiagram } from "./ChatDiagram";
 import { YouTubeDiagram } from "./YouTubeDiagram";
+import { NotificationDiagram } from "./NotificationDiagram";
+import { RateLimiterDiagram } from "./RateLimiterDiagram";
+import { NewsFeedDiagram } from "./NewsFeedDiagram";
+import { AutocompleteDiagram } from "./AutocompleteDiagram";
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
@@ -28,6 +32,10 @@ const NumbersDiagram = memo(EstimationDiagram);
 const ShortLinkDiagram = memo(UrlShortenerDiagram);
 const MessageDiagram = memo(ChatDiagram);
 const VideoDiagram = memo(YouTubeDiagram);
+const DeliveryDiagram = memo(NotificationDiagram);
+const TrafficDiagram = memo(RateLimiterDiagram);
+const FeedDiagram = memo(NewsFeedDiagram);
+const SearchDiagram = memo(AutocompleteDiagram);
 
 const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 
@@ -338,6 +346,10 @@ export function LearningExperience() {
                 chapter.id === "url" ? <ShortLinkDiagram id={step.diagramId} /> :
                 chapter.id === "chat" ? <MessageDiagram id={step.diagramId} /> :
                 chapter.id === "youtube" ? <VideoDiagram id={step.diagramId} /> :
+                chapter.id === "notification" ? <DeliveryDiagram id={step.diagramId} /> :
+                chapter.id === "rate-limiter" ? <TrafficDiagram id={step.diagramId} /> :
+                chapter.id === "news-feed" ? <FeedDiagram id={step.diagramId} /> :
+                chapter.id === "autocomplete" ? <SearchDiagram id={step.diagramId} /> :
                 <LessonDiagram id={step.diagramId} />}
             </div>
             <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>
