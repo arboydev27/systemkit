@@ -1,0 +1,125 @@
+{
+  "kv-contract": {
+    "title": "Start with a known key",
+    "description": "A client calls put or get with an exact key. The coordinator routes it to a value store. Filtering by a value field needs a separately maintained index.",
+    "nodes": [
+      {"x":34,"y":160,"w":182,"title":"Client","detail":"known order ID","tone":"input"},
+      {"x":286,"y":160,"w":188,"title":"get(key)","detail":"exact lookup","tone":"process"},
+      {"x":544,"y":160,"w":184,"title":"Partition","detail":"opaque value","tone":"store"},
+      {"x":790,"y":160,"w":174,"title":"Result","detail":"one value","tone":"result"},
+      {"x":544,"y":288,"w":184,"title":"Other queries","detail":"separate index","tone":"warning"}
+    ],
+    "arrows":[[[216,201],[286,201]],[[474,201],[544,201]],[[728,201],[790,201]],[[635,242],[635,288]]],
+    "note":"The API contract also decides durability, size limits, and freshness."
+  },
+  "kv-partition": {
+    "title":"Map a key to one owner",
+    "description":"The coordinator hashes a key onto a ring. A key is assigned to its next clockwise owner. Virtual nodes spread ranges; adding a node transfers only its newly owned ranges.",
+    "nodes":[
+      {"x":36,"y":168,"w":170,"title":"hash(key)","detail":"stable position","tone":"input"},
+      {"x":288,"y":88,"w":175,"title":"Node A","detail":"range A","tone":"store"},
+      {"x":540,"y":88,"w":175,"title":"Node B","detail":"range B","tone":"store"},
+      {"x":792,"y":168,"w":172,"title":"Node C","detail":"range C","tone":"store"},
+      {"x":540,"y":290,"w":175,"title":"New node","detail":"takes a range","tone":"process"},
+      {"x":288,"y":290,"w":175,"title":"Virtual nodes","detail":"balance owners","tone":"process"}
+    ],
+    "arrows":[[[206,209],[258,209],[258,129],[288,129]],[[463,129],[540,129]],[[715,129],[753,129],[753,209],[792,209]],[[878,250],[878,331],[715,331]],[[540,331],[463,331]],[[375,290],[375,170]]],
+    "note":"A balanced number of keys does not imply balanced traffic."
+  },
+  "kv-replication": {
+    "title":"Choose independent replica owners",
+    "description":"A coordinator places one key on three distinct physical replicas across failure domains; virtual positions on the same machine are not separate safety copies.",
+    "nodes":[
+      {"x":35,"y":166,"w":180,"title":"Coordinator","detail":"key → owners","tone":"input"},
+      {"x":305,"y":82,"w":185,"title":"Replica A","detail":"rack 1","tone":"store"},
+      {"x":305,"y":270,"w":185,"title":"Replica B","detail":"rack 2","tone":"store"},
+      {"x":685,"y":176,"w":185,"title":"Replica C","detail":"other site","tone":"store"},
+      {"x":531,"y":176,"w":125,"title":"N = 3","detail":"3 hosts","tone":"result"}
+    ],
+    "arrows":[[[215,207],[260,207],[260,123],[305,123]],[[215,207],[260,207],[260,311],[305,311]],[[490,123],[531,123],[531,176]],[[490,311],[531,311],[531,258]],[[656,217],[685,217]]],
+    "note":"Place copies for the failures you promise to survive."
+  },
+  "kv-quorum": {
+    "title":"Count acknowledgments, then read responses",
+    "description":"With three fixed replicas, a write waits for two acknowledgments and a read waits for two responses. The sets intersect, but concurrency and changing membership need further semantics.",
+    "nodes":[
+      {"x":34,"y":170,"w":165,"title":"Client","detail":"put(k,v)","tone":"input"},
+      {"x":270,"y":170,"w":172,"title":"Coordinator","detail":"W = 2 · R = 2","tone":"process"},
+      {"x":545,"y":68,"w":166,"title":"Replica A","detail":"acknowledges","tone":"store"},
+      {"x":545,"y":176,"w":166,"title":"Replica B","detail":"acknowledges","tone":"store"},
+      {"x":545,"y":284,"w":166,"title":"Replica C","detail":"may lag","tone":"warning"},
+      {"x":790,"y":176,"w":174,"title":"Return","detail":"after 2 acks","tone":"result"}
+    ],
+    "arrows":[[[199,211],[270,211]],[[442,211],[495,211],[495,109],[545,109]],[[442,211],[545,217]],[[442,211],[495,211],[495,325],[545,325]],[[711,109],[750,109],[750,217],[790,217]],[[711,217],[790,217]]],
+    "note":"W + R > N describes overlap only for the same stable replica set."
+  },
+  "kv-conflicts": {
+    "title":"One parent, two concurrent children",
+    "description":"Two writers read version v1. Their independent updates produce sibling versions v2a and v2b. Causal metadata detects the split; a domain merge creates v3.",
+    "nodes":[
+      {"x":32,"y":171,"w":175,"title":"v1","detail":"shared ancestor","tone":"input"},
+      {"x":302,"y":85,"w":174,"title":"v2a","detail":"device A edit","tone":"warning"},
+      {"x":302,"y":269,"w":174,"title":"v2b","detail":"device B edit","tone":"warning"},
+      {"x":580,"y":171,"w":172,"title":"Compare","detail":"concurrent siblings","tone":"process"},
+      {"x":806,"y":171,"w":160,"title":"v3","detail":"domain merge","tone":"result"}
+    ],
+    "arrows":[[[207,212],[251,212],[251,126],[302,126]],[[207,212],[251,212],[251,310],[302,310]],[[476,126],[532,126],[532,194],[580,194]],[[476,310],[532,310],[532,230],[580,230]],[[752,212],[806,212]]],
+    "note":"A timestamp winner could silently discard a valid edit."
+  },
+  "kv-failure": {
+    "title":"A substitute holds a temporary hint",
+    "description":"Membership observations suspect preferred replica B is unavailable. The coordinator sends a temporary copy to substitute C, which hands it back when B recovers.",
+    "nodes":[
+      {"x":32,"y":165,"w":165,"title":"Coordinator","detail":"preferred set","tone":"input"},
+      {"x":267,"y":83,"w":188,"title":"Replica A","detail":"reachable","tone":"store"},
+      {"x":267,"y":274,"w":188,"title":"Replica B","detail":"temporarily out","tone":"warning"},
+      {"x":561,"y":165,"w":185,"title":"Substitute C","detail":"holds hint for B","tone":"process"},
+      {"x":812,"y":165,"w":154,"title":"Recovery","detail":"handoff to B","tone":"result"}
+    ],
+    "arrows":[[[197,206],[227,206],[227,124],[267,124]],[[197,206],[561,206]],[[746,206],[812,206]],[[889,247],[889,352],[361,352],[361,356]]],
+    "note":"Hints help short outages; periodic repair handles longer divergence."
+  },
+  "kv-repair": {
+    "title":"Compare hashes, then repair one range",
+    "description":"Replica roots disagree. Matching left-side hashes are skipped while the differing right branch is inspected and its versioned keys repaired.",
+    "nodes":[
+      {"x":34,"y":170,"w":162,"title":"Replica A","detail":"range 00–99","tone":"store"},
+      {"x":263,"y":170,"w":169,"title":"Root hashes","detail":"different","tone":"warning"},
+      {"x":516,"y":82,"w":178,"title":"Left branch","detail":"same · skip","tone":"result"},
+      {"x":516,"y":268,"w":178,"title":"Right branch","detail":"differs","tone":"process"},
+      {"x":786,"y":170,"w":178,"title":"Repair keys","detail":"versions + deletes","tone":"result"}
+    ],
+    "arrows":[[[196,211],[263,211]],[[432,211],[475,211],[475,123],[516,123]],[[432,211],[475,211],[475,309],[516,309]],[[694,309],[746,309],[746,211],[786,211]]],
+    "note":"Retain deletion tombstones until stale replicas are safely repaired."
+  },
+  "kv-paths": {
+    "title":"One node's write and read paths",
+    "description":"A write is logged durably before acknowledgment, then held in memory and flushed to sorted tables. Reads consult memory and use Bloom filters to avoid impossible table lookups.",
+    "nodes":[
+      {"x":31,"y":85,"w":167,"title":"put(k,v)","detail":"write","tone":"input"},
+      {"x":260,"y":85,"w":177,"title":"Commit log","detail":"durability gate","tone":"store"},
+      {"x":503,"y":85,"w":176,"title":"Memtable","detail":"fast writes","tone":"process"},
+      {"x":753,"y":85,"w":207,"title":"SSTables","detail":"flush + compaction","tone":"store"},
+      {"x":31,"y":285,"w":167,"title":"get(k)","detail":"read","tone":"input"},
+      {"x":260,"y":285,"w":177,"title":"Memory","detail":"check first","tone":"process"},
+      {"x":503,"y":285,"w":176,"title":"Bloom filter","detail":"no / maybe","tone":"process"},
+      {"x":753,"y":285,"w":207,"title":"Disk lookup","detail":"if maybe","tone":"result"}
+    ],
+    "arrows":[[[198,126],[260,126]],[[437,126],[503,126]],[[679,126],[753,126]],[[198,326],[260,326]],[[437,326],[503,326]],[[679,326],[753,326]]],
+    "note":"A Bloom filter's “maybe” still needs a real lookup."
+  },
+  "kv-operations": {
+    "title":"Observe the failure promise",
+    "description":"A node or region failure exercises routing, replica acknowledgments, hint backlog, repair lag, and the actual read freshness experienced by clients.",
+    "nodes":[
+      {"x":33,"y":171,"w":170,"title":"Fault drill","detail":"node / site loss","tone":"input"},
+      {"x":265,"y":87,"w":179,"title":"Route","detail":"healthy owners","tone":"process"},
+      {"x":265,"y":271,"w":179,"title":"Quorum","detail":"success / errors","tone":"process"},
+      {"x":527,"y":87,"w":184,"title":"Hints","detail":"backlog age","tone":"warning"},
+      {"x":527,"y":271,"w":184,"title":"Repair","detail":"lag + progress","tone":"warning"},
+      {"x":793,"y":171,"w":173,"title":"Client truth","detail":"latency + freshness","tone":"result"}
+    ],
+    "arrows":[[[203,212],[232,212],[232,128],[265,128]],[[203,212],[232,212],[232,312],[265,312]],[[444,128],[527,128]],[[444,312],[527,312]],[[711,128],[750,128],[750,212],[793,212]],[[711,312],[750,312],[750,212]]],
+    "note":"A healthy latency chart cannot prove replica convergence."
+  }
+}
