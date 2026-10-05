@@ -8,10 +8,15 @@ import { notificationQuestions, notificationSteps } from "./notifications";
 import { rateLimiterQuestions, rateLimiterSteps } from "./rate-limiter";
 import { feedQuestions, feedSteps } from "./news-feed";
 import { autocompleteQuestions, autocompleteSteps } from "./autocomplete";
+import { keyValueQuestions, keyValueSteps } from "./key-value";
+import { hashingQuestions, hashingSteps } from "./consistent-hashing";
+import { uniqueIdQuestions, uniqueIdSteps } from "./unique-id";
+import { driveQuestions, driveSteps } from "./google-drive";
+import { crawlerQuestions, crawlerSteps } from "./web-crawler";
 import type { Question, Step } from "./chapter";
 
 export type Chapter = {
-  id: "framework" | "scaling" | "estimation" | "url" | "chat" | "youtube" | "notification" | "rate-limiter" | "news-feed" | "autocomplete";
+  id: "framework" | "scaling" | "estimation" | "url" | "chat" | "youtube" | "notification" | "rate-limiter" | "news-feed" | "autocomplete" | "key-value" | "consistent-hashing" | "unique-id" | "google-drive" | "web-crawler";
   number: string;
   title: string;
   lessonLabel: string;
@@ -132,5 +137,60 @@ export const chapters: Chapter[] = [
     storageKey: "systemkit:autocomplete:v1",
     steps: autocompleteSteps,
     questions: autocompleteQuestions,
+  },
+  {
+    id: "key-value",
+    number: "11",
+    title: "Key-Value Store",
+    lessonLabel: "DISTRIBUTED STORAGE STUDY",
+    diagramHeading: "The storage path",
+    diagramHint: "Trace placement, replication, consistency, and repair.",
+    storageKey: "systemkit:key-value:v1",
+    steps: keyValueSteps,
+    questions: keyValueQuestions,
+  },
+  {
+    id: "consistent-hashing",
+    number: "12",
+    title: "Consistent Hashing",
+    lessonLabel: "DATA PLACEMENT STUDY",
+    diagramHeading: "The placement map",
+    diagramHint: "See how keys move as membership changes.",
+    storageKey: "systemkit:consistent-hashing:v1",
+    steps: hashingSteps,
+    questions: hashingQuestions,
+  },
+  {
+    id: "unique-id",
+    number: "13",
+    title: "Unique ID Generator",
+    lessonLabel: "DISTRIBUTED IDENTITY STUDY",
+    diagramHeading: "The ID path",
+    diagramHint: "Follow the bit budget and failure rules behind unique IDs.",
+    storageKey: "systemkit:unique-id:v1",
+    steps: uniqueIdSteps,
+    questions: uniqueIdQuestions,
+  },
+  {
+    id: "google-drive",
+    number: "14",
+    title: "Google Drive",
+    lessonLabel: "FILE SYNC DESIGN STUDY",
+    diagramHeading: "The file path",
+    diagramHint: "Trace upload, metadata, sync, sharing, and recovery.",
+    storageKey: "systemkit:google-drive:v1",
+    steps: driveSteps,
+    questions: driveQuestions,
+  },
+  {
+    id: "web-crawler",
+    number: "15",
+    title: "Web Crawler",
+    lessonLabel: "WEB DISCOVERY DESIGN STUDY",
+    diagramHeading: "The crawl path",
+    diagramHint: "Follow a URL from scheduling through fetching and discovery.",
+    storageKey: "systemkit:web-crawler:v1",
+    steps: crawlerSteps,
+    questions: crawlerQuestions,
   },
 ];

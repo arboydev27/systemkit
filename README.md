@@ -1,6 +1,6 @@
 # SystemKit
 
-SystemKit is an interactive reference for learning system design one decision at a time. Its ten-chapter path begins with a reusable framework and a growing service, then moves through estimation, URL shortening, chat, video delivery, notifications, rate limiting, news feeds, and search autocomplete.
+SystemKit is an interactive reference for learning system design one decision at a time. Its fifteen-chapter path begins with a reusable framework and a growing service, then moves through estimation, familiar products, distributed storage, data placement, unique IDs, file sync, and web discovery.
 
 ## Run locally
 
@@ -31,9 +31,11 @@ The lessons, questions, and diagrams are original teaching material informed by 
 
 - *System Design - The Framework.pdf*: chapter 3, “A Framework for System Design Interviews,” pages 1–9 of the supplied excerpt. SystemKit presents the method as general engineering practice under the title “System Design Framework.”
 - *System Design - Scale to Million Users.pdf*: the scaling chapter, presented as Chapter 02 in SystemKit.
-- *System Design Interview.pdf*: chapter 2 on estimation, chapter 4 on rate limiting, chapter 8 on URL shortening, chapter 10 on notifications, chapter 11 on news feeds, chapter 12 on chat, and chapter 13 on search autocomplete, presented as Chapters 03–05 and 07–10 in SystemKit.
+- *System Design Interview.pdf*: chapters 2, 4–13, and 15 inform the estimation, rate limiting, distributed storage, consistent hashing, unique ID, URL shortening, web crawling, notification, news feed, chat, search autocomplete, and Google Drive lessons. SystemKit presents them in a learning order rather than the book order.
 - *System Design - Design Youtube.pdf*: the video platform chapter, presented as Chapter 06 in SystemKit.
 - *System Design Cheat Sheet.pdf*: a background reference.
+
+Additional primary references for the new chapters: [Amazon's Dynamo paper](https://www.amazon.science/publications/dynamo-amazons-highly-available-key-value-store) for distributed key-value tradeoffs, [Google Drive's change-log guide](https://developers.google.com/workspace/drive/api/guides/about-changes) for sync cursors, and [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) for robots.txt behavior.
 
 SystemKit does not bundle or reproduce those PDFs. Its diagrams express the concepts in a new layout; they are not traced from the book.
 

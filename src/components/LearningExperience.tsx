@@ -25,6 +25,10 @@ import { NotificationDiagram } from "./NotificationDiagram";
 import { RateLimiterDiagram } from "./RateLimiterDiagram";
 import { NewsFeedDiagram } from "./NewsFeedDiagram";
 import { AutocompleteDiagram } from "./AutocompleteDiagram";
+import { KeyValueDiagram } from "./KeyValueDiagram";
+import { FoundationDiagram } from "./FoundationDiagram";
+import { GoogleDriveDiagram } from "./GoogleDriveDiagram";
+import { WebCrawlerDiagram } from "./WebCrawlerDiagram";
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
@@ -36,6 +40,10 @@ const DeliveryDiagram = memo(NotificationDiagram);
 const TrafficDiagram = memo(RateLimiterDiagram);
 const FeedDiagram = memo(NewsFeedDiagram);
 const SearchDiagram = memo(AutocompleteDiagram);
+const StoreDiagram = memo(KeyValueDiagram);
+const PlacementDiagram = memo(FoundationDiagram);
+const FileDiagram = memo(GoogleDriveDiagram);
+const CrawlDiagram = memo(WebCrawlerDiagram);
 
 const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 
@@ -104,6 +112,10 @@ export function LearningExperience() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const firstOptionRef = useRef<HTMLButtonElement>(null);
+  const chapterNavigationRef = useRef<HTMLElement>(null);
+  const activeChapterLinkRef = useRef<HTMLButtonElement>(null);
+  const stepNavigationRef = useRef<HTMLElement>(null);
+  const activeStepLinkRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let initialChapter = chapters[0];
@@ -130,6 +142,26 @@ export function LearningExperience() {
       // The lesson stays usable in browsers that block local storage.
     }
   }, [progress, activeStepId, ready, chapter]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const navigation = chapterNavigationRef.current;
+    const activeLink = activeChapterLinkRef.current;
+    if (!navigation || !activeLink) return;
+    const list = navigation.getBoundingClientRect();
+    const active = activeLink.getBoundingClientRect();
+    navigation.scrollTop += active.top - list.top - (list.height - active.height) / 2;
+  }, [chapter.id, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const navigation = stepNavigationRef.current;
+    const activeLink = activeStepLinkRef.current;
+    if (!navigation || !activeLink) return;
+    const list = navigation.getBoundingClientRect();
+    const active = activeLink.getBoundingClientRect();
+    navigation.scrollTop += active.top - list.top - (list.height - active.height) / 2;
+  }, [activeStepId, chapter.id, ready]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -274,10 +306,10 @@ export function LearningExperience() {
             <p>A guided path from first principles to familiar systems.</p>
           </div>
 
-          <nav className="chapter-navigation" aria-label="Chapters">
+          <nav ref={chapterNavigationRef} className="chapter-navigation" aria-label="Chapters">
             <span className="nav-overline">CHAPTERS</span>
             {chapters.map((item) => (
-              <button key={item.id} type="button" className={`chapter-link ${item.id === chapter.id ? "is-active" : ""}`}
+              <button key={item.id} ref={item.id === chapter.id ? activeChapterLinkRef : undefined} type="button" className={`chapter-link ${item.id === chapter.id ? "is-active" : ""}`}
                 aria-current={item.id === chapter.id ? "page" : undefined} onClick={() => selectChapter(item.id)}>
                 <span className="chapter-link-number">{item.number}</span><span>{item.title}</span>
               </button>
@@ -289,7 +321,7 @@ export function LearningExperience() {
             <div className="progress-track"><span style={{ width: `${completionPercentage}%` }} /></div>
           </div>
 
-          <nav className="step-navigation" aria-label="Lessons">
+          <nav ref={stepNavigationRef} className="step-navigation" aria-label="Lessons">
             <span className="nav-overline">{chapter.lessonLabel}</span>
             <ol>
               {steps.map((item, index) => {
@@ -299,6 +331,7 @@ export function LearningExperience() {
                   <li key={item.id}>
                     <button
                       type="button"
+                      ref={active ? activeStepLinkRef : undefined}
                       className={`step-link ${active ? "is-active" : ""}`}
                       aria-current={active ? "step" : undefined}
                       onClick={() => selectStep(item.id)}
@@ -350,6 +383,11 @@ export function LearningExperience() {
                 chapter.id === "rate-limiter" ? <TrafficDiagram id={step.diagramId} /> :
                 chapter.id === "news-feed" ? <FeedDiagram id={step.diagramId} /> :
                 chapter.id === "autocomplete" ? <SearchDiagram id={step.diagramId} /> :
+                chapter.id === "key-value" ? <StoreDiagram id={step.diagramId} /> :
+                chapter.id === "consistent-hashing" ? <PlacementDiagram id={step.diagramId} /> :
+                chapter.id === "unique-id" ? <PlacementDiagram id={step.diagramId} /> :
+                chapter.id === "google-drive" ? <FileDiagram id={step.diagramId} /> :
+                chapter.id === "web-crawler" ? <CrawlDiagram id={step.diagramId} /> :
                 <LessonDiagram id={step.diagramId} />}
             </div>
             <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>

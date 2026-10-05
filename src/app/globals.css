@@ -61,26 +61,27 @@ button svg { flex: none; }
 .icon-button:hover { background: var(--surface-soft); }
 .menu-button { display: none; }
 
-.sidebar { position: fixed; top: 64px; bottom: 0; left: 0; z-index: 20; width: 278px; background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; }
-.sidebar-inner { min-height: 100%; display: flex; flex-direction: column; padding: 31px 15px 19px; }
+.sidebar { position: fixed; top: 64px; bottom: 0; left: 0; z-index: 20; width: 278px; background: var(--surface); border-right: 1px solid var(--line); overflow: hidden; }
+.sidebar-inner { height: 100%; min-height: 0; display: flex; flex-direction: column; padding: 24px 15px 13px; }
 .sidebar-head { padding: 0 14px; }
 .section-label, .nav-overline, .chapter-card-label, .section-kicker { color: var(--muted); font-size: 10px; line-height: 1.4; letter-spacing: .12em; font-weight: 800; }
 .sidebar-title { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-size: 14px; font-weight: 750; letter-spacing: -.02em; }
 .sidebar-title svg { color: var(--accent); }
 .sidebar-head p { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
-.chapter-navigation { display: grid; gap: 4px; margin-top: 28px; }
+.chapter-navigation { display: grid; align-content: start; flex: 0 1 auto; gap: 4px; min-height: 108px; max-height: 27vh; margin-top: 19px; padding-bottom: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; border-bottom: 1px solid var(--line); }
+.chapter-navigation .nav-overline, .step-navigation .nav-overline { position: sticky; top: 0; z-index: 1; background: var(--surface); }
 .chapter-navigation .nav-overline { padding-bottom: 8px; }
 .chapter-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--ink-soft); text-align: left; font-size: 12px; font-weight: 620; line-height: 1.35; }
 .chapter-link:hover { background: var(--surface-soft); color: var(--ink); }
 .chapter-link.is-active { border-color: var(--accent-line); background: var(--accent-tint); color: var(--accent); font-weight: 750; }
 .chapter-link-number { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .chapter-link.is-active .chapter-link-number { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.progress-block { margin: 26px 14px 31px; }
+.progress-block { flex: none; margin: 17px 14px 20px; }
 .progress-label { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .progress-label strong { color: var(--ink); font-size: 12px; }
 .progress-track { height: 5px; margin-top: 11px; overflow: hidden; background: var(--line); border-radius: 50px; }
 .progress-track > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .25s ease; }
-.step-navigation { flex: 1; }
+.step-navigation { flex: 1; min-height: 0; padding-bottom: 2px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .nav-overline { display: block; padding: 0 14px 10px; }
 .step-navigation ol { list-style: none; margin: 0; padding: 0; }
 .step-navigation li + li { margin-top: 3px; }
@@ -89,7 +90,7 @@ button svg { flex: none; }
 .step-link.is-active { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); font-weight: 720; }
 .step-index { display: grid; place-items: center; flex: none; width: 23px; height: 23px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--muted); background: var(--surface); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .is-active .step-index { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-.sidebar-foot { display: flex; align-items: center; gap: 7px; margin: 28px 12px 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.sidebar-foot { display: flex; flex: none; align-items: center; gap: 7px; margin: 12px 12px 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .sidebar-foot-icon { display: grid; place-items: center; color: var(--muted); }
 
 .main-content { margin-left: 278px; padding-top: 64px; }
