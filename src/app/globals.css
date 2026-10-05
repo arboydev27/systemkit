@@ -85,11 +85,12 @@ button svg { flex: none; }
 .nav-overline { display: block; padding: 0 14px 10px; }
 .chapter-lessons { list-style: none; margin: 0; padding: 0; }
 .chapter-lessons li + li { margin-top: 2px; }
-.step-link { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 8px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink-soft); text-align: left; font-size: 12px; font-weight: 560; line-height: 1.35; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.step-link { position: relative; display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px; padding: 8px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-soft); text-align: left; font-size: 12px; font-weight: 560; line-height: 1.35; transition: background .15s ease, color .15s ease; }
 .step-link:hover { background: var(--surface-soft); color: var(--ink); }
-.step-link.is-active { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); font-weight: 720; }
-.step-index { display: grid; place-items: center; flex: none; width: 23px; height: 23px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--muted); background: var(--surface); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.is-active .step-index { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.step-link.is-active { color: var(--accent); font-weight: 720; }
+.step-link.is-active::before { position: absolute; top: 5px; bottom: 5px; left: -12px; width: 2px; border-radius: 2px; background: var(--accent); content: ""; }
+.step-link-title { flex: 1; min-width: 0; }
+.step-complete-icon { flex: none; color: var(--success); }
 .sidebar-foot { display: flex; flex: none; align-items: center; gap: 7px; margin: 18px 12px 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .sidebar-foot-icon { display: grid; place-items: center; color: var(--muted); }
 
@@ -278,7 +279,8 @@ h1 { margin: 14px 0 16px; font-size: clamp(2.3rem, 4.4vw, 3.9rem); line-height: 
 
 @media (prefers-contrast: more) {
   :root { --line: var(--line-strong); --accent-line: var(--control-border); }
-  .step-link.is-active, .scenario-card, .option.is-correct, .option.is-incorrect { border-width: 2px; }
+  .step-link.is-active::before { width: 3px; }
+  .scenario-card, .option.is-correct, .option.is-incorrect { border-width: 2px; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

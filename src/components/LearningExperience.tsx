@@ -319,7 +319,7 @@ export function LearningExperience() {
                         <span>{chapter.lessonLabel}</span><span>{completedCount} / {steps.length}</span>
                       </div>
                       <ol id={`chapter-lessons-${item.id}`} className="chapter-lessons">
-                        {steps.map((lesson, index) => {
+                        {steps.map((lesson) => {
                           const active = lesson.id === step.id;
                           const complete = progress.completed.includes(lesson.id);
                           return (
@@ -327,9 +327,10 @@ export function LearningExperience() {
                               <button type="button" ref={active ? activeStepLinkRef : undefined}
                                 className={`step-link ${active ? "is-active" : ""}`}
                                 aria-current={active ? "step" : undefined}
+                                aria-label={`${lesson.title}${complete ? ", completed" : ""}`}
                                 onClick={() => selectStep(lesson.id)}>
-                                <span className="step-index" aria-hidden="true">{complete ? <Check size={14} strokeWidth={2.5} /> : padded(index)}</span>
                                 <span className="step-link-title">{lesson.title}</span>
+                                {complete ? <Check className="step-complete-icon" size={15} strokeWidth={2.5} aria-hidden="true" /> : null}
                               </button>
                             </li>
                           );
