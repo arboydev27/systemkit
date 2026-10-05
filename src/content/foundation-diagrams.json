@@ -1,0 +1,374 @@
+{
+  "hash-scope": {
+    "kind": "flow",
+    "title": "Placement is only the first decision",
+    "description": "A stable key maps to one owner; measurements reveal whether the chosen placement is actually balanced.",
+    "note": "Key count alone does not measure work.",
+    "items": [
+      {
+        "title": "Key",
+        "detail": "stable identity"
+      },
+      {
+        "title": "Hash position",
+        "detail": "deterministic mapping"
+      },
+      {
+        "title": "Owner",
+        "detail": "node or partition"
+      },
+      {
+        "title": "Observe",
+        "detail": "bytes + request heat"
+      }
+    ]
+  },
+  "hash-modulo": {
+    "kind": "flow",
+    "title": "A changing divisor remaps many keys",
+    "description": "With modulo placement, reducing the server pool changes the computed remainder for keys on healthy servers too.",
+    "note": "Many cache misses can hit the backing database at once.",
+    "items": [
+      {
+        "title": "Four nodes",
+        "detail": "hash(key) mod 4"
+      },
+      {
+        "title": "One fails",
+        "detail": "pool becomes 3"
+      },
+      {
+        "title": "Recompute",
+        "detail": "hash(key) mod 3"
+      },
+      {
+        "title": "Many misses",
+        "detail": "refill from origin"
+      }
+    ]
+  },
+  "hash-ring": {
+    "kind": "ring",
+    "title": "Clockwise successor owns the key",
+    "description": "Keys and node tokens share a fixed hash space; each key belongs to the first node clockwise.",
+    "note": "The ring wraps after its highest token.",
+    "items": [
+      {
+        "title": "N1",
+        "detail": "node"
+      },
+      {
+        "title": "K1",
+        "detail": "key"
+      },
+      {
+        "title": "N2",
+        "detail": "node"
+      },
+      {
+        "title": "K2",
+        "detail": "key"
+      },
+      {
+        "title": "N3",
+        "detail": "node"
+      },
+      {
+        "title": "K3",
+        "detail": "key"
+      },
+      {
+        "title": "N4",
+        "detail": "node"
+      },
+      {
+        "title": "K4",
+        "detail": "key"
+      }
+    ]
+  },
+  "hash-membership": {
+    "kind": "ring",
+    "title": "A new token takes one interval",
+    "description": "Joining between predecessor P and successor S transfers only the keys in (P, new node].",
+    "note": "Copy data and catch up writes before durable ownership cuts over.",
+    "items": [
+      {
+        "title": "P",
+        "detail": "node"
+      },
+      {
+        "title": "old range",
+        "detail": "key"
+      },
+      {
+        "title": "NEW",
+        "detail": "new"
+      },
+      {
+        "title": "S",
+        "detail": "node"
+      },
+      {
+        "title": "K",
+        "detail": "key"
+      },
+      {
+        "title": "N3",
+        "detail": "node"
+      }
+    ]
+  },
+  "hash-vnodes": {
+    "kind": "ring",
+    "title": "Many tokens represent few machines",
+    "description": "Each physical node owns several separated intervals, smoothing random range imbalance.",
+    "note": "More tokens cost more routing and repair metadata.",
+    "items": [
+      {
+        "title": "A1",
+        "detail": "node"
+      },
+      {
+        "title": "B1",
+        "detail": "node"
+      },
+      {
+        "title": "A2",
+        "detail": "node"
+      },
+      {
+        "title": "B2",
+        "detail": "node"
+      },
+      {
+        "title": "A3",
+        "detail": "node"
+      },
+      {
+        "title": "B3",
+        "detail": "node"
+      }
+    ]
+  },
+  "hash-replicas": {
+    "kind": "flow",
+    "title": "Ownership and copies are separate",
+    "description": "The primary position selects an owner; replica policy places copies on distinct physical failure domains.",
+    "note": "One read-hot key needs caching or read replicas, not more tokens.",
+    "items": [
+      {
+        "title": "Key",
+        "detail": "hash position"
+      },
+      {
+        "title": "Primary",
+        "detail": "first successor"
+      },
+      {
+        "title": "Replica A",
+        "detail": "distinct host"
+      },
+      {
+        "title": "Replica B",
+        "detail": "distinct domain"
+      }
+    ]
+  },
+  "hash-operate": {
+    "kind": "flow",
+    "title": "Move a range with a versioned cutover",
+    "description": "A safe join copies data, catches up concurrent writes, switches the routing version, and verifies results.",
+    "note": "Track transfer lag and routing-map mismatches.",
+    "items": [
+      {
+        "title": "Version map",
+        "detail": "planned owners"
+      },
+      {
+        "title": "Copy",
+        "detail": "affected ranges"
+      },
+      {
+        "title": "Cut over",
+        "detail": "publish routing"
+      },
+      {
+        "title": "Verify",
+        "detail": "lag + skew"
+      }
+    ]
+  },
+  "id-contract": {
+    "kind": "flow",
+    "title": "Specify the identifier promise",
+    "description": "Uniqueness, size, sort order, and availability are separate requirements.",
+    "note": "An ID is neither authorization nor an exact clock.",
+    "items": [
+      {
+        "title": "Unique",
+        "detail": "namespace + lifetime"
+      },
+      {
+        "title": "Numeric",
+        "detail": "64-bit signed"
+      },
+      {
+        "title": "Time order",
+        "detail": "approximate"
+      },
+      {
+        "title": "Available",
+        "detail": "many workers"
+      }
+    ]
+  },
+  "id-options": {
+    "kind": "comparison",
+    "title": "Four allocation strategies",
+    "description": "A central sequence, leased ranges, UUIDs, and a time-based layout fit different contracts.",
+    "note": "Use the simplest approach that meets the stated requirements.",
+    "items": [
+      {
+        "title": "Sequence",
+        "detail": "simple; central"
+      },
+      {
+        "title": "Ranges",
+        "detail": "fewer allocator calls"
+      },
+      {
+        "title": "UUID",
+        "detail": "independent; 128-bit"
+      },
+      {
+        "title": "Time-based",
+        "detail": "compact; clock care"
+      }
+    ]
+  },
+  "id-layout": {
+    "kind": "bits",
+    "title": "Budget a 64-bit identifier",
+    "description": "One reserved bit, 41 time bits, 5 data-center bits, 5 machine bits, and 12 sequence bits.",
+    "note": "The timestamp horizon is about 69.7 years from the custom epoch.",
+    "items": [
+      {
+        "title": "sign",
+        "detail": "1 bit"
+      },
+      {
+        "title": "timestamp",
+        "detail": "41 bits"
+      },
+      {
+        "title": "data center",
+        "detail": "5 bits"
+      },
+      {
+        "title": "machine",
+        "detail": "5 bits"
+      },
+      {
+        "title": "sequence",
+        "detail": "12 bits"
+      }
+    ]
+  },
+  "id-generate": {
+    "kind": "flow",
+    "title": "Reserve one sequence slot per call",
+    "description": "Within one millisecond, the worker increments a thread-safe sequence; once full, it waits for time to advance.",
+    "note": "Never wrap a 12-bit sequence in the same millisecond.",
+    "items": [
+      {
+        "title": "Read clock",
+        "detail": "millisecond T"
+      },
+      {
+        "title": "Reserve",
+        "detail": "next sequence"
+      },
+      {
+        "title": "Compose",
+        "detail": "time + worker + seq"
+      },
+      {
+        "title": "Exhausted?",
+        "detail": "wait or backpressure"
+      }
+    ]
+  },
+  "id-clock": {
+    "kind": "timeline",
+    "title": "A backward clock needs a safe stop",
+    "description": "The current timestamp must not move behind the worker\u2019s last issued timestamp under the same identity.",
+    "note": "Across regions, time-based IDs are only approximately ordered.",
+    "items": [
+      {
+        "title": "T = 105",
+        "detail": "last issued"
+      },
+      {
+        "title": "T = 104",
+        "detail": "clock rollback"
+      },
+      {
+        "title": "Pause",
+        "detail": "no new ID"
+      },
+      {
+        "title": "Recover",
+        "detail": "resume safely"
+      }
+    ]
+  },
+  "id-workers": {
+    "kind": "flow",
+    "title": "Lease each live worker identity",
+    "description": "A registry assigns unique worker fields and fences old holders before reuse.",
+    "note": "Two live holders of one worker ID can collide.",
+    "items": [
+      {
+        "title": "Registry",
+        "detail": "lease identity"
+      },
+      {
+        "title": "Worker A",
+        "detail": "holder 17"
+      },
+      {
+        "title": "Fence",
+        "detail": "expired holder"
+      },
+      {
+        "title": "Worker B",
+        "detail": "new holder 17"
+      }
+    ]
+  },
+  "id-operate": {
+    "kind": "flow",
+    "title": "Verify the invariants end to end",
+    "description": "Monitor generator safety and preserve all 64 bits through storage, APIs, and browsers.",
+    "note": "A no-collision sample is not a proof under failure.",
+    "items": [
+      {
+        "title": "Generate",
+        "detail": "safe state machine"
+      },
+      {
+        "title": "Persist",
+        "detail": "signed 64-bit"
+      },
+      {
+        "title": "Serialize",
+        "detail": "string to browser"
+      },
+      {
+        "title": "Observe",
+        "detail": "clock + lease alerts"
+      }
+    ]
+  }
+}

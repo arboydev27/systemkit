@@ -1,0 +1,112 @@
+import type { Question, Step } from './chapter';
+
+export const hashingSteps: Step[] = [
+  {
+    id: 'hash-scope', title: 'Know what the mapping must preserve', eyebrow: '01 · Placement contract',
+    summary: 'A partition function assigns each key to an owner and determines how much data moves when capacity changes.',
+    body: [
+      'A distributed cache or key-value store needs a repeatable way to find the node that owns a key. Start with the desired properties: balanced load, predictable lookup, little movement as nodes join or leave, and a membership view clients can agree on. The keys may represent cached objects, durable partitions, or routing entries; each has a different cost of remapping.',
+      'Hashing makes a key position look uniform, but uniform key counts do not imply uniform work. A single popular key or a few large values can dominate one node. Measure bytes and request rate as well as key count. The placement method is only one part of scaling; it does not copy data, detect failure, or guarantee availability by itself.',
+    ],
+    takeaways: ['State the remapping and balance goals before choosing a hash scheme.', 'Key count, bytes, and request heat are different balancing targets.'],
+    diagramId: 'hash-scope',
+    scenario: 'A cluster has equally many keys per node, yet one node uses twice the CPU. What does this tell you?',
+    scenarioAnswer: 'Placement may be balanced by key count while traffic is skewed. Inspect hot keys, value sizes, and operation costs before adding hash positions.',
+  },
+  {
+    id: 'hash-modulo', title: 'See why modulo causes churn', eyebrow: '02 · The baseline',
+    summary: 'Changing the server count changes the divisor for every key.',
+    body: [
+      'The simple rule hash(key) mod N works when a fixed set of N servers is expected. Every client can compute the same index cheaply. But changing N changes the remainder for many keys, including keys whose previous server is still healthy. In a cache, that causes widespread misses and a sudden load increase on the backing store. In durable storage, it calls for a large migration.',
+      'The effect is not that every key always moves; it is that movement is broadly distributed rather than limited to the range assigned to the added or removed node. A placement scheme should let membership change without reassigning most unaffected keys.',
+    ],
+    takeaways: ['Modulo is simple for a fixed membership set.', 'Membership changes can remap many unaffected keys.'],
+    diagramId: 'hash-modulo',
+    scenario: 'A four-node cache loses one node, then the service switches from hash(key) mod 4 to mod 3. Why does the database spike?',
+    scenarioAnswer: 'Many keys now map to different healthy cache nodes and miss, not only those on the failed node. The database receives the refill traffic.',
+  },
+  {
+    id: 'hash-ring', title: 'Place keys and nodes on a ring', eyebrow: '03 · Core algorithm',
+    summary: 'Each key belongs to the first node encountered clockwise from its hash position.',
+    body: [
+      'Map both keys and node tokens into one fixed hash space. Imagine its endpoints joined into a ring. For a key, move clockwise to the first node token; the physical node behind that token owns the key. After the last token, lookup wraps to the first. A sorted token map can find the successor efficiently without scanning every node.',
+      'Every participant must use the same hash function and membership version or it may route the same key to different owners. Hash collisions and exact-boundary ties need deterministic rules. The ring describes logical ownership; the application still needs a protocol for reaching the owner and handling reads during transitions.',
+    ],
+    takeaways: ['Successor lookup assigns one primary owner on a fixed hash space.', 'Membership agreement is required for consistent routing.'],
+    diagramId: 'hash-ring',
+    scenario: 'A key hashes just after the highest node token. Who owns it?',
+    scenarioAnswer: 'Lookup wraps around the ring, so the node at the lowest token is the clockwise successor.',
+  },
+  {
+    id: 'hash-membership', title: 'Move only affected ranges', eyebrow: '04 · Add and remove',
+    summary: 'A new token takes the interval immediately before it; its successor otherwise keeps its keys.',
+    body: [
+      'When a node token joins between predecessor P and successor S, it becomes owner of keys in the interval (P, new token]. Those keys move from S. Other intervals keep their owner. When a token leaves, its former interval moves to its successor. With evenly spread tokens, expected movement for one equally sized new node is roughly 1/(N+1) of keys, although real layouts vary.',
+      'Do not flip routing before the new owner has the data if the store is durable. Use a controlled transition: publish a membership version, copy the affected range, catch up concurrent writes, then switch ownership and verify. A cache may tolerate misses and refill instead. Node failure also requires replicas or fallback; hashing alone merely points to a new location.',
+    ],
+    takeaways: ['Join and leave affect local ring intervals rather than the entire keyspace.', 'Ownership transfer needs a data migration and cutover protocol.'],
+    diagramId: 'hash-membership',
+    scenario: 'A new durable-store node is announced before its range has been copied. What can go wrong?',
+    scenarioAnswer: 'Clients may read the new owner and see missing data. Transfer the range and concurrent changes before cutover, or maintain an explicit fallback during the transition.',
+  },
+  {
+    id: 'hash-vnodes', title: 'Use multiple tokens per physical node', eyebrow: '05 · Virtual nodes',
+    summary: 'Virtual nodes reduce uneven range sizes and can reflect unequal hardware capacity.',
+    body: [
+      'With only one random token per machine, some machines receive large arcs and others tiny arcs. Assign multiple token positions to each physical machine. Its intervals are spread around the ring, so variation usually falls as token count grows. A stronger machine can own more tokens or weighted ranges, but that choice should be based on measured capacity and actual load.',
+      'Virtual nodes make addition and removal involve many small intervals instead of one large block. That can smooth transfers across donors, but a very large token count increases routing metadata, membership updates, and repair bookkeeping. A token is a placement alias, not an extra replica or machine.',
+    ],
+    takeaways: ['Multiple tokens smooth random partition imbalance.', 'Virtual nodes increase metadata and do not create physical redundancy.'],
+    diagramId: 'hash-vnodes',
+    scenario: 'Two machines have identical capacity, but one owns a much larger ring interval. What change helps?',
+    scenarioAnswer: 'Give each machine multiple well-distributed virtual tokens, then measure bytes and request load. More tokens reduce placement variance, although hot keys still need separate handling.',
+  },
+  {
+    id: 'hash-replicas', title: 'Separate ownership from redundancy', eyebrow: '06 · Replication and hot keys',
+    summary: 'The primary mapping picks an owner; a replica policy decides where copies live.',
+    body: [
+      'For a replicated store, choose distinct physical nodes after the primary token, often with failure-domain rules so copies do not share one rack or region. Merely selecting the next few virtual tokens can accidentally place multiple copies on the same physical host. Reads, writes, and repair then depend on the consistency policy of the storage system, not on hashing alone.',
+      'A single key that receives extreme traffic still maps to one primary range. Virtual nodes spread many keys, but cannot split that key’s load. Cache or replicate hot read data, shard an aggregate write key, or redesign the data model. Keep hot-key mitigation separate from general partition balance.',
+    ],
+    takeaways: ['Replica placement must select distinct physical failure domains.', 'Virtual nodes do not solve a single hot key.'],
+    diagramId: 'hash-replicas',
+    scenario: 'A celebrity profile key saturates its owner despite hundreds of virtual nodes. What would you try?',
+    scenarioAnswer: 'Replicate or cache reads for that key, or split the data and writes if possible. Adding virtual tokens alone leaves the individual key assigned to one primary owner.',
+  },
+  {
+    id: 'hash-operate', title: 'Keep routing trustworthy during change', eyebrow: '07 · Operations',
+    summary: 'Version the ring, measure skew, and rehearse data movement before a failure forces it.',
+    body: [
+      'Track token ownership, key and byte distribution, per-node request rate, hot partitions, migration progress, and routing-version mismatch. If clients disagree about membership, the same key can be written to different owners. A versioned routing map and an explicit transition protocol make rollout observable. During a node failure, do not assume a reassignment has copied durable data; use replicas and repair.',
+      'Test joins, removals, and interrupted transfers with realistic skew. Bound migration bandwidth so background copying does not starve foreground requests. Check that replacement nodes have enough disk and that replicas span the intended failure domains. Consistent hashing is useful when membership changes frequently enough that minimizing remaps matters; a simple fixed partition map may be easier when partitions are stable and centrally managed.',
+    ],
+    takeaways: ['Observe routing versions, skew, and migration lag.', 'Choose a ring when its movement benefit outweighs its operational cost.'],
+    diagramId: 'hash-operate',
+    scenario: 'Two app servers disagree about the current token map during a node join. What is the immediate risk?',
+    scenarioAnswer: 'They may route reads and writes for the same key to different owners. Pause or coordinate cutover through a versioned map, with forwarding or dual-read behavior defined for the transition.',
+  },
+];
+
+export const hashingQuestions: Question[] = [
+  {id:'hq01',stepId:'hash-scope',difficulty:'Recall',prompt:'What does a placement function decide?',options:['The owner for each key','The HTTP response type','Whether a user has consented','The size of every value'],correctIndex:0,explanation:'The function maps a key to an owner. Other mechanisms provide replication, failure handling, and access policy.'},
+  {id:'hq02',stepId:'hash-scope',difficulty:'Diagnose',prompt:'Key counts are equal but one node has high CPU. Which missing measurement matters?',options:['Font size','Request heat and operation cost per key','Chapter number','DNS record length'],correctIndex:1,explanation:'Uniform key count does not mean uniform request or compute load.'},
+  {id:'hq03',stepId:'hash-scope',difficulty:'Apply',prompt:'Which workload is most sensitive to key remapping?',options:['A diagram with no stored state','A durable partition that needs data transfer','A static paragraph','A local clock display'],correctIndex:1,explanation:'Moving a durable partition requires copying state and coordinating live reads and writes.'},
+  {id:'hq04',stepId:'hash-modulo',difficulty:'Recall',prompt:'What changes in hash(key) mod N when a server joins?',options:['Only the key text','The divisor for every key','Only one client header','The hash function output itself'],correctIndex:1,explanation:'N changes, so the remainder can change for many keys even if their prior owner remains healthy.'},
+  {id:'hq05',stepId:'hash-modulo',difficulty:'Diagnose',prompt:'After a cache server fails, database reads surge across many keys. Why?',options:['Modulo remapped keys to other empty caches','All user keys expired simultaneously by definition','The network changed each key string','The CDN removed images'],correctIndex:0,explanation:'Changing N causes widespread remapping and cache misses.'},
+  {id:'hq06',stepId:'hash-modulo',difficulty:'Apply',prompt:'When is simple modulo placement most reasonable?',options:['When the server set is stable and remapping cost is low','When every request needs global ordering','When servers change every minute and migration is costly','When a hot key must be split'],correctIndex:0,explanation:'Its simplicity is useful when membership is fixed or reshuffling is acceptable.'},
+  {id:'hq07',stepId:'hash-ring',difficulty:'Recall',prompt:'How is a key owner found on a consistent-hash ring?',options:['Choose the nearest node counterclockwise','Choose the first node token clockwise','Choose a random replica','Divide by the number of nodes'],correctIndex:1,explanation:'The clockwise successor owns the interval ending at its token.'},
+  {id:'hq08',stepId:'hash-ring',difficulty:'Apply',prompt:'A key hashes beyond the highest token. What happens?',options:['It has no owner','It wraps to the lowest token','It is sent to every node','It changes its hash'],correctIndex:1,explanation:'The hash space is treated as a ring, so successor lookup wraps around.'},
+  {id:'hq09',stepId:'hash-ring',difficulty:'Diagnose',prompt:'Two clients route one key to different owners. What should you check first?',options:['Their screen size','Their membership version and hash rules','Their CSS cache','Their browser theme'],correctIndex:1,explanation:'A ring must be interpreted with the same membership map and deterministic hash behavior.'},
+  {id:'hq10',stepId:'hash-membership',difficulty:'Recall',prompt:'On joining between P and S, which keys move to the new token?',options:['All keys on the ring','The interval (P, new token]','Only keys after S','A random half of every node'],correctIndex:1,explanation:'The new token takes the range immediately before it from its clockwise successor.'},
+  {id:'hq11',stepId:'hash-membership',difficulty:'Diagnose',prompt:'A durable node begins receiving reads before its new range is copied. What can users observe?',options:['Guaranteed faster reads','Missing or stale data','A longer URL only','Automatic duplicate elimination'],correctIndex:1,explanation:'Routing cutover before transfer completion can expose an incomplete owner.'},
+  {id:'hq12',stepId:'hash-membership',difficulty:'Apply',prompt:'For N equal nodes, about what share moves to one new node under an even ring?',options:['All keys','None','Roughly 1/(N+1)','Exactly 50%'],correctIndex:2,explanation:'The new node should take about one of N+1 equal shares; random layouts vary.'},
+  {id:'hq13',stepId:'hash-vnodes',difficulty:'Recall',prompt:'What is a virtual node?',options:['An extra physical server','A token position that refers to a physical node','A replica of every value','A client-side cache entry'],correctIndex:1,explanation:'One physical node can own many token positions and intervals.'},
+  {id:'hq14',stepId:'hash-vnodes',difficulty:'Apply',prompt:'Why assign more tokens to a stronger physical machine?',options:['To give it a greater share of ranges if capacity supports it','To guarantee zero failures','To hide its IP address','To remove all metadata'],correctIndex:0,explanation:'Weighted tokens can align ownership with unequal capacity, subject to measured workload.'},
+  {id:'hq15',stepId:'hash-vnodes',difficulty:'Diagnose',prompt:'A team adds thousands of virtual tokens and routing metadata becomes costly. What tradeoff appeared?',options:['Tokens guarantee unique IDs','Balance improved at the cost of larger membership and repair state','All keys became replicated','Clock precision increased'],correctIndex:1,explanation:'More tokens smooth ranges but increase metadata and management overhead.'},
+  {id:'hq16',stepId:'hash-replicas',difficulty:'Recall',prompt:'Why should replica selection skip repeated tokens on one physical machine?',options:['They are not independent failure copies','They hash too slowly','They are always in another region','They change the key string'],correctIndex:0,explanation:'Multiple virtual tokens on one machine share the same physical failure.'},
+  {id:'hq17',stepId:'hash-replicas',difficulty:'Diagnose',prompt:'One popular key is overloaded despite many virtual nodes. Why?',options:['Virtual nodes never store keys','That key still has one primary placement','The hash space is too small by definition','The client sent a 429'],correctIndex:1,explanation:'Virtual nodes distribute ranges across many keys, not the load of one indivisible key.'},
+  {id:'hq18',stepId:'hash-replicas',difficulty:'Apply',prompt:'What is a sensible response to a read-hot immutable item?',options:['Add more virtual tokens only','Cache or replicate its reads','Disable membership updates','Use modulo for that one item'],correctIndex:1,explanation:'Read copies can spread hot-key traffic while the placement map remains stable.'},
+  {id:'hq19',stepId:'hash-operate',difficulty:'Recall',prompt:'Which metric exposes uneven ring ownership?',options:['Per-node bytes and key counts','Heading font size','HTTP status 201 alone','Number of tabs open'],correctIndex:0,explanation:'Key and byte distributions reveal whether ownership is balanced.'},
+  {id:'hq20',stepId:'hash-operate',difficulty:'Diagnose',prompt:'A node join finishes routing cutover but migration lags. What should operators inspect?',options:['Only frontend animations','Transfer progress, fallback reads, and version mismatch','Only DNS TTL','Only link color'],correctIndex:1,explanation:'Incomplete movement and inconsistent maps are direct risks to data visibility.'},
+  {id:'hq21',stepId:'hash-operate',difficulty:'Apply',prompt:'When might a fixed partition map be preferable to a ring?',options:['When partitions are stable and centrally managed','When all nodes fail daily','When no key exists','When only one hot key exists'],correctIndex:0,explanation:'If membership and partitions change rarely, explicit fixed placement may be simpler to operate.'},
+];
