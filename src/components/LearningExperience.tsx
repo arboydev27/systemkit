@@ -1,6 +1,11 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { lessonHref } from "@/lib/lessons";
+import { LessonSearch } from "./LessonSearch";
+import { CopyLessonLink } from "./CopyLessonLink";
 import {
   ArrowLeft,
   ArrowRight,
@@ -99,37 +104,44 @@ function padded(index: number) {
   return String(index + 1).padStart(2, "0");
 }
 
-export function LearningExperience() {
-  const [chapterId, setChapterId] = useState(chapters[0].id);
+export function LearningExperience({ initialChapterId, initialStepId }: { initialChapterId?: string; initialStepId?: string }) {
+  const router = useRouter();
+  const chapterId = initialChapterId ?? chapters[0].id;
   const chapter = chapters.find((item) => item.id === chapterId) ?? chapters[0];
   const nextChapter = chapters[chapters.findIndex((item) => item.id === chapter.id) + 1];
   const { steps, questions } = chapter;
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [ready, setReady] = useState(false);
-  const [activeStepId, setActiveStepId] = useState(chapters[0].steps[0]?.id ?? "");
+  const activeStepId = initialStepId ?? chapter.steps[0]?.id ?? "";
+  const [resumeSteps, setResumeSteps] = useState<Record<string, string>>({});
   const [questionIndex, setQuestionIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const firstOptionRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
-  const activeStepLinkRef = useRef<HTMLButtonElement>(null);
+  const activeStepLinkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    let initialChapter = chapters[0];
-    try {
-      const savedId = window.localStorage.getItem(ACTIVE_CHAPTER_KEY);
-      initialChapter = chapters.find((item) => item.id === savedId) ?? initialChapter;
-    } catch {
-      // Chapter navigation still works if storage is blocked.
+    const resumes = Object.fromEntries(chapters.map((item) => {
+      const saved = readProgress(item.storageKey);
+      const stepId = item.steps.some((step) => step.id === saved.activeStepId)
+        ? saved.activeStepId! : item.steps[0].id;
+      return [item.id, stepId];
+    }));
+    setResumeSteps(resumes);
+    if (!initialChapterId) {
+      let savedChapter = chapters[0];
+      try {
+        const savedId = window.localStorage.getItem(ACTIVE_CHAPTER_KEY);
+        savedChapter = chapters.find((item) => item.id === savedId) ?? savedChapter;
+      } catch { /* Reading still works without storage. */ }
+      router.replace(lessonHref(savedChapter.id, resumes[savedChapter.id]));
+      return;
     }
-    const saved = readProgress(initialChapter.storageKey);
-    setChapterId(initialChapter.id);
-    setProgress(saved);
-    setActiveStepId(saved.activeStepId && initialChapter.steps.some((step) => step.id === saved.activeStepId)
-      ? saved.activeStepId : initialChapter.steps[0]?.id ?? "");
+    setProgress(readProgress(chapter.storageKey));
     setReady(true);
-  }, []);
+  }, [chapter.storageKey, initialChapterId, router]);
 
   useEffect(() => {
     if (!ready) return;
@@ -167,7 +179,7 @@ export function LearningExperience() {
   const step = steps[activeIndex];
   const stepQuestions = useMemo(
     () => questions.filter((question) => question.stepId === step?.id),
-    [step?.id],
+    [questions, step?.id],
   );
   const question = stepQuestions[Math.min(questionIndex, stepQuestions.length - 1)];
   const selectedAnswer = question ? progress.answers[question.id] : undefined;
@@ -182,38 +194,6 @@ export function LearningExperience() {
   const canComplete = stepQuestions.length > 0 && correctCount === stepQuestions.length;
   const scenarioDraft = step ? progress.scenarioDrafts[step.id] ?? "" : "";
   const scenarioRevealed = step ? progress.revealedScenarios.includes(step.id) : false;
-
-  function selectStep(id: string) {
-    setActiveStepId(id);
-    setQuestionIndex(0);
-    setMenuOpen(false);
-    window.requestAnimationFrame(() => {
-      headingRef.current?.focus({ preventScroll: true });
-      window.scrollTo({
-        top: 0,
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-      });
-    });
-  }
-
-  function selectChapter(id: string) {
-    const nextChapter = chapters.find((item) => item.id === id);
-    if (!nextChapter || nextChapter.id === chapter.id) {
-      setMenuOpen(false);
-      return;
-    }
-    const saved = readProgress(nextChapter.storageKey);
-    setChapterId(nextChapter.id);
-    setProgress(saved);
-    setActiveStepId(saved.activeStepId && nextChapter.steps.some((item) => item.id === saved.activeStepId)
-      ? saved.activeStepId : nextChapter.steps[0]?.id ?? "");
-    setQuestionIndex(0);
-    setMenuOpen(false);
-    window.requestAnimationFrame(() => {
-      headingRef.current?.focus({ preventScroll: true });
-      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-    });
-  }
 
   function selectQuestion(index: number) {
     setQuestionIndex(index);
@@ -298,21 +278,23 @@ export function LearningExperience() {
             <p>A guided path from first principles to familiar systems.</p>
           </div>
 
+          <LessonSearch />
+
           <nav className="chapter-navigation" aria-label="Chapters and lessons">
             <span className="nav-overline">CHAPTERS</span>
             {chapters.map((item) => {
               const selected = item.id === chapter.id;
               return (
                 <div key={item.id} className={`chapter-group ${selected ? "is-open" : ""}`}>
-                  <button type="button" className={`chapter-link ${selected ? "is-active" : ""}`}
+                  <Link href={lessonHref(item.id, selected ? activeStepId : resumeSteps[item.id] ?? item.steps[0].id)} prefetch={false} className={`chapter-link ${selected ? "is-active" : ""}`}
                     aria-current={selected ? "page" : undefined}
                     aria-expanded={selected}
                     aria-controls={selected ? `chapter-lessons-${item.id}` : undefined}
-                    onClick={() => selectChapter(item.id)}>
+                    onClick={() => setMenuOpen(false)}>
                     <span className="chapter-link-number">{item.number}</span>
                     <span className="chapter-link-title">{item.title}</span>
                     <ChevronDown className="chapter-link-chevron" size={15} aria-hidden="true" />
-                  </button>
+                  </Link>
                   {selected ? (
                     <div className="chapter-inline-content">
                       <div className="chapter-inline-progress" aria-label={`${completedCount} of ${steps.length} lessons complete`}>
@@ -324,14 +306,14 @@ export function LearningExperience() {
                           const complete = progress.completed.includes(lesson.id);
                           return (
                             <li key={lesson.id}>
-                              <button type="button" ref={active ? activeStepLinkRef : undefined}
+                              <Link href={lessonHref(chapter.id, lesson.id)} prefetch={false} ref={active ? activeStepLinkRef : undefined}
                                 className={`step-link ${active ? "is-active" : ""}`}
                                 aria-current={active ? "step" : undefined}
                                 aria-label={`${lesson.title}${complete ? ", completed" : ""}`}
-                                onClick={() => selectStep(lesson.id)}>
+                                onClick={() => setMenuOpen(false)}>
                                 <span className="step-link-title">{lesson.title}</span>
                                 {complete ? <Check className="step-complete-icon" size={15} strokeWidth={2.5} aria-hidden="true" /> : null}
-                              </button>
+                              </Link>
                             </li>
                           );
                         })}
@@ -352,7 +334,7 @@ export function LearningExperience() {
 
       <main id="lesson-content" className="main-content" tabIndex={-1}>
         <div className="main-wrap">
-          <div className="breadcrumb"><span>LEARN</span><span aria-hidden="true">/</span><span>{chapter.title.toUpperCase()}</span><span aria-hidden="true">/</span><strong>{padded(activeIndex)}</strong></div>
+          <div className="lesson-toolbar"><div className="breadcrumb"><span>LEARN</span><span aria-hidden="true">/</span><span>{chapter.title.toUpperCase()}</span><span aria-hidden="true">/</span><strong>{padded(activeIndex)}</strong></div><CopyLessonLink path={lessonHref(chapter.id, step.id)} /></div>
 
           <div className="lesson-heading">
             <div className="lesson-heading-main">
@@ -515,7 +497,7 @@ export function LearningExperience() {
               {isComplete ? <RotateCcw size={17} /> : <Check size={17} />}
               {isComplete ? "Mark as incomplete" : "Mark lesson complete"}
             </button>
-            {activeIndex + 1 < steps.length ? <button className="next-button" type="button" onClick={() => selectStep(steps[activeIndex + 1].id)}>Next lesson <ArrowRight size={17} /></button> : nextChapter ? <button className="next-button" type="button" onClick={() => selectChapter(nextChapter.id)}>Next chapter: {nextChapter.title} <ArrowRight size={17} /></button> : null}
+            {activeIndex + 1 < steps.length ? <Link className="next-button" href={lessonHref(chapter.id, steps[activeIndex + 1].id)} prefetch={false}>Next lesson <ArrowRight size={17} /></Link> : nextChapter ? <Link className="next-button" href={lessonHref(nextChapter.id, resumeSteps[nextChapter.id] ?? nextChapter.steps[0].id)} prefetch={false}>Next chapter: {nextChapter.title} <ArrowRight size={17} /></Link> : null}
           </div>
           <p id="completion-hint" className="completion-hint">
             {isComplete ? "Lesson complete. You can revisit any checkpoint." : `${correctCount} of ${stepQuestions.length} checkpoints answered correctly to complete this lesson.`}
