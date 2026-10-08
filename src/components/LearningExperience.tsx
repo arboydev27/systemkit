@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { chapters } from "@/content/chapters";
+import { recordStoredLessonStudy, recordStoredQuizAttempt } from "@/lib/review";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { FrameworkDiagram } from "./FrameworkDiagram";
 import { EstimationDiagram } from "./EstimationDiagram";
@@ -35,7 +36,7 @@ import { KeyValueDiagram } from "./KeyValueDiagram";
 import { FoundationDiagram } from "./FoundationDiagram";
 import { GoogleDriveDiagram } from "./GoogleDriveDiagram";
 import { WebCrawlerDiagram } from "./WebCrawlerDiagram";
-import { CacheLab } from "./CacheLab";
+const CacheLab = dynamic(() => import("./CacheLab").then((module) => module.CacheLab));
 
 const DesignChallenge = dynamic(() => import("./DesignChallenge").then((module) => module.DesignChallenge));
 
@@ -206,6 +207,7 @@ export function LearningExperience({ initialChapterId, initialStepId }: { initia
 
   function answer(index: number) {
     if (!question || answered) return;
+    recordStoredQuizAttempt(chapter.id, step.id, question.id, index, question.correctIndex);
     setProgress((current) => ({
       ...current,
       answers: { ...current.answers, [question.id]: index },
@@ -214,6 +216,7 @@ export function LearningExperience({ initialChapterId, initialStepId }: { initia
 
   function toggleCompletion() {
     if (!step) return;
+    if (!isComplete) recordStoredLessonStudy(chapter.id, step.id);
     setProgress((current) => ({
       ...current,
       completed: current.completed.includes(step.id)
@@ -224,6 +227,7 @@ export function LearningExperience({ initialChapterId, initialStepId }: { initia
 
   function updateScenarioDraft(value: string) {
     if (!step) return;
+    if (!scenarioDraft.trim() && value.trim()) recordStoredLessonStudy(chapter.id, step.id);
     setProgress((current) => ({
       ...current,
       scenarioDrafts: { ...current.scenarioDrafts, [step.id]: value },
@@ -280,6 +284,7 @@ export function LearningExperience({ initialChapterId, initialStepId }: { initia
             <span className="section-label">LEARNING PATH</span>
             <div className="sidebar-title"><BookOpen size={18} /> <span>System design</span></div>
             <p>A guided path from first principles to familiar systems.</p>
+            <Link href="/review/" className="text-button" style={{ display: "inline-flex", marginTop: "8px", minHeight: "44px", alignItems: "center", textDecoration: "none" }}>Five-minute review <ArrowRight size={14} aria-hidden="true" /></Link>
           </div>
 
           <LessonSearch />
