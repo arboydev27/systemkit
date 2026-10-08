@@ -54,6 +54,12 @@ export function LessonSearch() {
       <Search size={16} aria-hidden="true" /><span>Search lessons</span><kbd>⌘ K</kbd>
     </button>
     <dialog ref={dialogRef} className={styles.dialog} aria-labelledby="lesson-search-heading"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+      }}
       onCancel={() => setOpen(false)} onClose={() => setOpen(false)}
       onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <div className={styles.panel}>
