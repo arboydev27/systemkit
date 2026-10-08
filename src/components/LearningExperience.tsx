@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,6 +30,8 @@ import { KeyValueDiagram } from "./KeyValueDiagram";
 import { FoundationDiagram } from "./FoundationDiagram";
 import { GoogleDriveDiagram } from "./GoogleDriveDiagram";
 import { WebCrawlerDiagram } from "./WebCrawlerDiagram";
+
+const DesignChallenge = dynamic(() => import("./DesignChallenge").then((module) => module.DesignChallenge));
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
@@ -520,6 +523,8 @@ export function LearningExperience() {
           <p id="completion-hint" className="completion-hint">
             {isComplete ? "Lesson complete. You can revisit any checkpoint." : `${correctCount} of ${stepQuestions.length} checkpoints answered correctly to complete this lesson.`}
           </p>
+
+          {chapter.id === "scaling" && step.id === "synthesis" ? <DesignChallenge /> : null}
 
           <footer className="site-footer"><span>SystemKit</span><span>Learn the decisions behind the diagram.</span></footer>
         </div>
