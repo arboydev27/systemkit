@@ -29,6 +29,7 @@ import { KeyValueDiagram } from "./KeyValueDiagram";
 import { FoundationDiagram } from "./FoundationDiagram";
 import { GoogleDriveDiagram } from "./GoogleDriveDiagram";
 import { WebCrawlerDiagram } from "./WebCrawlerDiagram";
+import { CacheLab } from "./CacheLab";
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
@@ -390,6 +391,8 @@ export function LearningExperience() {
             </div>
             <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>
           </section>
+
+          {chapter.id === "scaling" && step.id === "cache" ? <CacheLab /> : null}
 
           <div className="content-grid">
             <article className="lesson-article" aria-labelledby="concept-heading">
