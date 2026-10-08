@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { lessonHref } from "@/lib/lessons";
 import { LessonSearch } from "./LessonSearch";
 import { CopyLessonLink } from "./CopyLessonLink";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,6 +36,8 @@ import { FoundationDiagram } from "./FoundationDiagram";
 import { GoogleDriveDiagram } from "./GoogleDriveDiagram";
 import { WebCrawlerDiagram } from "./WebCrawlerDiagram";
 import { CacheLab } from "./CacheLab";
+
+const DesignChallenge = dynamic(() => import("./DesignChallenge").then((module) => module.DesignChallenge));
 
 const LessonDiagram = memo(ArchitectureDiagram);
 const MethodDiagram = memo(FrameworkDiagram);
@@ -505,6 +508,8 @@ export function LearningExperience({ initialChapterId, initialStepId }: { initia
           <p id="completion-hint" className="completion-hint">
             {isComplete ? "Lesson complete. You can revisit any checkpoint." : `${correctCount} of ${stepQuestions.length} checkpoints answered correctly to complete this lesson.`}
           </p>
+
+          {chapter.id === "scaling" && step.id === "synthesis" ? <DesignChallenge /> : null}
 
           <footer className="site-footer"><span>SystemKit</span><span>Learn the decisions behind the diagram.</span></footer>
         </div>

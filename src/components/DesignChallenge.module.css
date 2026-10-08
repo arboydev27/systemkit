@@ -1,0 +1,62 @@
+.challenge { margin-top: 38px; padding-top: 30px; border-top: 1px solid var(--line); }
+.kicker { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.challenge h2 { margin: 8px 0 11px; font-size: clamp(1.3rem, 3vw, 1.6rem); line-height: 1.25; letter-spacing: -.035em; }
+.intro, .workspace p, .workspace li { color: var(--ink-soft); font-size: 14px; line-height: 1.7; }
+.intro { max-width: 620px; margin-bottom: 20px; }
+.disclosure { overflow: hidden; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); }
+.disclosure > summary { padding: 18px 20px; color: var(--ink); font-size: 14px; font-weight: 720; cursor: pointer; }
+.disclosure > summary > span { display: block; margin: 5px 0 0 18px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.disclosure > summary:hover, .solution > summary:hover { background: var(--surface-soft); }
+.disclosure > summary:focus-visible, .solution > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: -4px; }
+.workspace { padding: 0 24px 24px; border-top: 1px solid var(--line); }
+.brief { padding-top: 24px; }
+.workspace h3 { margin-bottom: 12px; color: var(--ink); font-size: 18px; line-height: 1.4; letter-spacing: -.025em; }
+.brief ul { display: grid; gap: 9px; padding-left: 21px; margin: 16px 0 22px; }
+.workspace .storage { margin: 0; padding: 12px 14px; border-radius: 7px; background: var(--surface-soft); color: var(--muted); font-size: 12px; }
+.responses { display: grid; gap: 26px; margin-top: 26px; }
+.response label { display: block; margin-bottom: 8px; color: var(--ink); font-size: 15px; font-weight: 720; line-height: 1.5; }
+.response label > span { margin-right: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.response > p { margin-bottom: 13px; }
+.response textarea { display: block; width: 100%; min-height: 155px; resize: vertical; padding: 13px 14px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; line-height: 1.65; }
+.response textarea::placeholder { color: var(--muted); opacity: 1; }
+.response textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.limit { display: block; margin-top: 6px; color: var(--muted); text-align: right; font-size: 11px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.workspace .change { display: grid; gap: 5px; padding: 14px 16px; border-left: 2px solid var(--accent); background: var(--accent-tint); border-radius: 0 7px 7px 0; }
+.change strong { color: var(--ink); font-size: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 25px; }
+.primaryButton, .secondaryButton { min-height: 44px; padding: 10px 15px; border-radius: 7px; font-size: 12px; line-height: 1.5; font-weight: 720; }
+.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.primaryButton:hover:not(:disabled) { background: var(--accent-hover); }
+.secondaryButton { border: 1px solid var(--control-border); background: var(--surface); color: var(--ink); }
+.secondaryButton:hover:not(:disabled) { background: var(--surface-soft); }
+.primaryButton:disabled, .secondaryButton:disabled { border-color: var(--line-strong); background: var(--surface-soft); color: var(--muted); cursor: not-allowed; }
+.workspace .hint, .workspace .copyStatus { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.copyStatus:empty { display: none; }
+.review { margin-top: 26px; padding-top: 26px; border-top: 1px solid var(--line); }
+.review > h3:focus { outline: none; }
+.rubric { display: grid; gap: 4px; margin: 19px 0 24px; padding: 0; border: 0; }
+.rubric legend { margin-bottom: 9px; color: var(--ink); font-size: 13px; font-weight: 720; }
+.rubric label { display: flex; align-items: start; gap: 11px; min-height: 44px; padding: 9px 0; cursor: pointer; }
+.rubric input { flex: none; width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); }
+.rubric input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.rubric label > span { display: grid; gap: 4px; }
+.rubric strong { color: var(--ink); font-size: 13px; line-height: 1.5; }
+.rubric label > span > span { color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.estimates { padding: 17px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); }
+.workspace h4 { margin: 0 0 8px; color: var(--ink); font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
+.estimates p { margin-bottom: 0; }
+.workspace .solutionsHeading { margin-top: 25px; }
+.solution { border-top: 1px solid var(--line); }
+.solution > summary { min-height: 44px; padding: 15px 0; color: var(--ink); font-size: 14px; line-height: 1.6; font-weight: 720; cursor: pointer; }
+.solution > div { padding: 5px 0 14px; }
+.solution h5 { margin: 18px 0 7px; color: var(--ink); font-size: 13px; line-height: 1.5; }
+.solution ol { display: grid; gap: 12px; padding-left: 20px; }
+.solution p:last-child { margin-bottom: 0; }
+
+@media (max-width: 700px) {
+  .workspace { padding: 0 16px 20px; }
+  .disclosure > summary { padding: 16px; }
+  .response textarea { font-size: 16px; }
+  .intro, .workspace p, .workspace li { font-size: 15px; }
+  .actions > button { flex: 1 1 170px; }
+}
