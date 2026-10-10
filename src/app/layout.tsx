@@ -5,7 +5,6 @@ export const metadata: Metadata = {
   title: "SystemKit — Learn System Design",
   description:
     "A visual, hands-on path through system design fundamentals, familiar products, distributed storage, data placement, unique IDs, file sync, and web discovery.",
-  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {
