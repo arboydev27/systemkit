@@ -14,6 +14,15 @@
   --spatial-data: #9686ae;
   --spatial-routing: #7a9d97;
   --spatial-work: #b3a17d;
+  --spatial-request: #5077a2;
+  --spatial-response: #78839a;
+  --spatial-read: #56897d;
+  --spatial-write: #8a70a6;
+  --spatial-replication: #9d8657;
+  --spatial-publish: #b08752;
+  --spatial-delivery: #9b835f;
+  --spatial-acknowledgement: #648c7d;
+  --spatial-decision: #8a849d;
   position: relative; height: 450px; width: 100%; overflow: hidden;
   background: var(--surface-soft); cursor: grab;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
@@ -59,6 +68,47 @@
 .elements button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .inspector .note { font-size: .73rem; color: var(--muted); }
 .hint { margin: 0; padding: .8rem 1.5rem 1.15rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .67rem; line-height: 1.65; }
+.learningToolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem 1.5rem; border-top: 1px solid var(--line); }
+.modeSwitch { display: flex; flex-wrap: wrap; gap: .2rem; }
+.modeSwitch button, .inlineAction, .predictionActions button, .subsystems button { min-height: 2.5rem; padding: .45rem .75rem; border: 1px solid var(--line); border-radius: .45rem; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: .75rem; font-weight: 600; cursor: pointer; }
+.modeSwitch button { border-color: transparent; }
+.modeSwitch button[aria-pressed="true"] { border-color: var(--line-strong); background: var(--surface-soft); color: var(--ink); }
+.modeSwitch button:hover, .inlineAction:hover, .predictionActions button:hover, .subsystems button:hover { background: var(--surface-soft); color: var(--ink); }
+.viewSelect { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; color: var(--muted); font-size: .73rem; }
+.viewSelect select { min-height: 2.5rem; max-width: 100%; padding: .4rem 1.7rem .4rem .6rem; border: 1px solid var(--line-strong); border-radius: .4rem; color: var(--ink); background: var(--surface); font: inherit; }
+.root select:focus-visible, .predictionChoices input:focus-visible, .modelDetails summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.teachingPanel { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--surface); }
+.teachingPanel h4 { margin: .65rem 0 .4rem; font-size: 1rem; letter-spacing: -.025em; line-height: 1.45; }
+.teachingPanel p { margin: .4rem 0; color: var(--ink-soft); font-size: .83rem; line-height: 1.7; }
+.sceneHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.sceneList { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: .35rem; margin: 1rem 0; padding: 0; list-style: none; }
+.sceneList button { display: flex; align-items: flex-start; gap: .55rem; width: 100%; min-height: 44px; padding: .65rem; border: 1px solid var(--line); border-radius: .45rem; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: .73rem; text-align: left; line-height: 1.45; cursor: pointer; }
+.sceneList button span { color: var(--muted); font-size: .65rem; font-variant-numeric: tabular-nums; }
+.sceneList button[aria-current="step"] { background: var(--surface-soft); color: var(--ink); border-color: var(--control-border); font-weight: 650; }
+.sceneList button:hover { border-color: var(--control-border); }
+.teachingPanel .smallNote, .smallNote { color: var(--muted); font-size: .7rem; line-height: 1.6; }
+.predictionChoices { display: grid; gap: .4rem; padding: 0; margin: 1rem 0; border: 0; }
+.predictionChoices legend { margin-bottom: .9rem; padding: 0; color: var(--ink-soft); font-size: .85rem; line-height: 1.7; }
+.predictionChoices label { display: flex; align-items: flex-start; gap: .65rem; min-height: 44px; padding: .8rem; border: 1px solid var(--line-strong); border-radius: .5rem; background: var(--surface); color: var(--ink-soft); font-size: .8rem; line-height: 1.6; cursor: pointer; }
+.predictionChoices input { flex: none; margin: .25rem 0 0; accent-color: var(--ink); }
+.predictionChoices label.chosen { border-color: var(--control-border); background: var(--surface-soft); color: var(--ink); }
+.predictionActions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.predictionActions .primaryAction { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.predictionFeedback { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line-strong); border-radius: .5rem; background: var(--surface-soft); color: var(--ink); font-size: .83rem; line-height: 1.65; }
+.relationCondition { margin-top: .5rem !important; font-size: .73rem !important; }
+.modelDetails { margin: 1rem 0; border-top: 1px solid var(--line); }
+.modelDetails summary { display: list-item; min-height: 44px; padding: .8rem 0; font-size: .75rem; font-weight: 650; cursor: pointer; color: var(--ink-soft); }
+.modelDetails ul { padding-left: 1.2rem; color: var(--ink-soft); font-size: .8rem; line-height: 1.7; }
+.subsystems { display: grid; gap: .65rem; }
+.subsystems > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; }
+.subsystems strong { font-size: .8rem; }
+.subsystems button { flex: none; }
+.relationships { display: grid; gap: .35rem; margin-top: .6rem; }
+.relationships button { display: flex; align-items: center; gap: .6rem; min-height: 44px; padding: .65rem; border: 1px solid var(--line); border-radius: .4rem; color: var(--ink-soft); background: var(--surface); font: inherit; font-size: .75rem; text-align: left; line-height: 1.45; cursor: pointer; }
+.relationships button[aria-pressed="true"] { border-color: var(--control-border); background: var(--surface-soft); color: var(--ink); }
+.relationBadge { flex: none; min-width: 5.8rem; font-size: .65rem; font-weight: 700; }
+.viewport :global(.systemkit-spatial-label[data-status="unavailable"]) { border-style: dashed; }
+.viewport :global(.systemkit-spatial-label[data-status="under-pressure"]) { border-width: 2px; }
 @media (max-width: 650px) {
   .intro { flex-direction: column; align-items: flex-start; padding: 1rem; gap: .65rem; }
   .camera { width: 100%; }
@@ -78,6 +128,14 @@
   .inspector { padding: 1rem; }
   .elements button { min-height: 2.5rem; }
   .hint { padding: .8rem 1rem; }
+  .learningToolbar, .teachingPanel { padding: 1rem; }
+  .modeSwitch { width: 100%; }
+  .modeSwitch button { min-height: 44px; flex: 1; padding: .45rem; font-size: .7rem; }
+  .viewSelect { width: 100%; }
+  .viewSelect select { min-height: 44px; flex: 1; min-width: 0; }
+  .subsystems > div { flex-wrap: wrap; gap: .5rem; }
+  .subsystems button, .predictionActions button { min-height: 44px; }
+  .sceneHeading .playback { width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
   .viewport { --spatial-client: #7b93b6; --spatial-service: #779bd0; --spatial-data: #a193bb; --spatial-routing: #83aaa2; --spatial-work: #bdae8c; }
