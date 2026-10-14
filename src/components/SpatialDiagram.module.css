@@ -8,13 +8,38 @@
 .camera button:hover, .playback button:hover { color: var(--ink); background: var(--surface-soft); }
 .root button:focus-visible, .reduce input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .root button:disabled { opacity: .4; cursor: default; }
-.viewport { position: relative; height: 400px; width: 100%; overflow: hidden; background: var(--surface-soft); cursor: grab; }
+.viewport {
+  --spatial-client: #7089ae;
+  --spatial-service: #698ac0;
+  --spatial-data: #9686ae;
+  --spatial-routing: #7a9d97;
+  --spatial-work: #b3a17d;
+  position: relative; height: 450px; width: 100%; overflow: hidden;
+  background: var(--surface-soft); cursor: grab;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.viewport.expanded { height: clamp(560px, 75vh, 680px); }
 .viewport:active { cursor: grabbing; }
 .viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .viewport canvas { display: block; }
-.viewport :global(.systemkit-spatial-label) { padding: .25rem .4rem; color: var(--ink); text-align: center; background: var(--surface); border-radius: .25rem; pointer-events: none; line-height: 1.35; }
-.viewport :global(.systemkit-spatial-label strong) { display: block; font-size: 13px; font-weight: 620; letter-spacing: -.025em; }
-.viewport :global(.systemkit-spatial-label span) { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.viewport :global(.systemkit-spatial-label) {
+  padding: .35rem .5rem; color: var(--ink); text-align: center;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: .45rem; pointer-events: none; line-height: 1.35;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .04);
+}
+.viewport :global(.systemkit-spatial-label strong) { display: block; font-size: 13px; font-weight: 650; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.viewport :global(.systemkit-spatial-label span) { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.viewport :global(.systemkit-spatial-label small) { display: block; margin-bottom: 3px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
+.viewport :global(.systemkit-spatial-label[data-density="compact"] span),
+.viewport :global(.systemkit-spatial-label[data-density="compact"] small) { display: none; }
+.viewport :global(.systemkit-spatial-label[data-selected="true"]) { border-color: var(--ink); box-shadow: 0 3px 14px rgb(0 0 0 / .08); }
+.viewActions { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .5rem 1.5rem; border-bottom: 1px solid var(--line); }
+.viewActions > span { color: var(--muted); font-size: .7rem; line-height: 1.5; }
+.viewActions > div { display: flex; gap: .35rem; flex: none; }
+.viewActions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2rem; padding: .4rem .6rem; border: 1px solid transparent; border-radius: .4rem; background: transparent; color: var(--ink-soft); font: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
+.viewActions button:hover { color: var(--ink); background: var(--surface-soft); }
+.viewActions button:active, .camera button:active, .playback button:active { background: var(--surface-soft); }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .85rem; }
 .explore { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 1.5rem; border-bottom: 1px solid var(--line); }
 .playback { display: flex; align-items: center; gap: .2rem; }
@@ -38,15 +63,35 @@
   .intro { flex-direction: column; align-items: flex-start; padding: 1rem; gap: .65rem; }
   .camera { width: 100%; }
   .camera button { min-height: 2.75rem; min-width: 2.75rem; }
-  .viewport { height: 285px; }
+  .viewport { height: 330px; }
+  .viewport.expanded { height: clamp(440px, 70vh, 520px); }
   .viewport :global(.systemkit-spatial-label) { padding: .2rem; }
   .viewport :global(.systemkit-spatial-label strong) { font-size: 11px; }
   .viewport :global(.systemkit-spatial-label span) { display: none; }
+  .viewport :global(.systemkit-spatial-label small) { display: none; }
+  .viewActions { flex-wrap: wrap; padding: .5rem 1rem; gap: .15rem; }
+  .viewActions > div { width: 100%; justify-content: flex-end; }
+  .viewActions button { min-height: 2.75rem; }
   .explore { flex-wrap: wrap; padding: .8rem 1rem; gap: .65rem; }
   .playback button { min-height: 2.75rem; min-width: 2.75rem; }
   .reduce { min-height: 2rem; }
   .inspector { padding: 1rem; }
   .elements button { min-height: 2.5rem; }
   .hint { padding: .8rem 1rem; }
+}
+@media (prefers-color-scheme: dark) {
+  .viewport { --spatial-client: #7b93b6; --spatial-service: #779bd0; --spatial-data: #a193bb; --spatial-routing: #83aaa2; --spatial-work: #bdae8c; }
+}
+@media (pointer: coarse) {
+  .camera button, .playback button, .viewActions button, .elements button { min-height: 2.75rem; min-width: 2.75rem; }
+  .reduce { min-height: 2.75rem; }
+}
+@media (max-width: 380px) {
+  .playback { width: 100%; flex-wrap: wrap; justify-content: center; }
+  .playback .play { flex-basis: 100%; margin: 0 0 .35rem; }
+}
+@media (prefers-contrast: more) {
+  .viewport :global(.systemkit-spatial-label) { border-color: var(--ink); box-shadow: none; }
+  .viewport :global(.systemkit-spatial-label span), .viewport :global(.systemkit-spatial-label small) { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) { .viewport { cursor: default; } }
