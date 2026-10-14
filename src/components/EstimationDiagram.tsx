@@ -122,3 +122,6 @@ function EstimationScene({ scene }: { scene: Scene }) {
     `}</style>
   </figure>;
 }
+
+// Shared lesson data for the optional spatial view.
+export { scenes as diagramScenes };

@@ -84,3 +84,6 @@ export function FoundationDiagram({id,className}:{id:string;className?:string}) 
     `}</style>
   </figure>;
 }
+
+// Shared lesson data for the optional spatial view.
+export { scenes as diagramScenes };

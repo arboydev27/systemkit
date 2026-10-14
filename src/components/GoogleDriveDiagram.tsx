@@ -51,3 +51,6 @@ export function GoogleDriveDiagram({ id, className }: { id: string; className?: 
     `}</style>
   </figure>;
 }
+
+// Shared lesson data for the optional spatial view.
+export { scenes as diagramScenes };

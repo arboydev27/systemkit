@@ -912,3 +912,6 @@ export function AutocompleteDiagram({ id, className }: { id:string; className?:s
     `}</style>
   </figure>;
 }
+
+// Shared lesson data for the optional spatial view.
+export { scenes as diagramScenes };

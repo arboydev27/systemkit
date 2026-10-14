@@ -223,3 +223,6 @@ export function YouTubeDiagram({ id, className }: { id: string; className?: stri
   if (!scene) return null;
   return <YouTubeScene scene={scene} className={className}/>;
 }
+
+// Shared lesson data for the optional spatial view.
+export { scenes as diagramScenes };
