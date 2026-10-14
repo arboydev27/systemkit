@@ -12,10 +12,34 @@ npm run dev
 Open the local address printed by Next.js. Before sharing a release, run:
 
 ```bash
+npm test
 npm run typecheck
 npm run test:spatial
 npm run build
 ```
+
+The test runner uses Node's TypeScript stripping flag and requires Node 22.6 or newer.
+
+## Learning features
+
+The approved launch features are now on `main`. Their original implementation branches are:
+
+| Feature | Branch | Where to try it |
+| --- | --- | --- |
+| Concept search and permanent lesson links | `feature/lesson-search-links` | Sidebar search or Cmd/Ctrl+K; copy a lesson link from its heading |
+| Cache failure lab | `feature/cache-failure-lab` | Scaling → Cache repeated work |
+| Spaced review sessions | `feature/review-sessions` | Five-minute review in the sidebar, or `/review/` |
+| Photo-sharing design challenge | `feature/design-challenge` | Scaling → Scale in response to evidence, below the checkpoints |
+
+The `feature/spatial-diagrams` preview includes these features and adds the optional 3D view described below. It remains separate from `main` for review.
+
+Every lesson has a static `/learn/<chapter>/<lesson>/` URL. Direct links take precedence over saved resume state; the library root resumes the last lesson on this device. Search covers titles, chapter names, summaries, and lesson explanations.
+
+Reviews use studied lessons, preserve the first quiz attempt across retries, and select at most five ideas. New study becomes due the next day. Successful recalls expand the interval; missed recalls return the next day. Earlier mistakes take priority among due ideas. Learners can also practise early or select a lesson they already studied. The schedule is a simple local heuristic, and self-checks do not certify mastery.
+
+The cache lab is a read-demand model with explicit assumptions, not a latency simulator or capacity benchmark. The design challenge saves writing and self-checks locally, then offers a rubric and two worked approaches after an initial response in all four sections. It does not automatically grade answers.
+
+Verification on the combined branch: 21 tests, production static export with 116 lesson routes, and browser checks at desktop and 390px widths. Browser checks cover search keyboard navigation, mobile Escape/focus behavior, direct links, Back/Forward, copied links, saved lesson notes, review scheduling, cache failure/restoration/reset, and challenge draft/rubric restoration.
 
 ## First-release architecture
 
