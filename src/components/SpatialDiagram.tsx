@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Pause, Play, RotateCcw, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pause, Play, RotateCcw, Minus, Plus, Focus, Maximize2, Minimize2 } from "lucide-react";
 import { getSpatialScene } from "../lib/spatial-scenes";
 import { createSpatialRuntime, type SpatialRuntime } from "../lib/spatial-runtime";
 import styles from "./SpatialDiagram.module.css";
@@ -16,6 +16,7 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
   const [nodeId, setNodeId] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   // This component is loaded with ssr:false; read the client preference before drawing.
   const [systemReduced, setSystemReduced] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [manualReduced, setManualReduced] = useState(() => {
@@ -49,6 +50,7 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
         onPick(id) { setPlaying(false); setIndex(null); setNodeId(id); },
         onUnavailable() { unavailable.current(); },
         onHidden() { setPlaying(false); },
+        onViewChange: setTop,
       });
       runtime.current = view; setReady(true);
       return () => { runtime.current = null; view.dispose(); };
@@ -87,8 +89,21 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
         <button type="button" disabled={!ready} aria-label="Reset 3D view" onClick={overview}><RotateCcw size={15}/></button>
       </div>
     </div>
-    <div ref={host} className={styles.viewport} tabIndex={0} aria-label={`3D diagram: ${model.title}. ${reduced ? "Fixed camera. Use the element and walkthrough controls below." : "Drag or use arrow keys to rotate. Zoom using the buttons above."}`}>
+    <div ref={host} className={`${styles.viewport} ${expanded ? styles.expanded : ""}`} tabIndex={0} aria-label={`3D diagram: ${model.title}. ${reduced ? "Fixed camera. Use the element and walkthrough controls below." : "Drag or use arrow keys to rotate. Zoom using the buttons above."}`}>
       {!ready ? <p className={styles.loading} role="status">Preparing the 3D view…</p> : null}
+    </div>
+    <div className={styles.viewActions}>
+      <span>Select a component to explore its role.</span>
+      <div>
+        <button type="button" disabled={!ready || reduced || (!selectedNode && !selectedLink)} onClick={() => {
+          setPlaying(false);
+          runtime.current?.focus(nodeId, walkthrough ? index : null);
+        }}><Focus size={14} aria-hidden="true" />Focus selection</button>
+        <button type="button" disabled={!ready} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+          {expanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+          {expanded ? "Compact view" : "Expand view"}
+        </button>
+      </div>
     </div>
     <div className={styles.explore}>
       <div className={styles.playback}>
@@ -108,7 +123,7 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
     <div className={styles.inspector}>
       <span className={styles.kicker}>{selectedLink ? "CONNECTION WALKTHROUGH · EXPLANATORY ORDER" : selectedNode ? "SELECTED ELEMENT" : "EXPLORE THE DIAGRAM"}</span>
       <div aria-live="polite" aria-atomic="true">
-        <h4>{selectedLink ? source && target ? `${source.title} → ${target.title}` : `Connection ${index! + 1}` : selectedNode?.title ?? "Same system. Another angle."}</h4>
+        <h4>{selectedLink ? source && target ? `${source.title} → ${target.title}` : `Connection ${index! + 1}` : selectedNode?.title ?? "Explore the system in space."}</h4>
         <p>{selectedLink ? selectedLink.label + (selectedLink.dashed ? " · Dashed in the static diagram" : "") : selectedNode?.detail || model.description}</p>
       </div>
       <div className={styles.elements} aria-label="Diagram elements">
@@ -117,6 +132,6 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
       </div>
       <p className={styles.note}>{model.note}</p>
     </div>
-    <p className={styles.hint}>{reduced ? `Motion is reduced. Use Next to inspect each ${walkthrough ? "relationship" : "element"}.` : "Drag to rotate · Arrow keys when focused · Select a block to inspect it"}<br/>Depth is for orientation. Highlights follow diagram arrows, not live traffic or measured timing.</p>
+    <p className={styles.hint}>{reduced ? `Motion is reduced. Use Next to inspect each ${walkthrough ? "relationship" : "element"}.` : "Drag to rotate · Arrow keys when focused · Focus a selection for a closer look"}<br/>Shapes distinguish component types. Walkthrough timing is illustrative.</p>
   </div>;
 }
