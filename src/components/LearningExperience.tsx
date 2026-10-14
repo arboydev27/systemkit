@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { chapters } from "@/content/chapters";
+import { DiagramView } from "./DiagramView";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { FrameworkDiagram } from "./FrameworkDiagram";
 import { EstimationDiagram } from "./EstimationDiagram";
@@ -363,15 +364,7 @@ export function LearningExperience() {
             <div className="lesson-number" aria-hidden="true">{padded(activeIndex)}</div>
           </div>
 
-          <section className="diagram-section" aria-labelledby="diagram-heading">
-            <div className="section-heading-row">
-              <div>
-                <span className="section-kicker">SYSTEM VIEW</span>
-                <h2 id="diagram-heading">{chapter.diagramHeading}</h2>
-              </div>
-              <span className="diagram-caption"><span className="caption-pulse" /> Explore the flow</span>
-            </div>
-            <div className="diagram-stage">
+          <DiagramView chapterId={chapter.id} diagramId={step.diagramId} heading={chapter.diagramHeading} hint={chapter.diagramHint}>
               {chapter.id === "framework" ? <MethodDiagram id={step.diagramId} /> :
                 chapter.id === "estimation" ? <NumbersDiagram id={step.diagramId} /> :
                 chapter.id === "url" ? <ShortLinkDiagram id={step.diagramId} /> :
@@ -387,9 +380,7 @@ export function LearningExperience() {
                 chapter.id === "google-drive" ? <FileDiagram id={step.diagramId} /> :
                 chapter.id === "web-crawler" ? <CrawlDiagram id={step.diagramId} /> :
                 <LessonDiagram id={step.diagramId} />}
-            </div>
-            <div className="diagram-footnote"><span className="diagram-footnote-icon">↗</span> {chapter.diagramHint}</div>
-          </section>
+          </DiagramView>
 
           <div className="content-grid">
             <article className="lesson-article" aria-labelledby="concept-heading">

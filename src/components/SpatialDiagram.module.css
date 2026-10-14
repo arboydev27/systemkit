@@ -1,0 +1,52 @@
+.root { width: 100%; background: var(--surface); }
+.intro { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.3rem 1.5rem; }
+.intro h3 { margin: 0; font-size: .95rem; font-weight: 650; letter-spacing: -.025em; line-height: 1.45; }
+.intro p { margin: .35rem 0 0; color: var(--muted); font-size: .7rem; }
+.camera { display: flex; align-items: center; gap: .2rem; flex: none; }
+.camera button, .playback button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 2rem; min-width: 2rem; padding: .4rem .55rem; border: 1px solid transparent; border-radius: .4rem; color: var(--ink-soft); background: transparent; font: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
+.camera button[aria-pressed="true"] { color: var(--ink); border-color: var(--line); background: var(--surface-soft); }
+.camera button:hover, .playback button:hover { color: var(--ink); background: var(--surface-soft); }
+.root button:focus-visible, .reduce input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.root button:disabled { opacity: .4; cursor: default; }
+.viewport { position: relative; height: 400px; width: 100%; overflow: hidden; background: var(--surface-soft); cursor: grab; }
+.viewport:active { cursor: grabbing; }
+.viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.viewport canvas { display: block; }
+.viewport :global(.systemkit-spatial-label) { padding: .25rem .4rem; color: var(--ink); text-align: center; background: var(--surface); border-radius: .25rem; pointer-events: none; line-height: 1.35; }
+.viewport :global(.systemkit-spatial-label strong) { display: block; font-size: 13px; font-weight: 620; letter-spacing: -.025em; }
+.viewport :global(.systemkit-spatial-label span) { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .85rem; }
+.explore { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 1.5rem; border-bottom: 1px solid var(--line); }
+.playback { display: flex; align-items: center; gap: .2rem; }
+.playback .play { margin-right: .4rem; padding: .4rem .65rem; color: var(--ink); border-color: var(--control-border); }
+.position { min-width: 4.7rem; text-align: center; font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.walkLabel { font-size: .75rem; font-weight: 600; }
+.reduce { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .7rem; cursor: pointer; }
+.reduce input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
+.reduce span { font-size: .65rem; }
+.inspector { padding: 1.25rem 1.5rem; }
+.kicker { font-size: .6rem; color: var(--muted); letter-spacing: .09em; font-weight: 700; }
+.inspector h4 { margin: .65rem 0 .35rem; font-size: .92rem; line-height: 1.4; letter-spacing: -.02em; }
+.inspector p { margin: 0; color: var(--ink-soft); font-size: .8rem; line-height: 1.65; }
+.elements { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0; }
+.elements button { padding: .4rem .65rem; border: 1px solid var(--line-strong); border-radius: .4rem; color: var(--ink-soft); background: var(--surface); font: inherit; font-size: .7rem; line-height: 1.5; cursor: pointer; }
+.elements button:hover { border-color: var(--control-border); }
+.elements button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.inspector .note { font-size: .73rem; color: var(--muted); }
+.hint { margin: 0; padding: .8rem 1.5rem 1.15rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .67rem; line-height: 1.65; }
+@media (max-width: 650px) {
+  .intro { flex-direction: column; align-items: flex-start; padding: 1rem; gap: .65rem; }
+  .camera { width: 100%; }
+  .camera button { min-height: 2.75rem; min-width: 2.75rem; }
+  .viewport { height: 285px; }
+  .viewport :global(.systemkit-spatial-label) { padding: .2rem; }
+  .viewport :global(.systemkit-spatial-label strong) { font-size: 11px; }
+  .viewport :global(.systemkit-spatial-label span) { display: none; }
+  .explore { flex-wrap: wrap; padding: .8rem 1rem; gap: .65rem; }
+  .playback button { min-height: 2.75rem; min-width: 2.75rem; }
+  .reduce { min-height: 2rem; }
+  .inspector { padding: 1rem; }
+  .elements button { min-height: 2.5rem; }
+  .hint { padding: .8rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { .viewport { cursor: default; } }
