@@ -66,7 +66,7 @@ export function createSpatialRuntime(host: HTMLElement, model: SpatialScene, opt
   try { renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" }); }
   catch (error) { for (const r of resources) r.dispose(); throw error; }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping; renderer.toneMappingExposure = dark ? 1.3 : 1.05;
+  renderer.toneMapping = ACESFilmicToneMapping; renderer.toneMappingExposure = dark ? 1.3 : .95;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = PCFShadowMap;
   renderer.domElement.setAttribute("aria-hidden", "true"); host.appendChild(renderer.domElement);
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -105,11 +105,11 @@ export function createSpatialRuntime(host: HTMLElement, model: SpatialScene, opt
   controls.enabled = !options.reduced; renderer.domElement.style.touchAction = "pan-y";
   const home = new Vector3(2.6, 6.6, 9.3).normalize(), topDirection = new Vector3(0, 1, .0001).normalize();
   camera.position.copy(options.reduced ? topDirection : home).multiplyScalar(14); camera.lookAt(0, 0, 0);
-  scene.add(new AmbientLight(0xffffff, dark ? 1.65 : 1.45));
-  const key = new DirectionalLight(0xfff3e4, 2.7); key.position.set(-3, 9, 5); key.castShadow = true;
+  scene.add(new AmbientLight(0xffffff, dark ? 1.65 : 1));
+  const key = new DirectionalLight(0xfff3e4, dark ? 2.7 : 1.85); key.position.set(-3, 9, 5); key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024); key.shadow.camera.left = -floorWidth; key.shadow.camera.right = floorWidth;
   key.shadow.camera.top = floorDepth; key.shadow.camera.bottom = -floorDepth; key.shadow.normalBias = .025; key.shadow.bias = -.00015; scene.add(key);
-  const fill = new DirectionalLight(0xdbe8ff, 1.1); fill.position.set(5, 4, -5); scene.add(fill);
+  const fill = new DirectionalLight(0xdbe8ff, dark ? 1.1 : .75); fill.position.set(5, 4, -5); scene.add(fill);
   const ground = new Mesh(keep(new PlaneGeometry(floorWidth, floorDepth)), keep(new MeshStandardMaterial({ color: palette.soft, roughness: 1 })));
   ground.rotation.x = -Math.PI / 2; ground.position.y = -.055; ground.receiveShadow = true; scene.add(ground);
   const grid: Vector3[] = [];
@@ -132,11 +132,13 @@ export function createSpatialRuntime(host: HTMLElement, model: SpatialScene, opt
     const family = familyFor(node.kind), accent = palette[family], w = node.width / 100, d = node.height / 100;
     const height = family === "service" ? .95 : family === "data" ? .82 : family === "client" ? .58 : family === "work" ? .72 : family === "routing" ? .6 : .54;
     const group = new Group(); group.position.copy(world([node.x + node.width / 2, node.y + node.height / 2])); scene.add(group);
-    const topColor = mix(palette.surface, accent, dark ? .38 : .22), sideColor = mix(palette.surface, dark ? accent : palette.ink, dark ? .25 : .12);
+    // White-heavy blends lose family hues under lighting, including on the side faces.
+    const topColor = mix(palette.surface, accent, dark ? .38 : .9);
+    const sideColor = dark ? mix(palette.surface, accent, .25) : mix(palette.surface, accent, .82).lerp(new Color(palette.ink), .13);
     const topMaterial = keep(new MeshStandardMaterial({ color: topColor, roughness: .52, metalness: .08 }));
     const sideMaterial = keep(new MeshStandardMaterial({ color: sideColor, roughness: .64, metalness: .06 }));
     const accentMaterial = keep(new MeshStandardMaterial({ color: accent, roughness: .58 }));
-    const insetMaterial = keep(new MeshStandardMaterial({ color: mix(palette.soft, accent, dark ? .25 : .12), roughness: .82 }));
+    const insetMaterial = keep(new MeshStandardMaterial({ color: mix(palette.soft, accent, dark ? .25 : .65), roughness: .82 }));
     const surfaceMaterials = [sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial];
     const box = (width: number, h: number, depth: number, y: number, material: MeshStandardMaterial | MeshStandardMaterial[], z = 0, x = 0) => {
       const mesh = new Mesh(keep(new RoundedBoxGeometry(width, h, depth, 3, Math.min(.055, h / 3, width / 6, depth / 6))), material);
