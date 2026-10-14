@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:review": "node --test tests/review.test.cjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs tests/*.test.cjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

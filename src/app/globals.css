@@ -39,6 +39,8 @@ button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 h1[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outline: none; }
 button svg { flex: none; }
+a svg { flex: none; }
+.chapter-link, .step-link, .next-button { text-decoration: none; }
 ::selection { background: var(--accent-line); color: var(--ink); }
 
 .skip-link { position: fixed; top: -80px; left: 16px; z-index: 100; padding: 10px 16px; background: var(--accent); color: var(--on-accent); border-radius: 8px; text-decoration: none; }
@@ -96,6 +98,12 @@ button svg { flex: none; }
 
 .main-content { margin-left: 278px; padding-top: 64px; }
 .main-wrap { max-width: 1050px; margin: 0 auto; padding: 37px 59px 26px; }
+.lesson-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.copy-lesson { position: relative; }
+.copy-lesson .text-button { margin: 0; font-size: 11px; min-height: 32px; }
+.copy-lesson label { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; }
+.copy-lesson input { display: block; max-width: 100%; width: 240px; padding: 8px; margin-top: 4px; color: var(--ink); background: var(--surface); border: 1px solid var(--control-border); border-radius: 6px; }
+.copy-lesson input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .11em; }
 .breadcrumb strong { color: var(--accent); }
 .lesson-heading { position: relative; display: flex; justify-content: space-between; gap: 16px; margin: 48px 0 42px; }
