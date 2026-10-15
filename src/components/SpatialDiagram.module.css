@@ -14,7 +14,13 @@
 .secondaryAction[aria-pressed="true"] { color: var(--ink); border-color: var(--control-border); background: var(--surface-soft); }
 .textAction { padding-inline: .6rem; border-color: transparent; color: var(--ink-soft); background: transparent; }
 .primaryAction:active:not(:disabled), .secondaryAction:active:not(:disabled), .textAction:active:not(:disabled) { transform: translateY(1px); }
-.buttonRow, .camera { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.buttonRow { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.viewportFrame { position: relative; isolation: isolate; }
+.camera { position: absolute; inset-block-start: .75rem; inset-inline-end: .75rem; z-index: 1; display: flex; align-items: center; gap: .15rem; padding: .2rem; border: 1px solid var(--line-strong); border-radius: .55rem; background: var(--surface); box-shadow: 0 2px 8px rgb(0 0 0 / .05); }
+.cameraButton { display: inline-flex; align-items: center; justify-content: center; min-height: 2rem; min-width: 2rem; padding: .35rem .6rem; border: 1px solid transparent; border-radius: .35rem; background: transparent; color: var(--ink-soft); font: inherit; font-size: .7rem; font-weight: 600; line-height: 1.3; }
+.cameraButton:hover:not(:disabled), .cameraButton:active:not(:disabled) { color: var(--ink); background: var(--surface-soft); }
+.cameraButton[aria-pressed="true"] { color: var(--ink); background: var(--surface-soft); border-color: var(--line); }
+.cameraZoom { display: flex; gap: .15rem; margin-inline-start: .2rem; padding-inline-start: .35rem; border-inline-start: 1px solid var(--line); }
 .viewport {
   --spatial-client: #7089ae;
   --spatial-service: #698ac0;
@@ -30,7 +36,7 @@
   --spatial-delivery: #9b835f;
   --spatial-acknowledgement: #648c7d;
   --spatial-decision: #8a849d;
-  position: relative; width: 100%; height: 450px; overflow: hidden;
+  position: relative; z-index: 0; width: 100%; height: 450px; overflow: hidden;
   border-block: 1px solid var(--line); background: var(--surface-soft); cursor: grab;
 }
 .viewport.expanded { height: clamp(560px, 75vh, 720px); }
@@ -102,6 +108,8 @@
 @media (max-width: 650px) {
   .intro { padding: 1.1rem 1rem; }
   .intro p { font-size: .85rem; }
+  .camera { inset-block-start: .6rem; inset-inline-end: .6rem; }
+  .cameraButton { min-height: 2.75rem; min-width: 2.75rem; }
   .viewport { height: 350px; }
   .viewport.expanded { height: clamp(460px, 70vh, 600px); }
   .viewport :global(.systemkit-spatial-label) { padding: .2rem .3rem; }
@@ -130,3 +138,5 @@
   .viewport { cursor: default; }
   .primaryAction:active:not(:disabled), .secondaryAction:active:not(:disabled), .textAction:active:not(:disabled) { transform: none; }
 }
+
+@media (pointer: coarse) { .cameraButton { min-height: 2.75rem; min-width: 2.75rem; } }

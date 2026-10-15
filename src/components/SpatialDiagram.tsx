@@ -194,8 +194,18 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
       {attempt?.revealed ? <div className={styles.predictionFeedback} role="status"><strong>{attempt.choice === prediction.correctIndex ? "Your prediction matches this scenario." : "Revisit your prediction."}</strong><p>{prediction.explanation}</p></div> : <p className={styles.smallNote}>Choose an answer, then reveal the explanation. Your choice stays on this device.</p>}
     </section> : null}
 
-    <div ref={host} className={`${styles.viewport} ${expanded ? styles.expanded : ""}`} data-reduced={reduced} tabIndex={0} aria-label={`3D diagram: ${original.title}. ${reduced ? "Fixed camera." : "Drag or use arrow keys to rotate."} Select a component or relationship, or use Explore components and relationships below.`}>
-      {!ready ? <p className={styles.loading} role="status">Preparing the 3D view…</p> : null}
+    <div className={styles.viewportFrame}>
+      <div ref={host} className={`${styles.viewport} ${expanded ? styles.expanded : ""}`} data-reduced={reduced} tabIndex={0} aria-label={`3D diagram: ${original.title}. ${reduced ? "Fixed camera." : "Drag or use arrow keys to rotate."} Select a component or relationship, or use Explore components and relationships below.`}>
+        {!ready ? <p className={styles.loading} role="status">Preparing the 3D view…</p> : null}
+      </div>
+      <div className={styles.camera} role="group" aria-label="Camera controls" title={reduced ? "Camera is fixed while reduced motion is enabled." : undefined}>
+        <button type="button" className={styles.cameraButton} aria-pressed={!top} disabled={reduced || !ready} onClick={() => runtime.current?.view(false)}>Angled</button>
+        <button type="button" className={styles.cameraButton} aria-pressed={top} disabled={reduced || !ready} onClick={() => runtime.current?.view(true)}>Top</button>
+        <div className={styles.cameraZoom}>
+          <button type="button" className={styles.cameraButton} disabled={reduced || !ready} aria-label="Zoom out" title="Zoom out" onClick={() => runtime.current?.zoom(.85)}><Minus size={14} aria-hidden="true"/></button>
+          <button type="button" className={styles.cameraButton} disabled={reduced || !ready} aria-label="Zoom in" title="Zoom in" onClick={() => runtime.current?.zoom(1.18)}><Plus size={14} aria-hidden="true"/></button>
+        </div>
+      </div>
     </div>
     <div className={styles.viewActions}>
       <div className={styles.viewContext} aria-live="polite"><p>{context || "Select a component or arrow to learn more."}</p>{stage === "overview" && scoped ? <button type="button" className={styles.textAction} onClick={wholeSystem}>Show whole system</button> : null}</div>
@@ -225,14 +235,8 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
       <details className={styles.disclosure}>
         <summary>Diagram options</summary>
         <div className={styles.optionsGrid}>
-          <section className={styles.optionGroup} aria-label="Camera and motion">
-            <h4>Camera and motion</h4>
-            <div className={styles.camera}>
-              <button type="button" className={styles.secondaryAction} aria-pressed={!top} disabled={reduced || !ready} onClick={() => runtime.current?.view(false)}>Angled</button>
-              <button type="button" className={styles.secondaryAction} aria-pressed={top} disabled={reduced || !ready} onClick={() => runtime.current?.view(true)}>Top</button>
-              <button type="button" className={styles.secondaryAction} disabled={reduced || !ready} aria-label="Zoom out" onClick={() => runtime.current?.zoom(.85)}><Minus size={15} aria-hidden="true"/></button>
-              <button type="button" className={styles.secondaryAction} disabled={reduced || !ready} aria-label="Zoom in" onClick={() => runtime.current?.zoom(1.18)}><Plus size={15} aria-hidden="true"/></button>
-            </div>
+          <section className={styles.optionGroup} aria-label="Motion">
+            <h4>Motion</h4>
             <label className={styles.reduce}><input type="checkbox" checked={reduced} disabled={systemReduced} onChange={event => { setManualReduced(event.target.checked); try { localStorage.setItem("systemkit:diagram-motion:v1", event.target.checked ? "reduced" : "normal"); } catch { /* Optional preference. */ } }}/><span>Reduce motion{systemReduced ? " · System setting" : ""}</span></label>
           </section>
           {content.views.length || original.links.length ? <section className={styles.optionGroup} aria-label="Diagram scope">
