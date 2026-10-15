@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, RotateCcw, Minus, Plus, Maximize2, Minimize2, X } from "lucide-react";
-import { getSpatialLesson, rememberSpatialLesson, decodeDiagramAttempts, relationshipLabels, type DiagramAttempt, type LessonChanges } from "../lib/spatial-learning";
+import { ArrowLeft, ArrowRight, RotateCcw, Minus, Plus, Maximize2, Minimize2, Pause, X } from "lucide-react";
+import { getSpatialLesson, decodeDiagramAttempts, relationshipLabels, type DiagramAttempt } from "../lib/spatial-learning";
 import { presentSpatialLesson } from "../lib/spatial-layout";
 import { createSpatialRuntime, type SpatialRuntime } from "../lib/spatial-runtime";
-import type { RelationMeaning } from "../lib/spatial-learning-types";
 import styles from "./SpatialDiagram.module.css";
 
 type Stage = "overview" | "walkthrough" | "prediction";
-const countLabel = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
   chapterId: string; diagramId: string; onUnavailable: () => void;
@@ -23,19 +21,15 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
   const nextStep = useRef<HTMLButtonElement>(null), predictionAction = useRef<HTMLButtonElement>(null);
   const retryButton = useRef<HTMLButtonElement>(null), firstChoice = useRef<HTMLInputElement>(null);
   const focusInspection = useRef(false), alignCard = useRef(false);
-  const pendingFocus = useRef<"caption" | "start" | "step" | "retry" | "choice" | "canvas" | null>(null);
+  const pendingFocus = useRef<"caption" | "start" | "step" | "retry" | "choice" | null>(null);
   const unavailable = useRef(onUnavailable); unavailable.current = onUnavailable;
   const [ready, setReady] = useState(false);
   const [stage, setStage] = useState<Stage>("overview");
   const [sceneIndex, setSceneIndex] = useState(0);
   const [predictionIndex, setPredictionIndex] = useState(0);
-  const [collapsed, setCollapsed] = useState<string[]>([]);
-  const [viewChoice, setViewChoice] = useState("overview");
-  const [filter, setFilter] = useState<RelationMeaning | "all">("all");
   const [nodeId, setNodeId] = useState<string | null>(null);
   const [linkId, setLinkId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [changes, setChanges] = useState<LessonChanges | null>(null);
   const [systemReduced, setSystemReduced] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [manualReduced, setManualReduced] = useState(() => {
     try { return localStorage.getItem("systemkit:diagram-motion:v1") === "reduced"; } catch { return false; }
@@ -51,63 +45,47 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
   const prediction = content.predictions[predictionIndex];
   const attempt = prediction ? attempts[prediction.id] : undefined;
   const explanation = stage === "walkthrough" ? content.scenes[sceneIndex] : stage === "prediction" && attempt?.revealed ? prediction?.reveal : undefined;
-  const viewId = stage === "overview" ? viewChoice === "overview" ? undefined : viewChoice : explanation?.viewId;
-  const effectiveCollapsed = useMemo(() => collapsed.filter(groupId => !explanation || !content.groups.find(group => group.id === groupId)?.members.some(member => explanation.nodeIds.includes(member))), [collapsed, explanation, content.groups]);
-  const presentation = useMemo(() => presentSpatialLesson(lesson, {
-    collapsed: effectiveCollapsed, viewId, explanation,
-    filter: stage === "overview" ? filter : "all",
-  }), [lesson, effectiveCollapsed, viewId, explanation, filter, stage]);
+  const viewId = explanation?.viewId;
+  const presentation = useMemo(() => presentSpatialLesson(lesson, { collapsed: [], viewId, explanation }), [lesson, viewId, explanation]);
   const presentationRef = useRef(presentation.scene); presentationRef.current = presentation.scene;
   const framingKey = `${stage}:${explanation?.id ?? ""}:${viewId ?? "overview"}:${reduced}:${frameVersion}`;
   const framed = useRef<string | null>(null);
   const selectedNode = presentation.scene.nodes.find(node => node.id === nodeId);
   const selectedLink = presentation.scene.links.find(link => link.id === linkId);
-  const selectedGroup = selectedNode?.members ? content.groups.find(group => `group:${group.id}` === selectedNode.id) : undefined;
-  const relationKinds = useMemo(() => [...new Set(original.links.map(link => link.meaning))], [original]);
   const nodeTitle = (node: string | null) => presentation.scene.nodes.find(item => item.id === node)?.title ?? "Boundary";
   const lastStep = sceneIndex === content.scenes.length - 1;
   const hidden = presentation.omittedNodes > 0 || presentation.omittedLinks > 0;
-  const proxyCount = presentation.scene.nodes.filter(node => node.members?.length).length;
-  const scoped = Boolean(viewId || hidden || proxyCount || stage === "overview" && filter !== "all");
-  const context = [
-    viewId ? presentation.title : "",
-    stage === "overview" && filter !== "all" ? `${relationshipLabels[filter]} relationships only` : "",
-    proxyCount ? `${countLabel(proxyCount, "subsystem")} collapsed` : "",
-    hidden ? `${countLabel(presentation.omittedNodes, "component")} and ${countLabel(presentation.omittedLinks, "relationship")} hidden here` : "",
-  ].filter(Boolean).join(" · ");
+  const context = hidden
+    ? `${presentation.scene.nodes.length} of ${original.nodes.length} components · ${presentation.scene.links.length} of ${original.links.length} connections`
+    : original.links.length ? "Select a component or connection to learn more." : "Select a component to learn more.";
 
   function clearSelection() { setNodeId(null); setLinkId(null); }
   function wholeSystem() {
     pendingFocus.current = "start"; alignCard.current = true; setFrameVersion(version => version + 1);
-    clearSelection(); setStage("overview"); setViewChoice("overview"); setFilter("all"); setCollapsed([]);
+    clearSelection(); setStage("overview");
   }
   function beginWalkthrough() {
     pendingFocus.current = "caption"; alignCard.current = true;
-    clearSelection(); setSceneIndex(0); setStage("walkthrough"); setViewChoice("overview"); setFilter("all"); setCollapsed([]);
+    clearSelection(); setSceneIndex(0); setStage("walkthrough");
   }
   function chooseScene(index: number) {
     // Keep the navigation button focused unless this step removes or disables it.
     pendingFocus.current = index === 0 || index === content.scenes.length - 1 ? "step" : null;
     clearSelection(); setSceneIndex(index);
   }
-  function beginPrediction() { pendingFocus.current = "caption"; alignCard.current = true; clearSelection(); setStage("prediction"); setViewChoice("overview"); setFilter("all"); setCollapsed([]); }
-  function toggleGroup(groupId: string) {
-    clearSelection(); setStage("overview"); setViewChoice("overview"); setFilter("all");
-    setCollapsed(current => current.includes(groupId) ? current.filter(item => item !== groupId) : [...current, groupId]);
-  }
-  function selectNode(node: string, trigger?: HTMLButtonElement, keyboard = false) {
+  function beginPrediction() { pendingFocus.current = "caption"; alignCard.current = true; clearSelection(); setStage("prediction"); }
+  function selectNode(node: string, trigger?: HTMLButtonElement, keyboard = Boolean(trigger?.matches(":focus-visible"))) {
     selectionTrigger.current = trigger ?? null; focusInspection.current = keyboard; setLinkId(null); setNodeId(node);
   }
-  function selectLink(link: string, trigger?: HTMLButtonElement, keyboard = false) {
+  function selectLink(link: string, trigger?: HTMLButtonElement, keyboard = Boolean(trigger?.matches(":focus-visible"))) {
     selectionTrigger.current = trigger ?? null; focusInspection.current = keyboard; setNodeId(null); setLinkId(link);
   }
   function dismissDetails() {
     clearSelection();
     const target = selectionTrigger.current;
-    if (target?.isConnected && !target.closest("details:not([open])") && target.getClientRects().length) target.focus(); else host.current?.focus({ preventScroll: true });
+    if (target?.isConnected && !target.disabled) target.focus({ preventScroll: true }); else host.current?.focus({ preventScroll: true });
   }
 
-  useEffect(() => { setChanges(rememberSpatialLesson(original)); }, [original]);
   useEffect(() => {
     try { localStorage.setItem(predictionKey, JSON.stringify(attempts)); } catch { /* Practice works without storage. */ }
   }, [attempts, predictionKey]);
@@ -121,8 +99,8 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
     if (!host.current) return;
     try {
       const view = createSpatialRuntime(host.current, presentationRef.current, {
-        reduced, onPick(node) { if (node) selectNode(node); else clearSelection(); },
-        onLinkPick(link) { selectLink(link); }, onUnavailable() { unavailable.current(); },
+        reduced, onPick(node, trigger?: HTMLButtonElement) { if (node) selectNode(node, trigger); else clearSelection(); },
+        onLinkPick(link, trigger?: HTMLButtonElement) { selectLink(link, trigger); }, onUnavailable() { unavailable.current(); },
         onHidden() {}, onViewChange: setTop,
       });
       runtime.current = view; framed.current = null; setReady(true);
@@ -154,14 +132,16 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
       : focus === "retry" ? retryButton.current : focus === "choice" ? firstChoice.current : host.current;
     target?.focus({ preventScroll: true });
     if (alignCard.current) { card.current?.scrollIntoView({ block: "start", behavior: "instant" }); alignCard.current = false; }
-  }, [stage, sceneIndex, predictionIndex, frameVersion, attempt, collapsed]);
+  }, [stage, sceneIndex, predictionIndex, frameVersion, attempt]);
   useEffect(() => {
     if (focusInspection.current && (selectedNode || selectedLink)) {
-      inspectorHeading.current?.focus(); focusInspection.current = false;
+      inspectorHeading.current?.focus({ preventScroll: true }); focusInspection.current = false;
     }
   }, [selectedNode, selectedLink]);
 
-  return <div ref={card} className={styles.root}>
+  return <div ref={card} className={styles.root} onKeyDown={event => {
+    if (event.key === "Escape" && (selectedNode || selectedLink)) { event.preventDefault(); event.stopPropagation(); dismissDetails(); }
+  }}>
     <div className={styles.intro}>
       <h3>{original.title}</h3>
       {stage === "overview" ? <>
@@ -195,10 +175,10 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
     </section> : null}
 
     <div className={styles.viewportFrame}>
-      <div ref={host} className={`${styles.viewport} ${expanded ? styles.expanded : ""}`} data-reduced={reduced} tabIndex={0} aria-label={`3D diagram: ${original.title}. ${reduced ? "Fixed camera." : "Drag or use arrow keys to rotate."} Select a component or relationship, or use Explore components and relationships below.`}>
+      <div ref={host} className={`${styles.viewport} ${expanded ? styles.expanded : ""}`} data-reduced={reduced} tabIndex={0} aria-label={`3D diagram: ${original.title}. ${reduced ? "Fixed camera." : "Drag or use arrow keys to rotate."} Tab through components and connections; press Enter to inspect.`}>
         {!ready ? <p className={styles.loading} role="status">Preparing the 3D view…</p> : null}
       </div>
-      <div className={styles.camera} role="group" aria-label="Camera controls" title={reduced ? "Camera is fixed while reduced motion is enabled." : undefined}>
+      <div className={styles.camera} data-spatial-overlay role="group" aria-label="Camera controls" title={reduced ? "Camera is fixed while reduced motion is enabled." : undefined}>
         <button type="button" className={styles.cameraButton} aria-pressed={!top} disabled={reduced || !ready} onClick={() => runtime.current?.view(false)}>Angled</button>
         <button type="button" className={styles.cameraButton} aria-pressed={top} disabled={reduced || !ready} onClick={() => runtime.current?.view(true)}>Top</button>
         <div className={styles.cameraZoom}>
@@ -206,57 +186,28 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
           <button type="button" className={styles.cameraButton} disabled={reduced || !ready} aria-label="Zoom in" title="Zoom in" onClick={() => runtime.current?.zoom(1.18)}><Plus size={14} aria-hidden="true"/></button>
         </div>
       </div>
-    </div>
-    <div className={styles.viewActions}>
-      <div className={styles.viewContext} aria-live="polite"><p>{context || "Select a component or arrow to learn more."}</p>{stage === "overview" && scoped ? <button type="button" className={styles.textAction} onClick={wholeSystem}>Show whole system</button> : null}</div>
-      <div className={styles.buttonRow}>
-        <button type="button" className={styles.textAction} disabled={!ready} aria-label="Reset camera view" onClick={() => runtime.current?.reset()}><RotateCcw size={14} aria-hidden="true"/>Reset view</button>
-        <button type="button" className={styles.textAction} disabled={!ready} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={14} aria-hidden="true"/> : <Maximize2 size={14} aria-hidden="true"/>}{expanded ? "Shrink diagram" : "Expand diagram"}</button>
+      <div className={styles.utilities} data-spatial-overlay role="group" aria-label="Diagram controls">
+        <button type="button" className={styles.cameraButton} aria-label="Reduce motion" aria-pressed={reduced} disabled={systemReduced} title={systemReduced ? "Reduced motion follows your system setting" : reduced ? "Allow motion" : "Reduce motion"} onClick={() => {
+          setManualReduced(value => !value);
+          try { localStorage.setItem("systemkit:diagram-motion:v1", manualReduced ? "normal" : "reduced"); } catch { /* Optional preference. */ }
+        }}><Pause size={14} aria-hidden="true"/></button>
+        <button type="button" className={styles.cameraButton} disabled={!ready} aria-label="Reset camera view" title="Reset view" onClick={() => runtime.current?.reset()}><RotateCcw size={14} aria-hidden="true"/></button>
+        <button type="button" className={styles.cameraButton} disabled={!ready} aria-label={expanded ? "Shrink diagram" : "Expand diagram"} title={expanded ? "Shrink diagram" : "Expand diagram"} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={14} aria-hidden="true"/> : <Maximize2 size={14} aria-hidden="true"/>}</button>
       </div>
-    </div>
-
-    <div id={`${id}-details`} className={styles.detailsAnnouncement} aria-live="polite" aria-atomic="true">
-      {selectedNode || selectedLink ? <section className={styles.inspector} aria-labelledby={`${id}-details-title`}>
-        <div className={styles.stepHeading}><span className={styles.kicker}>{selectedLink ? "Relationship" : "Component"}</span><button type="button" className={styles.textAction} onClick={dismissDetails}><X size={14} aria-hidden="true"/>Dismiss details</button></div>
-        <h4 ref={inspectorHeading} id={`${id}-details-title`} tabIndex={-1}>{selectedLink ? `${nodeTitle(selectedLink.source)} → ${nodeTitle(selectedLink.target)}` : selectedNode?.title}</h4>
-        <p>{selectedLink?.explanation ?? selectedGroup?.description ?? selectedNode?.detail}</p>
-        {selectedLink ? <p className={styles.relationCondition}><strong>{relationshipLabels[selectedLink.meaning]}</strong>{selectedLink.condition ? ` · ${selectedLink.condition}` : ""}{selectedLink.dashed ? " · Dashed relationship" : ""}</p> : null}
-        {selectedNode?.status ? <p className={styles.relationCondition}>Scenario state: {selectedNode.status.replace(/-/g, " ")}</p> : null}
-        {selectedGroup ? <button type="button" className={styles.secondaryAction} onClick={() => { pendingFocus.current = "canvas"; toggleGroup(selectedGroup.id); }}>Expand {selectedGroup.title}</button> : null}
-        {selectedLink && selectedLink.origins.length > 1 ? <details className={styles.provenance}><summary>{countLabel(selectedLink.origins.length, "original relationship")} represented</summary><ul>{selectedLink.origins.map(origin => {
-          const link = original.links.find(item => item.id === origin);
-          const from = original.nodes.find(node => node.id === link?.source)?.title ?? "Boundary", to = original.nodes.find(node => node.id === link?.target)?.title ?? "Boundary";
-          return <li key={origin}><strong>{from} → {to}</strong> · {link?.explanation}</li>;
-        })}</ul></details> : null}
-      </section> : null}
-    </div>
-
-    <div className={styles.disclosures}>
-      <details className={styles.disclosure}>
-        <summary>Diagram options</summary>
-        <div className={styles.optionsGrid}>
-          <section className={styles.optionGroup} aria-label="Motion">
-            <h4>Motion</h4>
-            <label className={styles.reduce}><input type="checkbox" checked={reduced} disabled={systemReduced} onChange={event => { setManualReduced(event.target.checked); try { localStorage.setItem("systemkit:diagram-motion:v1", event.target.checked ? "reduced" : "normal"); } catch { /* Optional preference. */ } }}/><span>Reduce motion{systemReduced ? " · System setting" : ""}</span></label>
-          </section>
-          {content.views.length || original.links.length ? <section className={styles.optionGroup} aria-label="Diagram scope">
-            <h4>Show in the diagram</h4>
-            {content.views.length ? <label className={styles.selectLabel}>Lesson view<select value={stage === "overview" ? viewChoice : "follow"} onChange={event => { if (event.target.value === "follow") return; clearSelection(); setStage("overview"); setViewChoice(event.target.value); setFilter("all"); }}>
-              {stage !== "overview" ? <option value="follow">Follow current step</option> : null}<option value="overview">Whole system</option>{content.views.map(view => <option key={view.id} value={view.id}>{view.title}</option>)}
-            </select></label> : null}
-            {original.links.length ? <label className={styles.selectLabel}>Relationships<select value={stage === "overview" ? filter : "all"} onChange={event => { clearSelection(); setStage("overview"); setViewChoice("overview"); setFilter(event.target.value as RelationMeaning | "all"); }}><option value="all">All relationships</option>{relationKinds.map(kind => <option key={kind} value={kind}>{relationshipLabels[kind]}</option>)}</select></label> : null}
-          </section> : null}
-          {content.groups.length ? <section className={styles.optionGroup} aria-label="Subsystems"><h4>Subsystems</h4><div className={styles.subsystems}>{content.groups.map(group => <div key={group.id}><div><strong>{group.title}</strong><p>{group.description}</p></div><button type="button" className={styles.secondaryAction} disabled={!ready} aria-expanded={!effectiveCollapsed.includes(group.id)} onClick={() => toggleGroup(group.id)}>{effectiveCollapsed.includes(group.id) ? "Expand" : "Collapse"} {group.title}</button></div>)}</div></section> : null}
-          {changes ? <section className={styles.optionGroup}><h4>Since the previous lesson</h4><p>{countLabel(changes.retained, "component")} {changes.retained === 1 ? "keeps its" : "keep their"} identity from “{changes.previousTitle}”.</p>{changes.added.length ? <p>Added: {changes.added.join(", ")}.</p> : null}{changes.removed.length ? <p>Left this diagram: {changes.removed.join(", ")}.</p> : null}</section> : null}
-        </div>
-      </details>
-      <details className={styles.disclosure}>
-        <summary>Explore components and relationships</summary>
-        <div className={styles.exploration}>
-          <section><h4>Components</h4><div className={styles.elements}>{presentation.scene.nodes.map(node => <button type="button" className={styles.secondaryAction} key={node.id} aria-pressed={nodeId === node.id} aria-controls={`${id}-details`} onClick={event => selectNode(node.id, event.currentTarget, event.detail === 0)}>{node.title}{node.members ? ` · ${countLabel(node.members.length, "component")}` : ""}</button>)}</div></section>
-          {presentation.scene.links.length ? <section><h4>Relationships</h4><div className={styles.relationships}>{presentation.scene.links.map(link => <button type="button" key={link.id} aria-pressed={linkId === link.id} aria-controls={`${id}-details`} onClick={event => selectLink(link.id, event.currentTarget, event.detail === 0)}><strong>{nodeTitle(link.source)} → {nodeTitle(link.target)}</strong><span>{relationshipLabels[link.meaning]}{link.label !== "Connection" ? ` · ${link.label}` : ""}{link.origins.length > 1 ? ` · ${countLabel(link.origins.length, "original relationship")}` : ""}</span></button>)}</div></section> : null}
-        </div>
-      </details>
+      <p className={styles.scope} data-spatial-overlay role="status">{context}</p>
+      <div id={`${id}-details`} className={styles.inspectionLayer} data-spatial-overlay aria-live="polite" aria-atomic="true">
+        {selectedNode || selectedLink ? <section className={styles.inspector} aria-labelledby={`${id}-details-title`}>
+          <div className={styles.inspectionHeading}>
+            <div><span className={styles.kicker}>{selectedLink ? "Connection" : "Component"}</span>
+              <h4 ref={inspectorHeading} id={`${id}-details-title`} tabIndex={-1}>{selectedLink ? `${nodeTitle(selectedLink.source)} → ${nodeTitle(selectedLink.target)}` : selectedNode?.title}</h4>
+            </div>
+            <button type="button" className={styles.cameraButton} aria-label="Close details" title="Close details" onClick={dismissDetails}><X size={14} aria-hidden="true"/></button>
+          </div>
+          <p>{selectedLink?.explanation ?? selectedNode?.detail}</p>
+          {selectedLink ? <p className={styles.relationCondition}>{relationshipLabels[selectedLink.meaning]}{selectedLink.condition ? ` · ${selectedLink.condition}` : ""}</p> : null}
+          {selectedNode?.status ? <p className={styles.relationCondition}>Scenario state: {selectedNode.status.replace(/-/g, " ")}</p> : null}
+        </section> : null}
+      </div>
     </div>
   </div>;
 }

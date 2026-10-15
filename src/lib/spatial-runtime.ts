@@ -26,16 +26,17 @@ export type SpatialRuntime = {
   dispose: () => void;
 };
 type Options = {
-  reduced: boolean; onPick: (id: string | null) => void; onUnavailable: () => void;
+  reduced: boolean; onPick: (id: string | null, trigger?: HTMLButtonElement) => void; onUnavailable: () => void;
   onHidden: () => void; onViewChange?: (top: boolean) => void;
-  onLinkPick?: (id: string) => void; onGroupPick?: (id: string) => void; onInteraction?: () => void;
+  onLinkPick?: (id: string, trigger?: HTMLButtonElement) => void; onGroupPick?: (id: string) => void; onInteraction?: () => void;
 };
 type Family = "client" | "service" | "data" | "routing" | "work" | "neutral";
 type Disposable = { dispose(): void };
 type Bucket = Set<Disposable>;
 type Label = {
-  element: HTMLDivElement; object: CSS2DObject; anchor: Vector3;
-  leader: SVGLineElement; dot: SVGCircleElement; nodeId: string | null;
+  element: HTMLDivElement | HTMLButtonElement; object: CSS2DObject; anchor: Vector3;
+  leader: SVGLineElement; dot: SVGCircleElement; nodeId: string | null; linkId: string | null;
+  enabled: boolean; cleanup: () => void;
 };
 type Tile = {
   node: LearningNode; family: Family; group: Group; bucket: Bucket;
@@ -47,7 +48,7 @@ type Tile = {
 };
 type Channel = {
   link: LearningLink; group: Group; bucket: Bucket; material: MeshStandardMaterial;
-  color: Color; pts: Vector3[]; lengths: number[]; total: number; opacity: number;
+  color: Color; pts: Vector3[]; lengths: number[]; total: number; opacity: number; label: Label;
 };
 type Decoration = { group: Group; bucket: Bucket; labels: Label[]; opacity: number };
 type NodeTrack = {
@@ -145,17 +146,51 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
   svg.setAttribute("aria-hidden", "true"); host.appendChild(svg);
   teardowns.push(() => svg.remove());
   const labels = new CSS2DRenderer(); labels.domElement.style.cssText = "position:absolute;inset:0;pointer-events:none";
-  labels.domElement.setAttribute("aria-hidden", "true"); host.appendChild(labels.domElement);
+  labels.domElement.setAttribute("role", "group"); labels.domElement.setAttribute("aria-label", "Diagram components and relationships"); host.appendChild(labels.domElement);
   teardowns.push(() => labels.domElement.remove());
   const labelItems: Label[] = [];
+  let focusedControl: Label | null = null;
+  let pendingControlFocus: { nodeId: string | null; linkId: string | null; semanticId?: string } | null = null;
   teardowns.push(() => { for (const item of [...labelItems]) removeLabel(item); });
-  function labelAt(position: Vector3, nodeId: string | null): Label {
-    const element = document.createElement("div"); element.className = "systemkit-spatial-label";
+  function labelAt(position: Vector3, nodeId: string | null, linkId: string | null = null): Label {
+    const interactive = nodeId !== null || linkId !== null;
+    const element = document.createElement(interactive ? "button" : "div");
+    element.className = linkId !== null ? "systemkit-spatial-relationship" : "systemkit-spatial-label";
+    if (element instanceof HTMLButtonElement) {
+      element.type = "button"; element.style.pointerEvents = "auto";
+      element.dataset.control = linkId !== null ? "relationship" : "node";
+    } else element.setAttribute("aria-hidden", "true");
     const object = new CSS2DObject(element); object.position.copy(position); scene.add(object);
+    // Keep DOM order stable even when the 3D anchor leaves the camera frustum.
+    labels.domElement.appendChild(element);
     const leader = document.createElementNS("http://www.w3.org/2000/svg", "line");
     leader.setAttribute("stroke", palette.line); leader.setAttribute("stroke-width", "1"); leader.setAttribute("stroke-linecap", "round"); svg.appendChild(leader);
     const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle"); dot.setAttribute("r", "2.5"); dot.setAttribute("fill", palette.ink); dot.setAttribute("opacity", ".5"); svg.appendChild(dot);
-    const item = { element, object, anchor: position.clone(), leader, dot, nodeId }; labelItems.push(item); return item;
+    const item: Label = { element, object, anchor: position.clone(), leader, dot, nodeId, linkId, enabled: interactive, cleanup() {} };
+    if (element instanceof HTMLButtonElement) {
+      const focus = () => {
+        focusedControl = item; item.element.dataset.focused = "true"; updateEmphasis();
+        // Suppressed targets remain native tab stops; reveal the focused control before paint.
+        labels.render(scene, camera); packLabels();
+      };
+      const blur = () => { if (focusedControl === item) focusedControl = null; item.element.dataset.focused = "false"; updateEmphasis(); };
+      const activate = () => {
+        if (!item.enabled) return;
+        options.onInteraction?.();
+        if (item.nodeId !== null) options.onPick(item.nodeId, element);
+        else if (item.linkId !== null) options.onLinkPick?.(item.linkId, element);
+      };
+      element.addEventListener("focus", focus); element.addEventListener("blur", blur); element.addEventListener("click", activate);
+      item.cleanup = () => { element.removeEventListener("focus", focus); element.removeEventListener("blur", blur); element.removeEventListener("click", activate); };
+    }
+    labelItems.push(item); return item;
+  }
+  function enableLabel(item: Label, enabled: boolean) {
+    if (!(item.element instanceof HTMLButtonElement)) return;
+    item.enabled = enabled; item.element.disabled = !enabled; item.element.tabIndex = enabled ? 0 : -1;
+    item.element.style.pointerEvents = enabled ? "auto" : "none";
+    if (enabled) item.element.removeAttribute("aria-hidden"); else item.element.setAttribute("aria-hidden", "true");
+    if (!enabled && document.activeElement === item.element) host.focus({ preventScroll: true });
   }
   function labelText(item: Label, titleText: string, detailText: string, category = "") {
     item.element.replaceChildren(); const title = document.createElement("strong"); title.textContent = titleText; item.element.appendChild(title);
@@ -163,7 +198,7 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
     if (category) { const kind = document.createElement("small"); kind.textContent = category; item.element.appendChild(kind); }
     item.element.dataset.category = category;
   }
-  function removeLabel(item: Label) { scene.remove(item.object); item.element.remove(); item.leader.remove(); item.dot.remove(); const i = labelItems.indexOf(item); if (i >= 0) labelItems.splice(i, 1); }
+  function removeLabel(item: Label) { item.cleanup(); if (focusedControl === item) focusedControl = null; scene.remove(item.object); item.element.remove(); item.leader.remove(); item.dot.remove(); const i = labelItems.indexOf(item); if (i >= 0) labelItems.splice(i, 1); }
   function line(path: Vector3[], color: Color | string, opacity = 1) {
     return new Line(keep(new BufferGeometry().setFromPoints(path)), keep(new LineBasicMaterial({ color, transparent: true, opacity })));
   }
@@ -280,10 +315,12 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
   }
   function updateTileData(tile: Tile, node: LearningNode) {
     tile.node = node; tile.label.nodeId = node.id; tile.label.element.dataset.family = tile.family;
+    tile.label.element.dataset.semanticId = node.semanticId; tile.label.element.dataset.nodeId = node.id;
     tile.label.element.dataset.status = node.status ?? "active"; tile.label.element.dataset.proxy = String(Boolean(node.members?.length));
     const count = node.members?.length, status = node.status === "unavailable" ? "Unavailable" : node.status === "under-pressure" ? "Under pressure" : "";
     const category = count ? `${count} components` : tile.family !== "neutral" && !node.title.toLowerCase().includes(node.kind.toLowerCase()) ? node.kind : "";
     labelText(tile.label, node.title, node.detail, [category, status].filter(Boolean).join(" · "));
+    tile.label.element.setAttribute("aria-label", [node.title, node.detail, status, "Inspect component"].filter(Boolean).join(". "));
     tile.statusMark.visible = Boolean(status);
     for (const child of tile.statusMark.children) { child.visible = child.userData.status === node.status; if (child instanceof LineSegments) child.material.color.set(statusColor(node.status)); }
     tile.group.traverse(object => { if (object instanceof Mesh) { object.userData.id = node.id; object.userData.semanticId = node.semanticId; } });
@@ -327,10 +364,28 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
       if (pts.length) for (const point of [pts[0], pts[pts.length - 1]]) { const port = new Mesh(keep(new SphereGeometry(.032, 10, 8)), material); port.position.copy(point); group.add(port); }
       for (const object of group.children) { object.userData.linkId = link.id; object.userData.origins = link.origins; object.userData.meaning = link.meaning; }
       scene.add(group); const segmentLengths = pts.slice(1).map((p, i) => p.distanceTo(pts[i]));
-      return { link, group, bucket, material, color, pts, lengths: segmentLengths, total: segmentLengths.reduce((sum, value) => sum + value, 0), opacity: 1 };
+      const routeLength = segmentLengths.reduce((sum, value) => sum + value, 0);
+      let remaining = routeLength / 2, midpoint = pts[0]?.clone() ?? new Vector3();
+      for (let i = 0; i < segmentLengths.length; i++) {
+        if (remaining <= segmentLengths[i] || i === segmentLengths.length - 1) { midpoint.copy(pts[i]).lerp(pts[i + 1], segmentLengths[i] ? remaining / segmentLengths[i] : 0); break; }
+        remaining -= segmentLengths[i];
+      }
+      midpoint.y += .08;
+      const label = labelAt(midpoint, null, link.id);
+      label.element.textContent = "·"; label.element.dataset.linkId = link.id;
+      const channel = { link, group, bucket, material, color, pts, lengths: segmentLengths, total: routeLength, opacity: 1, label };
+      updateChannelLabel(channel); return channel;
     });
   }
-  function disposeChannel(channel: Channel) { scene.remove(channel.group); release(channel.bucket); }
+  function updateChannelLabel(channel: Channel) {
+    const source = model.nodes.find(node => node.id === channel.link.source)?.title ?? "Boundary";
+    const target = model.nodes.find(node => node.id === channel.link.target)?.title ?? "Boundary";
+    const meaning = channel.link.meaning.replace(/^[a-z]/, letter => letter.toUpperCase());
+    const name = `${source} → ${target}. ${meaning}${channel.link.label && channel.link.label !== "Connection" ? ` · ${channel.link.label}` : ""}. Inspect relationship`;
+    channel.label.element.setAttribute("aria-label", name); channel.label.element.title = name;
+    channel.label.element.dataset.caption = `${source} → ${target} · ${meaning}`;
+  }
+  function disposeChannel(channel: Channel) { scene.remove(channel.group); removeLabel(channel.label); release(channel.bucket); }
   const marker = new Mesh(keep(new SphereGeometry(.045, 12, 10)), keep(new MeshBasicMaterial({ color: palette.ink }))); marker.visible = false; scene.add(marker);
   marker.userData.playbackMarker = true;
   let overviewBounds = new Box3(), framedBounds = new Box3();
@@ -358,6 +413,9 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
   function focusIds() {
     const link = selectedLink === null ? null : channels[selectedLink]?.link;
     const result = new Set(spotlightNodes);
+    if (focusedControl?.nodeId) result.add(focusedControl.nodeId);
+    const focusedLink = focusedControl?.linkId ? channels.find(channel => channel.link.id === focusedControl!.linkId)?.link : null;
+    for (const id of [focusedLink?.source, focusedLink?.target]) if (id) result.add(id);
     for (const id of [selectedNode, link?.source, link?.target]) if (id) result.add(id);
     for (const channel of channels) if (spotlightLinks.has(channel.link.id) || channel.link.origins.some(id => spotlightLinks.has(id))) { if (channel.link.source) result.add(channel.link.source); if (channel.link.target) result.add(channel.link.target); }
     return result;
@@ -374,12 +432,14 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
       tile.outline.material.color.set(active ? palette.ink : tile.node.status && tile.node.status !== "active" ? statusColor(tile.node.status) : hover ? palette[tile.family] : palette.line);
       materialOpacity.set(tile.outline.material, active ? 1 : hover ? .85 : tile.node.status && tile.node.status !== "active" ? .8 : .28); tile.halo.visible = active;
       tile.label.element.dataset.selected = String(active); tile.label.element.dataset.hovered = String(hover);
+      tile.label.element.setAttribute("aria-pressed", String(tile.node.id === selectedNode));
       tile.emphasis = hasSelection && !active && !hover ? .66 : 1;
       opacity(tile.bucket, tile.opacity); tile.label.element.style.opacity = String(tile.emphasis * tile.opacity);
     }
     for (let i = 0; i < channels.length; i++) {
       const channel = channels[i], connected = selectedNode !== null && (channel.link.source === selectedNode || channel.link.target === selectedNode);
-      const active = i === selectedLink || connected || spotlightLinks.has(channel.link.id) || channel.link.origins.some(id => spotlightLinks.has(id));
+      const active = i === selectedLink || connected || spotlightLinks.has(channel.link.id) || channel.link.origins.some(id => spotlightLinks.has(id)) || focusedControl === channel.label;
+      channel.label.element.dataset.selected = String(active); channel.label.element.setAttribute("aria-pressed", String(i === selectedLink));
       channel.material.color.copy(channel.color); if (active) channel.material.color.lerp(new Color(palette.ink), .25);
       materialOpacity.set(channel.material, hasSelection ? active ? 1 : .19 : .84);
       channel.material.emissive.copy(active ? channel.color : new Color("#000000")); channel.material.emissiveIntensity = active ? .18 : 0;
@@ -416,11 +476,24 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
     if (!bounds.isEmpty()) bounds.expandByScalar(.18); return bounds.isEmpty() ? overviewBounds : bounds;
   }
   function packLabels() {
-    const width = host.clientWidth, height = host.clientHeight, focused = focusIds(), occupied: { x: number; y: number; w: number; h: number }[] = [];
-    const priority = (item: Label) => focused.has(item.nodeId ?? "") ? 0 : item.nodeId === hoveredNode && hoveredNode !== null ? 1 : item.nodeId ? 2 : 3;
+    const width = host.clientWidth, height = host.clientHeight; if (!width || !height) return;
+    const focused = focusIds(), hostRect = host.getBoundingClientRect();
+    const occupied: { x: number; y: number; w: number; h: number }[] = [];
+    for (const overlay of host.parentElement?.querySelectorAll<HTMLElement>("[data-spatial-overlay]") ?? []) {
+      const bounds = overlay.getBoundingClientRect();
+      if (bounds.width && bounds.height) occupied.push({ x: bounds.left - hostRect.left, y: bounds.top - hostRect.top, w: bounds.width, h: bounds.height });
+    }
+    const priority = (item: Label) => item === focusedControl ? -1 : focused.has(item.nodeId ?? "") ? 0 : item.nodeId === hoveredNode && hoveredNode !== null ? 1 : item.nodeId ? 2 : item.linkId ? 3 : 4;
     for (const item of [...labelItems].sort((a, b) => priority(a) - priority(b))) {
-      const point = item.anchor.clone().project(camera), x = (point.x + 1) * width / 2, y = (-point.y + 1) * height / 2;
-      const tile = item.nodeId ? nodeById.get(item.nodeId) : null, active = focused.has(item.nodeId ?? "") || tile?.node.members?.some(id => focused.has(id));
+      const tile = item.nodeId ? nodeById.get(item.nodeId) : undefined;
+      const channel = item.linkId ? channels.find(value => value.link.id === item.linkId) : undefined;
+      const control = item.element instanceof HTMLButtonElement;
+      const live = tile?.label === item ? tile.opacity >= .16 : channel?.label === item ? channel.opacity >= .16 : false;
+      if (control) enableLabel(item, live);
+      const point = item.anchor.clone().project(camera), rawX = (point.x + 1) * width / 2, rawY = (-point.y + 1) * height / 2;
+      const x = Number.isFinite(rawX) ? Math.max(10, Math.min(width - 10, rawX)) : width / 2;
+      const y = Number.isFinite(rawY) ? Math.max(10, Math.min(height - 10, rawY)) : height / 2;
+      const active = item === focusedControl || focused.has(item.nodeId ?? "") || tile?.node.members?.some(id => focused.has(id)) || Boolean(channel && (channels.indexOf(channel) === selectedLink || spotlightLinks.has(channel.link.id) || channel.link.origins.some(origin => spotlightLinks.has(origin))));
       let projectedWidth = 150;
       if (tile) {
         const p = tile.group.position, half = tile.baseWidth * tile.group.scale.x / 2;
@@ -428,23 +501,46 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
         projectedWidth = Math.abs(right.x - left.x) * width / 2;
       }
       item.element.dataset.density = !active && (width < 560 || projectedWidth < 95) ? "compact" : "full";
-      item.element.style.maxWidth = `${active ? Math.min(190, width - 24) : Math.max(60, Math.min(170, projectedWidth * 1.12))}px`;
-      const w = item.element.offsetWidth, h = item.element.offsetHeight; let best = { x: 0, y: 0, cost: Infinity }, bestOverlap = Infinity;
-      for (const dy of [0, -24, 24, -48, 48, -72, 72]) for (const dx of [0, -24, 24, -48, 48]) {
-        const px = Math.max(10, Math.min(width - w - 10, x - w / 2 + dx)), py = Math.max(10, Math.min(height - h - 10, y - h / 2 + dy));
+      item.element.style.maxWidth = item.linkId ? "none" : `${active ? Math.min(190, width - 24) : Math.max(80, Math.min(170, projectedWidth * 1.12))}px`;
+      if (control && live) item.element.style.display = "";
+      const w = item.element.offsetWidth, h = item.element.offsetHeight;
+      let best = { x: 10, y: 10, cost: Infinity }, bestOverlap = Infinity;
+      const candidates: { x: number; y: number }[] = [];
+      for (const dy of [0, -24, 24, -48, 48, -72, 72]) for (const dx of [0, -24, 24, -48, 48]) candidates.push({ x: x - w / 2 + dx, y: y - h / 2 + dy });
+      if (control && active) for (let py = 10; py <= height - h - 10; py += Math.max(22, h + 8)) for (let px = 10; px <= width - w - 10; px += Math.max(28, w / 2)) candidates.push({ x: px, y: py });
+      for (const candidate of candidates) {
+        const px = Math.max(10, Math.min(width - w - 10, candidate.x)), py = Math.max(10, Math.min(height - h - 10, candidate.y));
         const overlap = occupied.reduce((sum, r) => sum + Math.max(0, Math.min(px + w + 5, r.x + r.w + 5) - Math.max(px - 5, r.x - 5)) * Math.max(0, Math.min(py + h + 4, r.y + r.h + 4) - Math.max(py - 4, r.y - 4)), 0);
-        const cost = overlap * 20 + Math.hypot(px + w / 2 - x, py + h / 2 - y); if (cost < best.cost) { best = { x: px, y: py, cost }; bestOverlap = overlap; }
+        const cost = overlap * 20 + Math.hypot(px + w / 2 - x, py + h / 2 - y);
+        if (cost < best.cost) { best = { x: px, y: py, cost }; bestOverlap = overlap; }
       }
-      const shiftX = best.x + w / 2 - x, shiftY = best.y + h / 2 - y, offscreen = point.z < -1 || point.z > 1 || Math.abs(point.x) > 1.12 || Math.abs(point.y) > 1.12;
-      const faded = Number(item.element.style.opacity || 1) < .12, hidden = offscreen || faded || !active && bestOverlap > w * h * .45;
-      item.element.style.marginLeft = `${shiftX}px`; item.element.style.marginTop = `${shiftY}px`; item.element.style.visibility = hidden ? "hidden" : "visible";
-      item.element.dataset.packed = String(Math.hypot(shiftX, shiftY) > 10); item.leader.style.display = hidden || Math.hypot(shiftX, shiftY) < 10 ? "none" : "";
-      item.leader.setAttribute("x1", String(x)); item.leader.setAttribute("y1", String(y)); item.leader.setAttribute("x2", String(best.x + w / 2)); item.leader.setAttribute("y2", String(best.y + h / 2)); item.leader.setAttribute("opacity", active ? ".65" : ".3");
-      item.dot.setAttribute("cx", String(x)); item.dot.setAttribute("cy", String(y)); item.dot.style.display = hidden && !offscreen && !faded && item.nodeId ? "" : "none";
-      if (!hidden) occupied.push({ x: best.x, y: best.y, w, h });
+      const offscreen = point.z < -1 || point.z > 1 || Math.abs(point.x) > 1.12 || Math.abs(point.y) > 1.12;
+      const faded = control ? !live : Number(item.element.style.opacity || 1) < .12;
+      const suppressed = control ? !live || !active && (item.linkId !== null || offscreen || bestOverlap > w * h * .45) : offscreen || faded || !active && bestOverlap > w * h * .45;
+      const hidden = !control && suppressed;
+      if (control) {
+        // Idle relationships add no chrome; native focus synchronously reveals their target.
+        item.element.style.opacity = suppressed ? "0" : item === focusedControl ? "1" : String(tile ? tile.opacity * tile.emphasis : 1);
+        item.element.style.pointerEvents = suppressed ? "none" : "auto";
+        item.element.dataset.suppressed = String(suppressed);
+      }
+      item.element.style.marginLeft = "0px"; item.element.style.marginTop = "0px";
+      item.element.style.transform = `translate(-50%, -50%) translate(${best.x + w / 2}px, ${best.y + h / 2}px)`;
+      item.element.style.visibility = hidden ? "hidden" : "visible";
+      item.element.dataset.offscreen = String(offscreen); item.element.dataset.packed = String(Math.hypot(best.x + w / 2 - rawX, best.y + h / 2 - rawY) > 10);
+      if (item === focusedControl) item.element.style.zIndex = "10000";
+      item.leader.style.display = suppressed || offscreen || item.linkId !== null && !active || Math.hypot(best.x + w / 2 - rawX, best.y + h / 2 - rawY) < 10 ? "none" : "";
+      item.leader.setAttribute("x1", String(rawX)); item.leader.setAttribute("y1", String(rawY)); item.leader.setAttribute("x2", String(best.x + w / 2)); item.leader.setAttribute("y2", String(best.y + h / 2)); item.leader.setAttribute("opacity", active ? ".65" : ".3");
+      item.dot.style.display = "none";
+      if (!suppressed) occupied.push({ x: best.x, y: best.y, w, h });
+    }
+    if (pendingControlFocus && !(pendingControlFocus.semanticId ? model.nodes.some(node => node.semanticId === pendingControlFocus!.semanticId) : pendingControlFocus.nodeId ? model.nodes.some(node => node.id === pendingControlFocus!.nodeId) : model.links.some(link => link.id === pendingControlFocus!.linkId))) pendingControlFocus = null;
+    if (pendingControlFocus) {
+      const target = labelItems.find(item => item.enabled && (pendingControlFocus!.semanticId ? item.element.dataset.semanticId === pendingControlFocus!.semanticId : pendingControlFocus!.nodeId ? item.nodeId === pendingControlFocus!.nodeId : item.linkId === pendingControlFocus!.linkId));
+      if (target) { pendingControlFocus = null; target.element.focus({ preventScroll: true }); }
     }
   }
-  function draw() { if (disposed || !visible || document.hidden) return; renderer.render(scene, camera); if (labelsDirty) { labels.render(scene, camera); packLabels(); labelsDirty = false; } }
+  function draw() { if (disposed || !visible || document.hidden) return; renderer.render(scene, camera); if (labelsDirty) { labelsDirty = false; labels.render(scene, camera); packLabels(); } }
   function requestDraw() { if (!disposed && visible && !document.hidden && !frame && !inTick) frame = requestAnimationFrame(tick); }
   function finishModelMove() {
     if (!modelMove) return;
@@ -493,7 +589,7 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
       let travel = progress * channel.total;
       for (let i = 0; i < channel.lengths.length; i++) { if (travel <= channel.lengths[i] || i === channel.lengths.length - 1) { marker.position.copy(channel.pts[i]).lerp(channel.pts[i + 1], channel.lengths[i] ? travel / channel.lengths[i] : 0); break; } travel -= channel.lengths[i]; }
     }
-    draw(); inTick = false; if (cameraMove || modelMove || pendingMarker) requestDraw();
+    draw(); inTick = false; if (cameraMove || modelMove || pendingMarker || labelsDirty) requestDraw();
   }
   function reconcile(next: LearningScene, settings: { animate?: boolean } = {}) {
     if (disposed) return;
@@ -507,7 +603,7 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
       next.nodes.every(n => nodeById.get(n.id)?.node.semanticId === n.semanticId) && presentationKey(model) === presentationKey(next)) {
       model = next;
       for (const node of next.nodes) { const tile = nodeById.get(node.id); if (tile) updateTileData(tile, node); }
-      for (const channel of channels) { const link = next.links.find(l => l.id === channel.link.id); if (link) channel.link = link; }
+      for (const channel of channels) { const link = next.links.find(l => l.id === channel.link.id); if (link) { channel.link = link; updateChannelLabel(channel); } }
       updateEmphasis(); return;
     }
     const changedChapter = model.chapterId !== next.chapterId;
@@ -516,6 +612,8 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
     // Re-target from current presentation positions, including a departing node revived by Back.
     const previous = new Map([...outgoingTiles, ...tiles].map(tile => [tile.node.semanticId, tile]));
     const oldChannels = [...outgoingChannels, ...channels], oldDecorations = [...outgoingDecorations, ...decorations];
+    if (focusedControl) pendingControlFocus = { nodeId: focusedControl.nodeId, linkId: focusedControl.linkId, semanticId: focusedControl.element.dataset.semanticId };
+    for (const channel of oldChannels) enableLabel(channel.label, false);
     modelMove = null; channels = []; decorations = []; outgoingTiles = []; outgoingChannels = []; outgoingDecorations = [];
     model = next; measure(model, changedChapter); nodeById.clear(); const tracks: NodeTrack[] = [];
     tiles = model.nodes.map(node => {
@@ -532,7 +630,7 @@ export function createSpatialRuntime(host: HTMLElement, initial: LearningScene, 
       tracks.push({ tile, from: tile.group.position.clone(), to: destination, velocity: tile.velocity.clone(), fromScale: tile.group.scale.clone(), toScale: scale, fromOpacity: tile.opacity, toOpacity: 1, outgoing: false });
       return tile;
     });
-    for (const tile of previous.values()) { outgoingTiles.push(tile); tracks.push({ tile, from: tile.group.position.clone(), to: tile.group.position.clone(), velocity: new Vector3(), fromScale: tile.group.scale.clone(), toScale: tile.group.scale.clone(), fromOpacity: tile.opacity, toOpacity: 0, outgoing: true }); }
+    for (const tile of previous.values()) { enableLabel(tile.label, false); outgoingTiles.push(tile); tracks.push({ tile, from: tile.group.position.clone(), to: tile.group.position.clone(), velocity: new Vector3(), fromScale: tile.group.scale.clone(), toScale: tile.group.scale.clone(), fromOpacity: tile.opacity, toOpacity: 0, outgoing: true }); }
     channels = model.links.map(createChannel); decorations = makeDecorations(); makeFloor(); updateBounds();
     selectedNode = selectedNode && nodeById.has(selectedNode) ? selectedNode : null;
     selectedLink = previousSelectedLink ? channels.findIndex(c => c.link.id === previousSelectedLink) : null; if (selectedLink === -1) selectedLink = null;

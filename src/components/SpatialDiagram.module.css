@@ -16,10 +16,11 @@
 .primaryAction:active:not(:disabled), .secondaryAction:active:not(:disabled), .textAction:active:not(:disabled) { transform: translateY(1px); }
 .buttonRow { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
 .viewportFrame { position: relative; isolation: isolate; }
-.camera { position: absolute; inset-block-start: .75rem; inset-inline-end: .75rem; z-index: 1; display: flex; align-items: center; gap: .15rem; padding: .2rem; border: 1px solid var(--line-strong); border-radius: .55rem; background: var(--surface); box-shadow: 0 2px 8px rgb(0 0 0 / .05); }
+.camera, .utilities { position: absolute; inset-block-start: .75rem; inset-inline-end: .75rem; z-index: 1; display: flex; align-items: center; gap: .15rem; padding: .2rem; border: 1px solid var(--line-strong); border-radius: .55rem; background: var(--surface); box-shadow: 0 2px 8px rgb(0 0 0 / .05); }
 .cameraButton { display: inline-flex; align-items: center; justify-content: center; min-height: 2rem; min-width: 2rem; padding: .35rem .6rem; border: 1px solid transparent; border-radius: .35rem; background: transparent; color: var(--ink-soft); font: inherit; font-size: .7rem; font-weight: 600; line-height: 1.3; }
 .cameraButton:hover:not(:disabled), .cameraButton:active:not(:disabled) { color: var(--ink); background: var(--surface-soft); }
 .cameraButton[aria-pressed="true"] { color: var(--ink); background: var(--surface-soft); border-color: var(--line); }
+.utilities { inset-block-start: auto; inset-block-end: .75rem; }
 .cameraZoom { display: flex; gap: .15rem; margin-inline-start: .2rem; padding-inline-start: .35rem; border-inline-start: 1px solid var(--line); }
 .viewport {
   --spatial-client: #7089ae;
@@ -44,7 +45,7 @@
 .viewport[data-reduced="true"] { cursor: default; }
 .viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .viewport canvas { display: block; }
-.viewport :global(.systemkit-spatial-label) { padding: .35rem .5rem; color: var(--ink); text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: .45rem; pointer-events: none; line-height: 1.35; box-shadow: 0 2px 8px rgb(0 0 0 / .04); }
+.viewport :global(.systemkit-spatial-label) { padding: .35rem .5rem; color: var(--ink); text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: .45rem; line-height: 1.35; box-shadow: 0 2px 8px rgb(0 0 0 / .04); }
 .viewport :global(.systemkit-spatial-label strong) { display: block; font-size: 13px; font-weight: 650; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .viewport :global(.systemkit-spatial-label span) { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .viewport :global(.systemkit-spatial-label small) { display: block; margin-bottom: 3px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
@@ -53,17 +54,12 @@
 .viewport :global(.systemkit-spatial-label[data-status="unavailable"]) { border-style: dashed; }
 .viewport :global(.systemkit-spatial-label[data-status="under-pressure"]) { border-width: 2px; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .85rem; }
-.viewActions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .45rem 1.1rem .45rem 1.5rem; }
-.viewActions > .buttonRow { flex: none; }
-.viewContext { min-width: 0; }
-.viewContext p { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.6; overflow-wrap: anywhere; }
-.viewContext .textAction { padding-left: 0; font-size: .73rem; }
 .teachingPanel { padding: 0 1.5rem 1.35rem; }
 .stepHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .8rem; }
 .stepCount { font-size: .73rem; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
-.teachingPanel h4, .inspector h4 { margin: .45rem 0; font-size: 1rem; letter-spacing: -.025em; line-height: 1.45; }
-.teachingPanel h4:focus, .inspector h4:focus { outline: none; }
-.teachingPanel p, .inspector p { margin: .4rem 0; color: var(--ink-soft); font-size: .85rem; line-height: 1.75; }
+.teachingPanel h4 { margin: .45rem 0; font-size: 1rem; letter-spacing: -.025em; line-height: 1.45; }
+.teachingPanel h4:focus { outline: none; }
+.teachingPanel p { margin: .4rem 0; color: var(--ink-soft); font-size: .85rem; line-height: 1.75; }
 .stepActions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
 .endActions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .5rem; }
 .smallNote, .teachingPanel .smallNote { color: var(--muted); font-size: .73rem; line-height: 1.6; }
@@ -75,64 +71,31 @@
 .predictionChoices label.chosen { border-color: var(--control-border); background: var(--surface-soft); color: var(--ink); }
 .predictionFeedback { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line-strong); border-radius: .45rem; background: var(--surface-soft); color: var(--ink); font-size: .83rem; line-height: 1.7; }
 .predictionFeedback p { margin-bottom: 0; }
-.inspector { padding: .9rem 1.5rem 1.3rem; border-top: 1px solid var(--line); }
-.kicker { color: var(--muted); font-size: .7rem; font-weight: 650; }
-.inspector .relationCondition { margin-top: .65rem; font-size: .76rem; }
-.inspector > .secondaryAction { margin-top: .6rem; }
-.provenance { margin-top: .75rem; }
-.provenance summary { padding-block: .65rem; color: var(--ink-soft); font-size: .76rem; cursor: pointer; }
-.provenance ul { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); font-size: .8rem; line-height: 1.7; }
-.disclosures { padding-inline: 1.5rem; }
-.disclosure { border-top: 1px solid var(--line); }
-.disclosure > summary { min-height: 44px; padding-block: .85rem; color: var(--ink-soft); font-size: .78rem; font-weight: 600; line-height: 1.5; cursor: pointer; }
-.disclosure > summary:hover { color: var(--ink); }
-.optionsGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.4rem 2rem; padding: .5rem 0 1.5rem; }
-.optionGroup { min-width: 0; }
-.optionGroup h4, .exploration h4 { margin: 0 0 .7rem; color: var(--ink); font-size: .8rem; font-weight: 650; line-height: 1.5; }
-.optionGroup > p, .subsystems p { margin: .35rem 0; color: var(--muted); font-size: .76rem; line-height: 1.65; }
 .selectLabel { display: flex; flex-direction: column; align-items: stretch; gap: .4rem; margin-bottom: .85rem; color: var(--muted); font-size: .75rem; line-height: 1.5; }
 .selectLabel select { width: 100%; min-width: 0; min-height: 44px; padding: .5rem 1.7rem .5rem .6rem; border: 1px solid var(--line-strong); border-radius: .4rem; color: var(--ink); background: var(--surface); font: inherit; }
-.reduce { display: flex; align-items: center; gap: .55rem; min-height: 44px; margin-top: .6rem; color: var(--ink-soft); font-size: .76rem; cursor: pointer; }
-.reduce input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
-.subsystems { display: grid; gap: 1rem; }
-.subsystems strong { font-size: .78rem; font-weight: 600; }
-.subsystems button { margin-top: .4rem; }
-.exploration { display: grid; gap: 1.5rem; padding: .4rem 0 1.5rem; }
-.elements { display: flex; flex-wrap: wrap; gap: .4rem; }
-.elements button[aria-pressed="true"] { border-color: var(--control-border); background: var(--surface-soft); color: var(--ink); }
-.relationships { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
-.relationships button { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; min-height: 44px; padding: .7rem .8rem; border: 1px solid var(--line-strong); border-radius: .4rem; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: .77rem; text-align: left; line-height: 1.5; overflow-wrap: anywhere; }
-.relationships strong { font-weight: 600; }
-.relationships span { color: var(--muted); font-size: .73rem; }
-.relationships button:hover, .relationships button[aria-pressed="true"] { color: var(--ink); border-color: var(--control-border); background: var(--surface-soft); }
 @media (max-width: 650px) {
   .intro { padding: 1.1rem 1rem; }
   .intro p { font-size: .85rem; }
   .camera { inset-block-start: .6rem; inset-inline-end: .6rem; }
+  .utilities { inset-block-end: .6rem; inset-inline-end: .6rem; }
   .cameraButton { min-height: 2.75rem; min-width: 2.75rem; }
   .viewport { height: 350px; }
   .viewport.expanded { height: clamp(460px, 70vh, 600px); }
   .viewport :global(.systemkit-spatial-label) { padding: .2rem .3rem; }
   .viewport :global(.systemkit-spatial-label strong) { font-size: 11px; }
   .viewport :global(.systemkit-spatial-label span), .viewport :global(.systemkit-spatial-label small) { display: none; }
-  .viewActions { flex-wrap: wrap; padding: .5rem 1rem; }
-  .viewActions > .buttonRow { width: 100%; justify-content: flex-end; }
   .teachingPanel { padding: 0 1rem 1.1rem; }
   .stepHeading { align-items: flex-start; }
   .stepHeading .textAction { margin-right: -.5rem; }
   .endActions { justify-content: flex-start; }
   .endActions .smallNote { text-align: left; }
-  .inspector { padding: .75rem 1rem 1rem; }
-  .disclosures { padding-inline: 1rem; }
-  .optionsGrid, .relationships { grid-template-columns: minmax(0, 1fr); }
-  .optionsGrid { gap: 1.4rem; }
 }
 @media (prefers-color-scheme: dark) {
   .viewport { --spatial-client: #7b93b6; --spatial-service: #779bd0; --spatial-data: #a193bb; --spatial-routing: #83aaa2; --spatial-work: #bdae8c; }
 }
 @media (prefers-contrast: more) {
   .viewport :global(.systemkit-spatial-label) { border-color: var(--ink); box-shadow: none; }
-  .viewport :global(.systemkit-spatial-label span), .viewport :global(.systemkit-spatial-label small), .stepCount, .viewContext p, .optionGroup > p { color: var(--ink); }
+  .viewport :global(.systemkit-spatial-label span), .viewport :global(.systemkit-spatial-label small), .stepCount { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .viewport { cursor: default; }
@@ -140,3 +103,26 @@
 }
 
 @media (pointer: coarse) { .cameraButton { min-height: 2.75rem; min-width: 2.75rem; } }
+
+.scope { position: absolute; inset-inline-start: .8rem; inset-block-end: .8rem; max-width: calc(100% - 11rem); margin: 0; color: var(--muted); font-size: .7rem; line-height: 1.5; pointer-events: none; }
+.inspectionLayer { position: absolute; z-index: 2; inset-inline-start: .75rem; inset-block-end: 4.25rem; width: min(21rem, calc(100% - 1.5rem)); max-height: min(13rem, calc(100% - 8rem)); overflow: auto; overscroll-behavior: contain; border-radius: .6rem; }
+.inspector { padding: .85rem 1rem; border: 1px solid var(--line-strong); border-radius: .6rem; background: var(--surface); box-shadow: 0 4px 18px rgb(0 0 0 / .07); }
+.inspectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: .65rem; position: sticky; top: -.85rem; padding-top: .2rem; background: var(--surface); }
+.inspectionHeading .cameraButton { flex: none; margin-inline-end: -.4rem; }
+.kicker { color: var(--muted); font-size: .65rem; }
+.inspector h4 { margin: .2rem 0 .4rem; color: var(--ink); font-size: .85rem; letter-spacing: -.02em; line-height: 1.5; }
+.inspector h4:focus { outline: none; }
+.inspector p { margin: .35rem 0; color: var(--ink-soft); font-size: .78rem; line-height: 1.65; }
+.inspector .relationCondition { color: var(--muted); font-size: .7rem; }
+.viewport :global(button.systemkit-spatial-label) { min-width: 44px; min-height: 32px; font: inherit; pointer-events: auto; cursor: pointer; }
+.viewport :global(.systemkit-spatial-label:not(button)) { pointer-events: none; }
+.viewport :global(button.systemkit-spatial-label:focus-visible) { outline: 2px solid var(--ink); outline-offset: 3px; }
+.viewport :global(.systemkit-spatial-relationship) { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 50%; color: var(--ink-soft); background: transparent; font: inherit; font-size: 20px; line-height: 1; pointer-events: auto; cursor: pointer; }
+.viewport :global(.systemkit-spatial-relationship:hover), .viewport :global(.systemkit-spatial-relationship:focus-visible), .viewport :global(.systemkit-spatial-relationship[data-selected="true"]) { border-color: var(--line-strong); background: var(--surface); color: var(--ink); }
+.viewport :global(.systemkit-spatial-relationship:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (max-width: 650px), (pointer: coarse) {
+  .viewport :global(button.systemkit-spatial-label) { min-height: 44px; }
+  .viewport :global(.systemkit-spatial-relationship) { width: 44px; height: 44px; }
+}
+
+@media (max-width: 650px) { .inspectionLayer { max-height: min(10rem, calc(100% - 8rem)); } }
