@@ -11,6 +11,7 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs tests/*.test.cjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "lucide-react": "^0.468.0",
     "next": "16.3.8",
     "react": "19.3.0",
