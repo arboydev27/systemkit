@@ -8,7 +8,7 @@
 }
 
 .heading { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px; }
-.heading h2 { margin: 7px 0 0; font-size: 22px; line-height: 1.25; letter-spacing: -.038em; }
+.heading h1, .heading h2 { margin: 7px 0 0; font-size: 22px; line-height: 1.25; letter-spacing: -.038em; }
 .reset { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; }
 .reset:hover { background: var(--surface-soft); color: var(--ink); }
 .intro { max-width: 660px; margin: 14px 0 25px; color: var(--ink-soft); font-size: 14px; line-height: 1.65; }

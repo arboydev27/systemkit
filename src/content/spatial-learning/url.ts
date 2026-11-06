@@ -59,7 +59,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
         "id": "url-scope:predict:missing-mapping",
         "title": "Predict the durable dependency",
         "prompt": "Shortener returned a new key, but Mapping was never stored. Which later user action is broken?",
-        "options": ["Visitor opening the key through Redirect service", "DNS resolving a video edge", "A worker acknowledging a queue job"],
+        "options": ["A visitor opening the key through Redirect service", "The creator receiving the new key from Shortener", "Shortener accepting the next link from a creator", "Redirect service sending traffic to a stored destination"],
         "correctIndex": 0,
         "explanation": "The creation path must persist Mapping. Redirect service later reads that same durable key-to-destination record; a returned key without it cannot fulfill the redirect promise.",
         "reveal": {
@@ -128,8 +128,8 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-contract:predict:uq04",
         "title": "Predict the design consequence",
-        "prompt": "What must happen before a creation API acknowledges a new short link?",
-        "options": ["The first redirect must occur", "Click analytics must be aggregated", "The link must be posted to social media", "The mapping must be durably stored"],
+        "prompt": "Validate + assign chose a key, but the database commit for the new link fails. What should the POST response do?",
+        "options": ["Return the link, and redo the write from a retry queue", "Return the link, since the key is reserved in memory", "Report success, since the key passed its uniqueness check", "Report failure, because no durable mapping exists yet"],
         "correctIndex": 3,
         "explanation": "A returned link promises future resolution. Persist its mapping before claiming creation succeeded.",
         "reveal": {
@@ -189,7 +189,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
         "id": "url-redirect:predict:expired-key",
         "title": "Predict an expired key",
         "prompt": "Expiry check finds that this key has expired. Which existing outcome should be selected?",
-        "options": ["Error with the defined 404 or 410 behavior", "Redirect to a guessed destination", "Create a new mapping silently"],
+        "options": ["Error with the defined 404 or 410 behavior", "Redirect, because the destination is still stored", "Redirect, if a cached copy of the mapping remains", "Renew the key, since someone is still using the link"],
         "correctIndex": 0,
         "explanation": "The missing / expired relation terminates at Error. The active relation to Redirect applies only to an existing unexpired key.",
         "reveal": {
@@ -258,7 +258,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
         "id": "url-keys:predict:insertion-collision",
         "title": "Predict a collision",
         "prompt": "Unique insert reports that a generated key already exists. Which displayed branch preserves uniqueness?",
-        "options": ["Collision, then retry Generate key", "Accepted despite the conflict", "Delete the previous destination"],
+        "options": ["Collision, then retry Generate key", "Overwrite the row with the new destination", "Collision, then retry the same key until it fits", "Accept both rows, and let later reads choose one"],
         "correctIndex": 0,
         "explanation": "The atomic Unique insert → Collision branch rejects reuse, then the retry relation returns to Generate key with a new candidate.",
         "reveal": {
@@ -328,7 +328,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
         "id": "url-scale:predict:cache-miss",
         "title": "Predict the authoritative miss path",
         "prompt": "Mapping cache has no destination for the requested key. Which dependency supplies the authoritative mapping?",
-        "options": ["Database", "Destination as a key database", "An unshown read replica"],
+        "options": ["Database, through the miss path", "A peer server in the redirect tier", "The destination site, by probing it", "A second lookup in the mapping cache"],
         "correctIndex": 0,
         "explanation": "Redirect tier follows its miss relation to Database. The returned mapping may fill cache, while persistent storage retains authority.",
         "reveal": {
@@ -399,8 +399,8 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-operations:predict:uq16",
         "title": "Predict the design consequence",
-        "prompt": "Persistent storage is unavailable. Which action must not claim success?",
-        "options": ["Creating a new link without a durable mapping", "Serving a cached valid redirect within policy", "Reporting a storage alert", "Measuring cache hit rate"],
+        "prompt": "Durable store is unreachable for ten minutes while traffic continues. Which request must be refused rather than reported as done?",
+        "options": ["Creating a new link without a durable mapping", "Serving a cached redirect for a link still in date", "Answering 410 for a link the cache marks as expired", "Recording a click event in a local analytics buffer"],
         "correctIndex": 0,
         "explanation": "A new link is unusable if its mapping can be lost. Cached existing redirects may continue temporarily, but creation needs durable persistence.",
         "reveal": {

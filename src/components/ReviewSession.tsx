@@ -6,9 +6,12 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Layers3, RotateCcw } from "l
 import { chapters } from "@/content/chapters";
 import { reviewCards } from "@/content/review";
 import {
-  browserReviewStorage, buildReviewSession, DAY, emptyReviewState, importLegacyStudy,
+  browserReviewStorage, buildReviewSession, DAY, emptyReviewState, firstDueAt, importLegacyStudy,
   lessonKey, markStudied, readReviewState, recordRecall, saveReviewState, type ReviewState,
 } from "@/lib/review";
+import { requestDurableStorage } from "@/lib/progress";
+import { trackEvent } from "@/lib/analytics";
+import { InlineText } from "./InlineText";
 import styles from "./ReviewSession.module.css";
 
 type Session = ReturnType<typeof buildReviewSession>;
@@ -41,6 +44,8 @@ export function ReviewSession() {
   }
 
   function start(cards: Session) {
+    trackEvent("review_started");
+    requestDurableStorage();
     setSession(cards);
     setIndex(0);
     setRevealed(false);
@@ -74,8 +79,9 @@ export function ReviewSession() {
 
   const eligible = reviewCards.filter((card) => state.studied[card.id] !== undefined);
   const nextDue = eligible.length ? Math.min(...eligible.map((card) =>
-    state.recalls[card.id]?.dueAt ?? state.studied[card.id] + DAY)) : undefined;
+    state.recalls[card.id]?.dueAt ?? firstDueAt(state.studied[card.id]))) : undefined;
   const item = session[index];
+  const moreDue = phase === "done" ? buildReviewSession(reviewCards, state, Date.now()) : [];
   const chosenChapter = chapters.find((chapter) => chapter.id === pickerChapter) ?? chapters[0];
 
   return (
@@ -100,11 +106,11 @@ export function ReviewSession() {
               <span style={{ width: `${index / session.length * 100}%` }} />
             </div>
             <span className={styles.lesson}>{item.card.lessonTitle}</span>
-            <h2 ref={headingRef} id="review-heading" tabIndex={-1}>{item.prompt.prompt}</h2>
+            <h2 ref={headingRef} id="review-heading" tabIndex={-1}><InlineText text={item.prompt.prompt} /></h2>
             <label className={styles.draftLabel} htmlFor="review-draft">Your recall <span>Optional; answer in your head or jot down a few words.</span></label>
             <textarea id="review-draft" className={styles.draft} value={draft} onChange={(event) => setDraft(event.target.value)} rows={3} maxLength={1200} placeholder="How would you explain it?" />
             <button className={styles.primary} type="button" onClick={() => setRevealed((current) => !current)} aria-expanded={revealed} aria-controls="review-answer">{revealed ? "Hide guidance" : "Compare your reasoning"} <ChevronDown size={16} aria-hidden="true" /></button>
-            <div id="review-answer" className={styles.answer} role="region" aria-label="Review guidance" aria-live="polite" hidden={!revealed}><strong>Look for these ideas</strong><p>{item.prompt.answer}</p><Link href={`/learn/${item.card.chapterId}/${item.card.stepId}/`}>Revisit the lesson <ArrowRight size={14} aria-hidden="true" /></Link></div>
+            <div id="review-answer" className={styles.answer} role="region" aria-label="Review guidance" aria-live="polite" hidden={!revealed}><strong>Look for these ideas</strong><p><InlineText text={item.prompt.answer} /></p><Link href={`/learn/${item.card.chapterId}/${item.card.stepId}/`}>Revisit the lesson <ArrowRight size={14} aria-hidden="true" /></Link></div>
             {revealed ? (
               <>
                 <p className={styles.selfCheck}>How did your explanation compare? This is your self-check, not a score.</p>
@@ -116,16 +122,19 @@ export function ReviewSession() {
           <section className={styles.card} aria-labelledby="review-heading">
             <span className={styles.lesson}>REVIEW FINISHED</span>
             <h2 ref={headingRef} id="review-heading" tabIndex={-1}>A good place to pause.</h2>
-            <p>You reviewed {session.length} {session.length === 1 ? "idea" : "ideas"}. Ideas that need another look return tomorrow; recalled ideas get more time before the next review.</p>
+            <p>You reviewed {session.length} {session.length === 1 ? "idea" : "ideas"}. Ideas that need another look return tomorrow; recalled ideas get more time before the next review.{moreDue.length ? ` ${moreDue.length} more ${moreDue.length === 1 ? "is" : "are"} due if you want to keep going.` : ""}</p>
             {revisit.length ? <div className={styles.revisit}><h3>Worth another look</h3><ul>{revisit.map(({ card }) => <li key={card.id}><Link href={`/learn/${card.chapterId}/${card.stepId}/`}>{card.lessonTitle}<ArrowRight size={15} aria-hidden="true" /></Link></li>)}</ul></div> : null}
-            <Link href="/" className={styles.primary}>Continue learning <ArrowRight size={16} aria-hidden="true" /></Link>
+            <div className={styles.actions}>
+              {moreDue.length ? <button className={styles.secondary} type="button" onClick={() => start(moreDue)}>Review {moreDue.length} more <ArrowRight size={16} aria-hidden="true" /></button> : null}
+              <Link href="/" className={styles.primary}>Continue learning <ArrowRight size={16} aria-hidden="true" /></Link>
+            </div>
             <p className={styles.footnote}>Review reflects your self-checks. It doesn’t certify understanding.</p>
           </section>
         ) : (
           <section className={styles.card} aria-labelledby="review-heading">
             <span className={styles.lesson}>{session.length ? "READY WHEN YOU ARE" : "YOUR REVIEW SPACE"}</span>
             <h2 ref={headingRef} id="review-heading" tabIndex={-1}>{session.length ? `${session.length} ${session.length === 1 ? "idea" : "ideas"} to come back to.` : eligible.length ? "Nothing due right now." : "Start with a lesson."}</h2>
-            <p>{session.length ? "Try to explain each idea before revealing the guidance. Earlier mistakes get a place near the front, and the prompts change across reviews." : eligible.length ? `Your next review is ${nextDue ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(nextDue) : "coming up"}. You can practise now if you prefer.` : "Answer a checkpoint or write a Decision Point reflection in any lesson. It will become available here, with your first review scheduled for the next day."}</p>
+            <p>{session.length ? "Try to explain each idea before revealing the guidance. Earlier mistakes get a place near the front, and the prompts change across reviews." : eligible.length ? `Your next review is ${nextDue ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(nextDue) : "coming up"}. You can practise now if you like; early practice won’t change that date.` : "Answer a checkpoint or write a Decision Point reflection in any lesson. It will become available here, with your first review scheduled for the next day."}</p>
             {session.length ? <button className={styles.primary} type="button" onClick={() => start(session)}>Start review <ArrowRight size={16} aria-hidden="true" /></button> : eligible.length ? <button className={styles.primary} type="button" onClick={() => start(buildReviewSession(reviewCards, state, Date.now(), true))}>Practise studied ideas <ArrowRight size={16} aria-hidden="true" /></button> : <Link href="/" className={styles.primary}>Explore the lessons <ArrowRight size={16} aria-hidden="true" /></Link>}
             <p className={styles.footnote}>Up to five ideas. No timer, no streak to protect. Progress stays on this device.</p>
             <details className={styles.manual}><summary>Choose a lesson I’ve already studied</summary><p>If you read without answering a checkpoint, you can add that lesson to review yourself.</p><label htmlFor="review-chapter">Chapter</label><select id="review-chapter" value={pickerChapter} onChange={(event) => { const chapter = chapters.find((entry) => entry.id === event.target.value); if (chapter) { setPickerChapter(chapter.id); setPickerStep(chapter.steps[0].id); } }}>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.title}</option>)}</select><label htmlFor="review-lesson">Lesson</label><select id="review-lesson" value={pickerStep} onChange={(event) => setPickerStep(event.target.value)}>{chosenChapter.steps.map((step) => <option key={step.id} value={step.id}>{step.title}</option>)}</select><button className={styles.secondary} type="button" onClick={reviewChosenLesson}>Review this lesson <ArrowRight size={15} aria-hidden="true" /></button></details>

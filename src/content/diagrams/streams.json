@@ -1,0 +1,74 @@
+{
+  "st-batch-stream": {
+    "kind": "comparison",
+    "title": "Four jobs and the mode each one needs",
+    "description": "Four jobs at one marketplace compared: payouts and the ledger report suit a nightly batch, while stolen card checks and a live dashboard suit a stream.",
+    "note": "Ask what decision changes if this number arrives an hour sooner.",
+    "items": [
+      { "title": "Seller payouts", "detail": "batch: paid once a day" },
+      { "title": "Ledger report", "detail": "batch: needs a closed day" },
+      { "title": "Stolen card check", "detail": "stream: act before shipping" },
+      { "title": "Live dashboard", "detail": "stream: provisional totals" }
+    ]
+  },
+  "st-log": {
+    "kind": "flow",
+    "title": "One keyed record through a partitioned log",
+    "description": "A producer hashes the key to choose a partition, the partition appends the record at the next offset, one member of a consumer group reads it, and the committed offset marks where a restart resumes.",
+    "note": "Order holds within one partition, not across the whole topic.",
+    "items": [
+      { "title": "Producer", "detail": "hashes key to a partition" },
+      { "title": "Partition", "detail": "appends at the next offset" },
+      { "title": "Consumer group", "detail": "one member per partition" },
+      { "title": "Committed offset", "detail": "where a restart resumes" }
+    ]
+  },
+  "st-delivery": {
+    "kind": "comparison",
+    "title": "What a crash between work and commit costs",
+    "description": "Four approaches compared: committing first can lose a record, working first can repeat it, an idempotent effect makes a repeat harmless, and a transactional effect commits the result and offset together.",
+    "note": "Exactly once describes the effect, built on at-least-once delivery.",
+    "items": [
+      { "title": "At-most-once", "detail": "commit first: may lose" },
+      { "title": "At-least-once", "detail": "work first: may repeat" },
+      { "title": "Idempotent effect", "detail": "a repeat changes nothing" },
+      { "title": "Transactional effect", "detail": "result and offset together" }
+    ]
+  },
+  "st-cdc": {
+    "kind": "flow",
+    "title": "One committed update reaches the search index and cache",
+    "description": "A committed row change enters the database log, a connector reads the log, a change topic carries the event keyed by primary key, and the search index and cache apply it.",
+    "note": "Copies follow the log and lag behind; the app makes no second write.",
+    "items": [
+      { "title": "Commit", "detail": "change enters the log" },
+      { "title": "Log connector", "detail": "reads WAL or binlog" },
+      { "title": "Change topic", "detail": "keyed by primary key" },
+      { "title": "Index and cache", "detail": "upsert or delete the copy" }
+    ]
+  },
+  "st-event-time": {
+    "kind": "flow",
+    "title": "One minute of events and one late arrival",
+    "description": "A one-minute window stays open until a watermark passes its end, the window emits its count, and an event stamped inside that minute then arrives late.",
+    "note": "A late event is dropped, updates the result, or goes to a side output.",
+    "items": [
+      { "title": "Window waits", "detail": "12:00 to 12:01" },
+      { "title": "Watermark passes", "detail": "event at 12:01:30 moves it" },
+      { "title": "Count is emitted", "detail": "412 events in the window" },
+      { "title": "Late event arrives", "detail": "stamped 12:00:50" }
+    ]
+  },
+  "st-schema": {
+    "kind": "flow",
+    "title": "Removing a field: readers change first",
+    "description": "To remove an Avro field that has no default, upgrade consumers so they skip it, then upgrade producers so new records omit it, and the field leaves the log once retention expires.",
+    "note": "Upgrade producers first and old readers fail on the first new record.",
+    "items": [
+      { "title": "Field to remove", "detail": "Avro, no default" },
+      { "title": "Upgrade consumers", "detail": "new readers skip the field" },
+      { "title": "Upgrade producers", "detail": "new records omit the field" },
+      { "title": "Retention expires", "detail": "field is gone from the log" }
+    ]
+  }
+}

@@ -47,6 +47,23 @@ export function lessonKey(chapterId: string, stepId: string) {
   return `${chapterId}/${stepId}`;
 }
 
+// "Tomorrow" means the next calendar day where the learner is, not exactly 24 hours later.
+export function startOfDay(time: number) {
+  const date = new Date(time);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+export function addDays(time: number, days: number) {
+  const date = new Date(time);
+  date.setDate(date.getDate() + days);
+  return date.getTime();
+}
+
+export function firstDueAt(studiedAt: number) {
+  return addDays(startOfDay(studiedAt), 1);
+}
+
 function object(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : undefined;
@@ -177,7 +194,7 @@ export function buildReviewSession(
   return cards.filter((card) => state.studied[card.id] !== undefined && card.prompts.length > 0)
     .map((card) => {
       const recall = state.recalls[card.id];
-      const dueAt = recall?.dueAt ?? state.studied[card.id] + DAY;
+      const dueAt = recall?.dueAt ?? firstDueAt(state.studied[card.id]);
       return {
         card, dueAt,
         prompt: card.prompts[(recall?.reviews ?? 0) % card.prompts.length],
@@ -189,13 +206,25 @@ export function buildReviewSession(
     .slice(0, SESSION_LIMIT);
 }
 
+/** Counts due lessons from saved state alone, so a page can show it without loading all content. */
+export function countDue(state: ReviewState, now: number) {
+  return Object.keys(state.studied).filter((id) => (state.recalls[id]?.dueAt ?? firstDueAt(state.studied[id])) <= now).length;
+}
+
 export function recordRecall(state: ReviewState, cardId: string, recalled: boolean, now: number): ReviewState {
   if (state.studied[cardId] === undefined) return state;
   const previous = state.recalls[cardId];
+  const dueAt = previous?.dueAt ?? firstDueAt(state.studied[cardId]);
+  // Practising early is welcome, but a quick repeat isn't evidence the idea will last.
+  if (recalled && now < dueAt) {
+    return { ...state, recalls: { ...state.recalls, [cardId]: {
+      dueAt, reviewedAt: now, reviews: (previous?.reviews ?? 0) + 1, streak: previous?.streak ?? 0, lastRecalled: true,
+    } } };
+  }
   const streak = recalled ? (previous?.streak ?? 0) + 1 : 0;
   const intervalDays = [1, 3, 7, 14, 30][Math.min(streak, 4)];
   return { ...state, recalls: { ...state.recalls, [cardId]: {
-    dueAt: now + intervalDays * DAY, reviewedAt: now,
+    dueAt: addDays(startOfDay(now), intervalDays), reviewedAt: now,
     reviews: (previous?.reviews ?? 0) + 1, streak, lastRecalled: recalled,
   } } };
 }

@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { ArrowDown, Check, Database, HardDrive, RotateCcw, Server, TriangleAlert } from "lucide-react";
 import { modelCacheReads, type CacheModelInput } from "@/lib/cache-model";
+import { trackOnce } from "@/lib/analytics";
 import styles from "./CacheLab.module.css";
 
 const initialInput: CacheModelInput = {
@@ -14,8 +15,9 @@ const initialInput: CacheModelInput = {
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 type Prediction = "within" | "above";
 
-export function CacheLab() {
+export function CacheLab({ headingLevel = 2 }: { standalone?: boolean; headingLevel?: 1 | 2 }) {
   const id = useId();
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const [input, setInput] = useState(initialInput);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -35,6 +37,7 @@ export function CacheLab() {
     if (!prediction) return;
     setPredictionCorrect((prediction === "above") === model.exceedsCapacity);
     setRevealed(true);
+    trackOnce("lab_run_cache");
   }
 
   function reset() {
@@ -48,8 +51,7 @@ export function CacheLab() {
     <section className={styles.lab} aria-labelledby={`${id}-heading`}>
       <div className={styles.heading}>
         <div>
-          <span className="section-kicker">TRY THE SYSTEM</span>
-          <h2 id={`${id}-heading`}>When the cache disappears.</h2>
+          <Heading id={`${id}-heading`}>When the cache disappears.</Heading>
         </div>
         <button className={styles.reset} type="button" onClick={reset}>
           <RotateCcw size={14} aria-hidden="true" /> Reset lab

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Search, X } from "lucide-react";
-import { lessonIndex } from "@/lib/lessons";
+import type { LessonEntry } from "@/lib/lessons";
 import { searchLessons } from "@/lib/search";
 import styles from "./LessonSearch.module.css";
 
@@ -13,7 +13,8 @@ export function LessonSearch() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
-  const matches = useMemo(() => searchLessons(lessonIndex, query), [query]);
+  const [index, setIndex] = useState<LessonEntry[]>([]);
+  const matches = useMemo(() => searchLessons(index, query), [index, query]);
   const results = matches.slice(0, 12);
 
   useEffect(() => {
@@ -33,6 +34,8 @@ export function LessonSearch() {
     if (!open) { dialog.close(); return; }
     dialog.showModal();
     inputRef.current?.focus();
+    // The full text of every lesson loads only when someone searches.
+    void import("@/lib/lessons").then((module) => setIndex(module.lessonIndex));
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previousOverflow; };

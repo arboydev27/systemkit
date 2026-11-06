@@ -47,6 +47,14 @@ Use a consistent, recognizable pictogram for each system role: a laptop for a br
 
 Give each lesson its own diagram when the architecture being taught differs. Make the direction of a data flow explicit, especially cache misses and fills, replication, and asynchronous jobs. Keep the on-page SVG and editable Excalidraw source aligned. On narrow screens, show the scroll hint and retain keyboard access to the full diagram instead of shrinking labels until they are hard to read.
 
+## Pages outside a lesson
+
+The home page, chapter pages, labs index, and practice pages use the same tokens and type. Chapters and lessons are listed as ruled rows rather than grids of cards, because the sequence and the words matter more than the containers. Headings stand alone, with no small label above them. Show the product working instead of describing it: the home page runs a real lab.
+
+## Charts and labs
+
+Lab charts use blue for successful work and orange for offered load, with validated light and dark values in `Lab.module.css`. They never use green or red, which stay reserved for answer feedback. Capacity and other reference lines are neutral and dashed. A series always has a legend and, where there is room, a direct label; every value in a chart is also available as text or in a table. Charts draw at their container's real width so labels stay readable on phones.
+
 ## Guidance used
 
 Apple HIG `color.md › Best practices` and `dark-mode.md › Best practices` call for role-based colors that adapt to both appearances. `accessibility.md › Vision` provides the text contrast thresholds and asks that meaning not rely on color alone. `branding.md › Best practices` supports restrained brand color and content-first screens. `icons.md › Best practices` favors a simple vector shape. The Apple motion skill’s “Reduced motion & accessibility” and “Response” sections inform the interaction rules above. For this web app, the principles are translated into CSS custom properties and media queries.

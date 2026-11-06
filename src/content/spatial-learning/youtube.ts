@@ -48,8 +48,8 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "youtube-scope:predict:yq01",
         "title": "Predict the design consequence",
-        "prompt": "Which inputs best estimate daily video delivery?",
-        "options": ["Registered accounts and table count", "Number of API servers", "Views, average delivered bytes per view, and geography", "Number of creators alone"],
+        "prompt": "Finance asks what will move next month’s CDN bill after a hit show launches. Which inputs should the capacity decision use?",
+        "options": ["Creators, times uploads per creator per week", "Registered accounts, times API calls per visit", "Views, times bytes per view, split by geography", "Source bytes, times days of retention per title"],
         "correctIndex": 2,
         "explanation": "Delivered bytes depend on viewing behavior and quality; geography affects paths and costs.",
         "reveal": {
@@ -128,7 +128,7 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
         "id": "youtube-upload:predict:parts-complete",
         "title": "Predict upload completion",
         "prompt": "Original storage has received all parts, but required checksum verification has not completed. Should Pending record advertise playback ready?",
-        "options": ["No; verify the original, then process required outputs", "Yes; any received part proves playability", "Move video bytes into Pending record"],
+        "options": ["No; verify the original, then process required outputs", "Yes; every part arrived, so the video can be played", "Yes; run the checksum later, if a viewer reports a fault", "No; restart the upload, since the parts may be corrupt"],
         "correctIndex": 0,
         "explanation": "Original storage and Pending record represent different responsibilities. Finalization verifies a durable source before processing; a playable manifest and renditions are later work.",
         "reveal": {
@@ -226,7 +226,7 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
         "id": "youtube-pipeline:predict:encode-unavailable",
         "title": "Predict publication with a missing rendition",
         "prompt": "Encode is unavailable, but Thumbnail finishes. Can Outputs be published ready when a required rendition is missing?",
-        "options": ["No; required output verification must wait or record failure", "Yes; a thumbnail proves every rendition exists", "Yes; the queue guarantees exactly one successful encode"],
+        "options": ["No; required output verification must wait or record failure", "Yes; publish now, and add the rendition when it arrives", "Yes; the queue will retry, so the rendition is as good as done", "No; discard the thumbnail, and restart the whole task graph"],
         "correctIndex": 0,
         "explanation": "Thumbnail → Outputs is only one dependency branch. Required encoded media and manifest must exist too; the queue can retain retryable work without implying success.",
         "reveal": {
@@ -302,8 +302,8 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "youtube-renditions:predict:yq11",
         "title": "Predict the design consequence",
-        "prompt": "Why align segment boundaries across quality levels?",
-        "options": ["Remove metadata reads", "Shorten titles", "Avoid storing audio", "Switch renditions at a matching playback point"],
+        "prompt": "A viewer’s bandwidth recovers mid-video, and the player steps up from Low bitrate to High bitrate. What keeps playback continuous?",
+        "options": ["A higher bitrate that hides the join in extra detail", "A second manifest the player swaps to on each change", "A buffer that replays the last segment at new quality", "Segment boundaries that line up across the renditions"],
         "correctIndex": 3,
         "explanation": "Aligned boundaries preserve continuity when bitrate changes.",
         "reveal": {
@@ -386,7 +386,7 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
         "id": "youtube-metadata:predict:missing-output",
         "title": "Predict a missing output",
         "prompt": "The completion event arrived, but Verify outputs finds a missing required segment. What should Metadata DB advertise?",
-        "options": ["Processing or a clear failure without a playable URL", "Ready because the event arrived", "Ready because a cache entry exists"],
+        "options": ["Processing or a clear failure without a playable URL", "Ready, because the completion event has already arrived", "Ready, with the missing segment made on first play", "Deleted, because a failed output means a bad source"],
         "correctIndex": 0,
         "explanation": "The Verify outputs → Metadata DB publication relation is conditional on required media existing. Cache and completion events cannot establish that condition.",
         "reveal": {
@@ -471,7 +471,7 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
         "id": "youtube-playback:predict:cold-segment",
         "title": "Predict a segment miss",
         "prompt": "The player asks for a new segment that CDN edge does not hold. Which displayed path supplies it?",
-        "options": ["CDN edge → Origin → CDN edge → Viewer", "Watch API → Metadata DB for the video bytes", "Viewer reuploads the original"],
+        "options": ["CDN edge → Origin → CDN edge → Viewer", "Watch API → Metadata DB → Viewer", "Viewer → Origin, bypassing the CDN edge", "CDN edge → Watch API → CDN edge → Viewer"],
         "correctIndex": 0,
         "explanation": "The edge’s miss relation reads authorized origin, the fill returns to the edge, and the segment response reaches the viewer. Metadata DB stores status and policy rather than media bytes.",
         "reveal": {
@@ -537,8 +537,8 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "youtube-cost:predict:yq19",
         "title": "Predict the design consequence",
-        "prompt": "What should guide regional caching of a mostly local title?",
-        "options": ["Uploader favorite color", "Equal replicas everywhere", "Longest TTL only", "Observed viewer geography and cache performance"],
+        "prompt": "A film archive is watched mostly from one country, but the team pays to keep every title warm on each continent. What should placement be based on?",
+        "options": ["Equal copies in all regions, so any launch stays smooth", "The region the original files were first uploaded from", "The longest TTL allowed, so caches can sort it out alone", "Observed viewer geography and cache performance"],
         "correctIndex": 3,
         "explanation": "Regional demand determines where copies justify their cost.",
         "reveal": {
@@ -597,8 +597,8 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "youtube-operations:predict:yq22",
         "title": "Predict the design consequence",
-        "prompt": "Processing queue age rises but existing videos play. Which path is degraded?",
-        "options": ["Only login", "Creator-to-ready processing", "All CDN reads", "Only DNS"],
+        "prompt": "New uploads sit in processing for hours, while viewers of older videos report no problems. Which path should the team examine first?",
+        "options": ["Watch path, from the CDN edge to the player", "Upload path, from creator to ready, and its queue", "Remove-access path, from metadata to the CDN", "Login path, for viewers and their sessions"],
         "correctIndex": 1,
         "explanation": "Backlog delays publication while ready media may continue playing.",
         "reveal": {

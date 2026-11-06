@@ -23,6 +23,10 @@ const libraries: Record<string, { scenes: Record<string, unknown>; height: numbe
   "key-value": { scenes: kv, height: 82 }, "consistent-hashing": { scenes: foundation, height: 104 },
   "unique-id": { scenes: foundation, height: 104 }, "google-drive": { scenes: drive, height: 82 },
   "web-crawler": { scenes: crawler, height: 74 },
+  "ordinary-scale": { scenes: foundation, height: 104 }, "storage-engines": { scenes: foundation, height: 104 },
+  replication: { scenes: foundation, height: 104 }, transactions: { scenes: foundation, height: 104 },
+  consensus: { scenes: foundation, height: 104 }, streams: { scenes: foundation, height: 104 },
+  patterns: { scenes: foundation, height: 104 },
 };
 
 export function getSpatialScene(chapterId: string, diagramId: string) {

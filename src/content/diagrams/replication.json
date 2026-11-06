@@ -1,0 +1,74 @@
+{
+  "rc-leader": {
+    "kind": "flow",
+    "title": "When a leader can tell the client a write succeeded",
+    "description": "A write reaches the leader, commits there, is confirmed by the first follower, and is then confirmed by all followers; asynchronous, semi-synchronous, and synchronous replication acknowledge at successive points.",
+    "note": "Each later point risks fewer lost writes and makes commits slower.",
+    "items": [
+      { "title": "Client sends write", "detail": "only the leader accepts it" },
+      { "title": "Leader commits", "detail": "asynchronous acks here" },
+      { "title": "First follower acks", "detail": "semi-synchronous acks here" },
+      { "title": "All followers ack", "detail": "synchronous acks here" }
+    ]
+  },
+  "rc-lag": {
+    "kind": "flow",
+    "title": "Read-your-writes using a log position",
+    "description": "A write commits at a log position, the server remembers that position for the user, and a later read on a lagging follower waits or goes to the leader until the follower has reached it.",
+    "note": "The position answers the question exactly; a time window only guesses at lag.",
+    "items": [
+      { "title": "Write to leader", "detail": "commits at position 9,150" },
+      { "title": "Keep the position", "detail": "user's last write is 9,150" },
+      { "title": "Read on follower", "detail": "follower has applied 9,120" },
+      { "title": "Wait or use leader", "detail": "never serve below 9,150" }
+    ]
+  },
+  "rc-order": {
+    "kind": "comparison",
+    "title": "Two read anomalies and the fix for each",
+    "description": "Reads can go backward when requests hit followers with different lag, which pinning fixes, and an effect can appear before its cause when shards lag differently, which one shared log fixes.",
+    "note": "Pinning stops reads going backward; one shared log keeps cause before effect.",
+    "items": [
+      { "title": "Going backward", "detail": "newer follower, then older" },
+      { "title": "Pin the reader", "detail": "hash user ID to one follower" },
+      { "title": "Effect before cause", "detail": "refund shown before order" },
+      { "title": "Share one log", "detail": "key both events by order ID" }
+    ]
+  },
+  "rc-failover": {
+    "kind": "flow",
+    "title": "Failing over, from detection to fencing",
+    "description": "The cluster detects a dead leader, promotes the most caught-up follower under a new term, rejects writes carrying the old term, and redirects clients to the new leader.",
+    "note": "Fencing stops new damage; writes that never left the old leader are still lost.",
+    "items": [
+      { "title": "Detect failure", "detail": "heartbeats stop; timeout" },
+      { "title": "Promote a follower", "detail": "most caught up; term 8" },
+      { "title": "Fence the old leader", "detail": "term 7 writes are rejected" },
+      { "title": "Redirect clients", "detail": "writes go to the new leader" }
+    ]
+  },
+  "rc-multi": {
+    "kind": "comparison",
+    "title": "Four ways to handle a multi-leader write conflict",
+    "description": "Conflicts can be avoided with a home region, settled by last-write-wins, merged automatically with CRDTs, or kept as versions for the application or user to resolve.",
+    "note": "A rule like sell this room once needs a single owner, not resolution afterward.",
+    "items": [
+      { "title": "Home region", "detail": "avoid: one leader per record" },
+      { "title": "Last write wins", "detail": "keep one, drop the other" },
+      { "title": "Automatic merge", "detail": "CRDTs for sets and counters" },
+      { "title": "Ask the app or user", "detail": "keep both versions for now" }
+    ]
+  },
+  "rc-leaderless": {
+    "kind": "comparison",
+    "title": "Matching four workloads to a replication model",
+    "description": "Seat reservations fit a single leader, an offline notes app and regional profiles fit multiple leaders, and sensor readings fit a leaderless store.",
+    "note": "Ask what should happen when two writes touch the same item at once.",
+    "items": [
+      { "title": "Seat reservations", "detail": "single leader: one order" },
+      { "title": "Offline notes app", "detail": "multi-leader: merge on sync" },
+      { "title": "Regional profiles", "detail": "multi-leader: home regions" },
+      { "title": "Sensor readings", "detail": "leaderless: no failover" }
+    ]
+  }
+}

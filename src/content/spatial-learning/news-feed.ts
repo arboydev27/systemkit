@@ -62,7 +62,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
         "id": "feed-scope:predict:post-accepted",
         "title": "Predict the next feed outcome",
         "prompt": "Accept has committed a durable post ID. Does that alone prove Reader already has an authorized page containing the post?",
-        "options": ["No; Distribute and authorized retrieval are separate outcomes", "Yes; a post ID is permanent read permission", "Yes; all readers share one immediate list"],
+        "options": ["No; distribution and authorized retrieval come later", "Yes; a post ID grants permanent read permission", "Yes; all readers share a single immediate list", "No; it must also be ranked before it can be stored"],
         "correctIndex": 0,
         "explanation": "Accept → Distribute is labelled later. Reader retrieval still needs an authorized page, so durable acceptance alone does not establish feed visibility.",
         "reveal": {
@@ -131,7 +131,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "feed-publish:stalled-worker",
         "title": "A delayed fanout does not erase the post",
-        "description": "In this authored example Worker is unavailable. The canonical post and outbox remain durable so inboxes can catch up later.",
+        "description": "In this example, Worker is unavailable. The canonical post and outbox remain durable so inboxes can catch up later.",
         "nodeIds": ["feed-publish:node:2", "feed-publish:node:3", "feed-publish:node:4", "feed-publish:node:5"],
         "linkIds": ["feed-publish:relation:2"],
         "statuses": {
@@ -162,7 +162,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
         "id": "feed-publish:predict:failed-relay",
         "title": "Predict a failed fanout handoff",
         "prompt": "The post and outbox commit, then Worker becomes unavailable. What remains recoverable?",
-        "options": ["The canonical post and durable fanout intent", "Only full media copies in every inbox", "Nothing until the publisher posts again"],
+        "options": ["The canonical post and durable fanout intent", "Only the inbox entries that Worker already wrote", "Only the post; the fanout intent died with Worker", "Nothing, until the publisher retries the request"],
         "correctIndex": 0,
         "explanation": "Post store remains authoritative and Outbox retains fanout intent. Workers can resume the derived inbox writes idempotently when recovered.",
         "reveal": {
@@ -252,8 +252,8 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "feed-media:predict:feed-q08",
         "title": "Predict the design consequence",
-        "prompt": "A private image is cached at an edge. What should govern future access?",
-        "options": ["The image filename alone", "A permanent public URL", "The number of likes", "A revocable or short-lived authorized delivery path"],
+        "prompt": "A reader leaves a private group whose album is served through a CDN. A link they saved last month gets shared elsewhere. What should decide whether it still opens?",
+        "options": ["Whether the old link’s image filename still exists", "Whether the object was marked public at upload time", "Whether the CDN edge still has the object in cache", "Whether it carries a fresh, authorized delivery token"],
         "correctIndex": 3,
         "explanation": "Private media cannot rely on an indefinitely reusable public URL after audience or deletion changes.",
         "reveal": {
@@ -339,8 +339,8 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "feed-fanout:predict:feed-q11",
         "title": "Predict the design consequence",
-        "prompt": "A high-follower account posts to mostly inactive followers. Which approach avoids millions of idle inbox writes?",
-        "options": ["Copy full post bodies", "Pin all content in CDN", "Pull its recent posts at read time or selectively push to active readers", "Disable pagination"],
+        "prompt": "A city transit agency has 6 million followers and posts a service alert every few minutes, but most followers open the app only when commuting. Which displayed path avoids writing each alert to all those inboxes?",
+        "options": ["Send it through Fanout queue with more workers", "Write full alert bodies into each Inbox IDs row", "Index it under Large author and merge at read time", "Serve the alert from a CDN instead of any feed"],
         "correctIndex": 2,
         "explanation": "Read fanout or hybrid delivery shifts work toward people who actually open the feed.",
         "reveal": {
@@ -364,8 +364,8 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
       "feed-read:node:5": {"lane": 3, "order": 3, "semanticId": "page"}
     },
     "relationships": {
-      "feed-read:relation:0": {"meaning": "read", "condition": "When assembling a bounded candidate window for this reader.", "explanation": "This authored input supplies post IDs for merge and deduplication, not guaranteed visibility."},
-      "feed-read:relation:1": {"meaning": "read", "condition": "When assembling a bounded candidate window for this reader.", "explanation": "This authored input supplies post IDs for merge and deduplication, not guaranteed visibility."},
+      "feed-read:relation:0": {"meaning": "read", "condition": "When assembling a bounded candidate window for this reader.", "explanation": "This input supplies post IDs for merge and deduplication, not guaranteed visibility."},
+      "feed-read:relation:1": {"meaning": "read", "condition": "When assembling a bounded candidate window for this reader.", "explanation": "This input supplies post IDs for merge and deduplication, not guaranteed visibility."},
       "feed-read:relation:2": {"meaning": "decision", "condition": "For every merged candidate before returning content.", "explanation": "Current authorization must be evaluated on candidate IDs."},
       "feed-read:relation:3": {"meaning": "read", "condition": "Only for candidates allowed under current policy.", "explanation": "Hydrate post and user details after authorization."},
       "feed-read:relation:4": {"meaning": "response", "condition": "After allowed candidates are hydrated and a continuation cursor is formed.", "explanation": "Return page items and cursor, with media references rather than media bytes."}
@@ -422,7 +422,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
         "id": "feed-read:predict:stale-inbox",
         "title": "Predict an old inbox entry",
         "prompt": "Inbox contains a post reference whose audience no longer permits the reader. Which displayed stage prevents it from reaching Page?",
-        "options": ["Access check", "Inbox presence alone", "Post + user cache merely being warm"],
+        "options": ["The Access check on merged candidates", "The Merge step that removes duplicate IDs", "The Post + user cache lookup during hydration", "The Inbox itself, when the entry was written"],
         "correctIndex": 0,
         "explanation": "Inbox is a source of candidate IDs. The Merge → Access check → allowed path enforces current authorization before hydration and Page output.",
         "reveal": {
@@ -505,8 +505,8 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "feed-ranking:predict:feed-q17",
         "title": "Predict the design consequence",
-        "prompt": "A team adds ranking but keeps a pure creation-time cursor. What should it change?",
-        "options": ["The image format", "The follow graph data model only", "The login form", "Use a continuation token or snapshot tied to ranked order"],
+        "prompt": "Engagement signals update scores every minute, and a reader requests page 3 ten minutes after page 2. How should Page token keep that scroll consistent?",
+        "options": ["Store the creation time of the last post on page 2", "Recompute all scores and use a numeric page offset", "Sort page 3 by recency while page 2 stayed ranked", "Carry a snapshot or token tied to the ranked order"],
         "correctIndex": 3,
         "explanation": "Ranked scores can change independently of creation time, so chronological cursors no longer describe page boundaries.",
         "reveal": {
@@ -574,7 +574,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
         "id": "feed-privacy:predict:new-block",
         "title": "Predict a stale derived pointer",
         "prompt": "A reader is now blocked, but Old inbox ID still exists. Which branch should Read filter select?",
-        "options": ["Denied: suppress the post", "Allowed because fanout once inserted it", "Allowed until every cache is empty"],
+        "options": ["Denied: suppress the post for this reader", "Allowed: fanout inserted it before the block", "Allowed: until all caches holding it have expired", "Denied: and also delete the author’s post"],
         "correctIndex": 0,
         "explanation": "Current canonical relationship and post rules decide access. The no relation reaches Denied even while the old derived pointer remains.",
         "reveal": {
@@ -658,7 +658,7 @@ export const newsFeedTeachingContent: Record<string, TeachingContent> = {
         "id": "feed-operations:predict:freshness-signal",
         "title": "Predict hidden feed delay",
         "prompt": "Workers show growing queue age while Feed read still has low first-page latency. Does a fast read alone establish that followers see new posts promptly?",
-        "options": ["No; monitor worker lag and visible post delay too", "Yes; query latency proves fanout freshness", "Yes; post commit success proves all inboxes caught up"],
+        "options": ["No; also watch worker lag and visible post delay", "Yes; low query latency shows fanout is keeping up", "Yes; commit success shows every inbox has caught up", "No; but first-page latency will rise soon to show it"],
         "correctIndex": 0,
         "explanation": "Workers → Monitor measures lag, while Feed read → Monitor measures the page path. Fast reads can serve old derived state, so visible delay is a separate end-to-end signal.",
         "reveal": {

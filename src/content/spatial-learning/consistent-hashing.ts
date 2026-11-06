@@ -46,8 +46,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-scope:predict:hq02",
         "title": "Predict the design consequence",
-        "prompt": "Key counts are equal but one node has high CPU. Which missing measurement matters?",
-        "options": ["Font size", "Request heat and operation cost per key", "Chapter number", "DNS record length"],
+        "prompt": "A dashboard shows every Owner with equal key counts, and the team calls the cluster balanced. One owner then starts timing out under load. What was the dashboard missing?",
+        "options": ["The spread of hash output across the ring", "Request heat and value size per key", "The number of nodes in the cluster today", "Which nodes share one membership version"],
         "correctIndex": 1,
         "explanation": "Uniform key count does not mean uniform request or compute load.",
         "reveal": {
@@ -112,8 +112,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-modulo:predict:hq05",
         "title": "Predict the design consequence",
-        "prompt": "After a cache server fails, database reads surge across many keys. Why?",
-        "options": ["Modulo remapped keys to other empty caches", "All user keys expired simultaneously by definition", "The network changed each key string", "The CDN removed images"],
+        "prompt": "In the 4-to-3 change shown, a key with hash 9 was cached on healthy node 1. Where does the next read for it go, if the survivors keep their numbers?",
+        "options": ["Node 0, where it misses and refills from origin", "Node 1, since that node stayed healthy", "Node 3, the node that just left the pool", "Node 2, which takes over the failed node’s keys"],
         "correctIndex": 0,
         "explanation": "Changing N causes widespread remapping and cache misses.",
         "reveal": {
@@ -164,7 +164,7 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
         "id": "hash-ring:predict:wrap",
         "title": "Predict the ring owner",
         "prompt": "Walking clockwise from displayed K4, which node token is encountered first?",
-        "options": ["N1", "N4", "Every token owns an independent copy"],
+        "options": ["N1, after wrapping past the top", "N4, the closest token behind K4", "N2, the token opposite K4", "All four, since each holds a copy"],
         "correctIndex": 0,
         "explanation": "K4 lies after N4 and before N1 in the clockwise ring. Successor lookup wraps across the top to N1; ownership is distinct from replication.",
         "reveal": {
@@ -212,8 +212,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-membership:predict:hq11",
         "title": "Predict the design consequence",
-        "prompt": "A durable node begins receiving reads before its new range is copied. What can users observe?",
-        "options": ["Guaranteed faster reads", "Missing or stale data", "A longer URL only", "Automatic duplicate elimination"],
+        "prompt": "A team publishes routing for NEW, then starts copying the old range from S. During the copy, a client writes key k in that range, then reads older key j in that range. What can it see?",
+        "options": ["Both keys present, as routing is now correct", "k found on NEW, but j missing until the copy ends", "Both keys served from S until the copy ends", "An error for both, as NEW rejects all requests"],
         "correctIndex": 1,
         "explanation": "Routing cutover before transfer completion can expose an incomplete owner.",
         "reveal": {
@@ -261,8 +261,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-vnodes:predict:physical-failure",
         "title": "Predict a physical-node failure",
-        "prompt": "A1, A2, and A3 are tokens for one physical machine A. Does having three tokens provide three independent failure copies?",
-        "options": ["No; all three tokens refer to the same physical machine", "Yes; each token is a separate host", "Yes; tokens imply cross-region replication"],
+        "prompt": "A team sets three tokens per machine and drops replication, reasoning that A1, A2, and A3 are already three copies. Machine A then fails. What is lost?",
+        "options": ["Every range A1, A2, and A3 owned, with no copy left", "Nothing, since A2 and A3 still hold A1’s data", "A1’s range alone, since A2 and A3 take over", "Nothing, since tokens replicate across regions"],
         "correctIndex": 0,
         "explanation": "Virtual tokens divide ownership ranges. A1, A2, and A3 are all positions for physical A, so its failure affects each; redundancy needs distinct physical replicas.",
         "reveal": {
@@ -327,8 +327,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-replicas:predict:hq17",
         "title": "Predict the design consequence",
-        "prompt": "One popular key is overloaded despite many virtual nodes. Why?",
-        "options": ["Virtual nodes never store keys", "That key still has one primary placement", "The hash space is too small by definition", "The client sent a 429"],
+        "prompt": "A live-stream counter key draws most writes to its Primary. Adding hundreds of tokens changes which node is Primary. What happens to the hot load?",
+        "options": ["It spreads evenly over the nodes in the ring", "It lands on whichever node is now its Primary", "It moves onto Replica A and Replica B for good", "It shrinks, because new tokens add more capacity"],
         "correctIndex": 1,
         "explanation": "Virtual nodes distribute ranges across many keys, not the load of one indivisible key.",
         "reveal": {
@@ -393,8 +393,8 @@ export const consistentHashingTeachingContent: Record<string, TeachingContent> =
       {
         "id": "hash-operate:predict:hq20",
         "title": "Predict the design consequence",
-        "prompt": "A node join finishes routing cutover but migration lags. What should operators inspect?",
-        "options": ["Only frontend animations", "Transfer progress, fallback reads, and version mismatch", "Only DNS TTL", "Only link color"],
+        "prompt": "A bandwidth limit slows Copy, and an engineer wants to publish Cut over anyway to finish tonight. What should be checked before that?",
+        "options": ["That CPU on the new node is below its limit", "Transfer lag, fallback reads, and map versions", "That key counts per node look even overall", "That DNS for the new node has propagated"],
         "correctIndex": 1,
         "explanation": "Incomplete movement and inconsistent maps are direct risks to data visibility.",
         "reveal": {

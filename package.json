@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",
+    "check:content": "node scripts/content-check.cjs",
     "test:spatial": "node --test tests/spatial.test.cjs",
     "test:review": "node --test tests/review.test.cjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs tests/*.test.cjs"

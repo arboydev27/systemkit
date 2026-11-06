@@ -39,8 +39,8 @@ export const estimationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "estimate-workload:predict:eq02",
         "title": "Predict the design consequence",
-        "prompt": "An estimate treats every registered account as active each day. What is the main risk?",
-        "options": ["It necessarily undercounts writes", "It measures latency instead of traffic", "It may overstate daily traffic substantially", "It excludes object storage"],
+        "prompt": "A teammate multiplies 40 million sign-ups by 5 page views each and reports 200 million views per day. What is the main risk in that figure?",
+        "options": ["It undercounts traffic because peaks are missing", "It measures storage growth and not request traffic", "It may overstate daily traffic by a wide margin", "It counts writes and leaves out all of the reads"],
         "correctIndex": 2,
         "explanation": "Many accounts may be inactive. State or measure the active share before deriving daily actions.",
         "reveal": {
@@ -99,8 +99,8 @@ export const estimationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "estimate-traffic:predict:eq03",
         "title": "Predict the design consequence",
-        "prompt": "About how many average requests per second are 8.64 million requests per day?",
-        "options": ["10", "100", "1,000", "8,640"],
+        "prompt": "A mobile app has 432,000 daily users who each make 20 API calls a day. What is the average request rate?",
+        "options": ["5 requests/s", "100 requests/s", "2,400 requests/s", "6,000 requests/s"],
         "correctIndex": 1,
         "explanation": "8,640,000 ÷ 86,400 seconds per day = 100 requests per second on average.",
         "reveal": {
@@ -170,8 +170,8 @@ export const estimationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "estimate-data:predict:eq06",
         "title": "Predict the design consequence",
-        "prompt": "200,000 uploads each averaging 4 MB add about how much logical data per day?",
-        "options": ["80 GB", "800 GB", "8 TB", "800 TB"],
+        "prompt": "100,000 people a day each upload two photos averaging 4 MB. About how much logical data does that add per day?",
+        "options": ["400 GB", "800 GB", "8 TB", "800 TB"],
         "correctIndex": 1,
         "explanation": "200,000 × 4 MB = 800,000 MB, or about 800 GB in decimal units.",
         "reveal": {
@@ -240,7 +240,7 @@ export const estimationTeachingContent: Record<string, TeachingContent> = {
         "id": "estimate-limits:predict:reserve",
         "title": "Predict the remaining budget",
         "prompt": "The displayed path budgets 40 ms network, 30 ms app, and 110 ms data against a 200 ms target. How much remains?",
-        "options": ["20 ms", "110 ms", "200 ms"],
+        "options": ["20 ms", "90 ms", "130 ms", "180 ms"],
         "correctIndex": 0,
         "explanation": "40 + 30 + 110 = 180 ms. The 20 ms reserve completes the displayed 200 ms request budget. It is an allowance, not observed latency.",
         "reveal": {
@@ -299,8 +299,8 @@ export const estimationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "estimate-decisions:predict:eq11",
         "title": "Predict the design consequence",
-        "prompt": "Peak load is 1,200 requests/s. Each instance sustains 300 requests/s, but target utilization is 70%. What is the first healthy-instance estimate?",
-        "options": ["4", "5", "6", "12"],
+        "prompt": "A checkout service forecasts a peak of 1,200 requests/s. A load test shows one instance holds 300 requests/s, and policy caps utilization at 70%. How many healthy instances does the first estimate need?",
+        "options": ["4 instances", "5 instances", "6 instances", "7 instances"],
         "correctIndex": 2,
         "explanation": "Effective capacity is 300 × 0.7 = 210 requests/s per instance; 1,200 ÷ 210 rounds up to six.",
         "reveal": {

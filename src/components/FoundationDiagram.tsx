@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import scenes from '../content/foundation-diagrams.json';
+import { foundationScenes as scenes } from '../content/foundation-scenes';
 
 type Item = { title:string; detail:string };
 type Scene = { kind:'flow'|'ring'|'comparison'|'bits'|'timeline'; title:string; description:string; note:string; items:Item[] };

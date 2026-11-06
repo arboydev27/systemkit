@@ -1,0 +1,74 @@
+{
+  "tx-acid": {
+    "kind": "comparison",
+    "title": "Four promises, and who keeps each one",
+    "description": "The four ACID properties side by side: atomicity undoes partial work, consistency is mostly the application's rules, isolation separates concurrent work, and durability keeps committed data.",
+    "note": "Only consistency depends mostly on your code; the database keeps the other three.",
+    "items": [
+      { "title": "Atomicity", "detail": "a failure undoes every write" },
+      { "title": "Consistency", "detail": "your rules; mostly your code" },
+      { "title": "Isolation", "detail": "concurrent work stays apart" },
+      { "title": "Durability", "detail": "committed data survives" }
+    ]
+  },
+  "tx-read-committed": {
+    "kind": "flow",
+    "title": "Read committed during an open transfer",
+    "description": "T1 writes 150 without committing, T2 still reads the committed 200, T3 waits on T1's row lock, and T1's commit releases both.",
+    "note": "Readers see only committed values, and writers queue on the row lock.",
+    "items": [
+      { "title": "T1 debits Ana", "detail": "writes 150, not committed" },
+      { "title": "T2 reads Ana", "detail": "gets 200 without waiting" },
+      { "title": "T3 updates Ana", "detail": "waits for T1’s row lock" },
+      { "title": "T1 commits", "detail": "T2 sees 150; T3 writes 130" }
+    ]
+  },
+  "tx-snapshot": {
+    "kind": "flow",
+    "title": "A snapshot reader ignores later commits",
+    "description": "Transaction 100 takes a snapshot showing 480 seats, transaction 102 commits a newer version, transaction 100 still reads 480, and the old version is removed only when no snapshot needs it.",
+    "note": "Each write adds a version, and the snapshot decides which version a reader sees.",
+    "items": [
+      { "title": "Txn 100 starts", "detail": "its snapshot shows 480 sold" },
+      { "title": "Txn 102 commits", "detail": "adds a version: 484 sold" },
+      { "title": "Txn 100 reads", "detail": "still sees 480, no waiting" },
+      { "title": "Old version removed", "detail": "once no snapshot needs it" }
+    ]
+  },
+  "tx-lost-update": {
+    "kind": "flow",
+    "title": "Two writers read the same balance",
+    "description": "Two payments both read a balance of 100, then write values computed from it, so the second write discards the first debit and the balance ends at 50 instead of 20.",
+    "note": "Should be 20. Atomic updates, row locks, or compare-and-set prevent this.",
+    "items": [
+      { "title": "A reads balance", "detail": "sees 100, will debit 30" },
+      { "title": "B reads balance", "detail": "sees 100, will debit 50" },
+      { "title": "A writes 70", "detail": "commits 100 - 30" },
+      { "title": "B writes 50", "detail": "commits; A’s debit is gone" }
+    ]
+  },
+  "tx-write-skew": {
+    "kind": "flow",
+    "title": "Two bookings pass the same capacity check",
+    "description": "Two transactions each count 99 bookings out of 100 places, each inserts its own row, and both commit, leaving 101 bookings with no write conflict to detect.",
+    "note": "Materialize the conflict: a counter row makes the second buyer collide with the first.",
+    "items": [
+      { "title": "T1 counts bookings", "detail": "99 of 100, so room left" },
+      { "title": "T2 counts bookings", "detail": "also sees 99, room left" },
+      { "title": "Each inserts a row", "detail": "different rows, no conflict" },
+      { "title": "Both commit", "detail": "101 bookings, rule broken" }
+    ]
+  },
+  "tx-serializable": {
+    "kind": "comparison",
+    "title": "Three serializable methods, plus the common shortcut",
+    "description": "Serial execution runs one transaction at a time, two-phase locking blocks on conflict, serializable snapshot isolation aborts on risky patterns, and many teams stay at a weaker level with targeted guards.",
+    "note": "Whichever you choose, test what your database's level name actually prevents.",
+    "items": [
+      { "title": "Serial execution", "detail": "one thread, short scripts" },
+      { "title": "Two-phase locking", "detail": "readers and writers block" },
+      { "title": "Snapshot-based (SSI)", "detail": "no read locks, may abort" },
+      { "title": "Weaker level + locks", "detail": "guards only known risks" }
+    ]
+  }
+}

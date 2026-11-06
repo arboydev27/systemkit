@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, RotateCcw, Minus, Plus, Maximize2, Minimize2, Pause, X } from "lucide-react";
 import { getSpatialLesson, decodeDiagramAttempts, relationshipLabels, type DiagramAttempt } from "../lib/spatial-learning";
 import { presentSpatialLesson } from "../lib/spatial-layout";
+import { optionOrder } from "../lib/quiz";
 import { createSpatialRuntime, type SpatialRuntime } from "../lib/spatial-runtime";
 import styles from "./SpatialDiagram.module.css";
 
@@ -166,7 +167,7 @@ export function SpatialDiagram({ chapterId, diagramId, onUnavailable }: {
       <div className={styles.stepHeading}><span className={styles.stepCount}>Try a prediction</span><button type="button" className={styles.textAction} onClick={wholeSystem}>Return to whole system</button></div>
       {content.predictions.length > 1 ? <label className={styles.selectLabel}>Scenario<select value={predictionIndex} onChange={event => { clearSelection(); setPredictionIndex(Number(event.target.value)); }}>{content.predictions.map((item, index) => <option key={item.id} value={index}>{item.title}</option>)}</select></label> : null}
       <h4 ref={caption} tabIndex={-1}>{prediction.title}</h4>
-      <fieldset className={styles.predictionChoices}><legend>{prediction.prompt}</legend>{prediction.options.map((option, index) => <label key={index} className={attempt?.choice === index ? styles.chosen : ""}><input ref={index === 0 ? firstChoice : undefined} type="radio" name={`diagram-prediction-${prediction.id}`} checked={attempt?.choice === index} disabled={attempt?.revealed} onChange={() => setAttempts(current => ({ ...current, [prediction.id]: { choice: index, revealed: false } }))}/><span>{option}</span></label>)}</fieldset>
+      <fieldset className={styles.predictionChoices}><legend>{prediction.prompt.replaceAll("`", "")}</legend>{optionOrder(prediction.id, prediction.options.length).map((index, position) => <label key={index} className={attempt?.choice === index ? styles.chosen : ""}><input ref={position === 0 ? firstChoice : undefined} type="radio" name={`diagram-prediction-${prediction.id}`} checked={attempt?.choice === index} disabled={attempt?.revealed} onChange={() => setAttempts(current => ({ ...current, [prediction.id]: { choice: index, revealed: false } }))}/><span>{prediction.options[index].replaceAll("`", "")}</span></label>)}</fieldset>
       <div className={styles.buttonRow}>
         <button type="button" className={styles.primaryAction} disabled={!attempt || attempt.revealed} onClick={() => { pendingFocus.current = "retry"; clearSelection(); setAttempts(current => ({ ...current, [prediction.id]: { ...current[prediction.id], revealed: true } })); }}>Reveal in diagram</button>
         {attempt?.revealed ? <button ref={retryButton} type="button" className={styles.secondaryAction} onClick={() => { pendingFocus.current = "choice"; clearSelection(); setAttempts(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== prediction.id))); }}>Try again</button> : null}

@@ -61,8 +61,8 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-scope:predict:provider-accepted",
         "title": "Predict what provider acceptance proves",
-        "prompt": "Provider accepted a request. What does the final relation allow this service to conclude about Person?",
-        "options": ["Recipient action is not guaranteed", "The person definitely opened it", "The durable intent can now be erased without policy"],
+        "prompt": "A pharmacy reminder reaches Provider, which accepts it at 10:02. At 10:03 a support agent asks whether the customer has seen it. Given the final relation, what can the service honestly say?",
+        "options": ["Seen or not is unknown; only acceptance is recorded", "The customer has seen it, as acceptance implies display", "The customer will see it soon, as Provider retries", "The customer did not see it, as no callback came yet"],
         "correctIndex": 0,
         "explanation": "Provider acceptance is a separate state from the person receiving or acting. The last relation is explicitly labelled not guaranteed.",
         "reveal": {
@@ -123,7 +123,7 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-ingest:publish-failure",
         "title": "A failed publish leaves recoverable intent",
-        "description": "In this authored scenario Channel queue is unavailable. Intent store remains active, allowing the outbox dispatcher to retry rather than losing an acknowledged intent.",
+        "description": "In this scenario, Channel queue is unavailable. Intent store remains active, allowing the outbox dispatcher to retry rather than losing an acknowledged intent.",
         "nodeIds": ["notification-ingest:node:1", "notification-ingest:node:2", "notification-ingest:node:3", "notification-ingest:node:4"],
         "linkIds": ["notification-ingest:relation:1"],
         "statuses": {
@@ -153,7 +153,7 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
         "id": "notification-ingest:predict:failed-publish",
         "title": "Predict a publish failure",
         "prompt": "The intent and outbox committed, but Channel queue is temporarily unavailable. Which displayed state makes retry possible?",
-        "options": ["The persisted Intent store/outbox", "A provider receipt that has not happened", "The Send API’s process memory only"],
+        "options": ["The persisted Intent store and outbox record", "The provider receipt returned for that attempt", "The Send API’s in-memory list of pending intents", "The queue’s own copy of the unpublished message"],
         "correctIndex": 0,
         "explanation": "Intent store retains the durable outbox record. The dispatcher retries publishing when the queue recovers; acknowledgement must be backed by that recovery path.",
         "reveal": {
@@ -230,8 +230,8 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-personalize:predict:opted-out",
         "title": "Predict changed consent",
-        "prompt": "A promotional intent was queued before the recipient opted out. At send time, what should Resolver do?",
-        "options": ["Read current Preferences and suppress ineligible attempts", "Use consent from enqueue time forever", "Switch automatically to a different channel"],
+        "prompt": "A price-drop push sat in a queue overnight. At 07:00 the recipient turned off price-drop alerts, and at 07:05 the intent reaches Resolver. What should Resolver do?",
+        "options": ["Read current Preferences and suppress ineligible attempts", "Use the consent snapshot taken when it was queued", "Render the template and let the provider filter it", "Suppress the push but send the same alert by email"],
         "correctIndex": 0,
         "explanation": "Resolver reads current Preferences. The eligibility path must reflect mutable consent close to send time; rendering a template is not permission to send.",
         "reveal": {
@@ -302,7 +302,7 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-channels:provider-outage",
         "title": "Retain an affected channel’s backlog",
-        "description": "In this authored scenario Email service is unavailable. Email work needs a controlled backlog while push and SMS continue under their own policies. An outage does not authorize an automatic SMS fallback.",
+        "description": "In this scenario, Email service is unavailable. Email work needs a controlled backlog while push and SMS continue under their own policies. An outage does not authorize an automatic SMS fallback.",
         "nodeIds": ["notification-channels:node:1", "notification-channels:node:2", "notification-channels:node:3", "notification-channels:node:4", "notification-channels:node:5", "notification-channels:node:6"],
         "linkIds": ["notification-channels:relation:3", "notification-channels:relation:5"],
         "statuses": {
@@ -333,8 +333,8 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-channels:predict:email-down",
         "title": "Predict email outage behavior",
-        "prompt": "Email service is unavailable while push and SMS remain healthy. What follows from the displayed separation?",
-        "options": ["Control and retain email work; other eligible channels may continue", "Turn every promotional email into SMS automatically", "Treat provider acceptance as proof the recipient saw the message"],
+        "prompt": "The email team is paged because Email service has stopped responding. The push team asks whether it needs to stop sending too. What does the displayed separation tell them?",
+        "options": ["Hold email work under control; push and SMS keep going", "Turn queued emails into SMS until Email service is back", "Stop all three workers so the channels stay in the same order", "Mark email attempts as delivered so the queue can drain"],
         "correctIndex": 0,
         "explanation": "The Email worker → Email service path is affected. Other worker/provider pairs remain separate, and fallback requires an explicit eligible product policy.",
         "reveal": {
@@ -366,7 +366,7 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
     "relationships": {
       "notification-reliability:relation:0": {"meaning": "delivery", "condition": "When queued work is leased or redelivered before acknowledgement.", "explanation": "The worker must tolerate repeated execution of the same attempt."},
       "notification-reliability:relation:1": {"meaning": "request", "condition": "For one stable delivery-attempt identity.", "explanation": "The worker calls the provider with an idempotency key where the provider supports it."},
-      "notification-reliability:relation:2": {"meaning": "write", "condition": "After the worker can record provider evidence.", "explanation": "The outcome is persisted in Attempt log. This authored Provider → Attempt log arrow summarizes result recording by the worker; it is not a provider-owned database write."},
+      "notification-reliability:relation:2": {"meaning": "write", "condition": "After the worker can record provider evidence.", "explanation": "The outcome is persisted in Attempt log. This Provider → Attempt log arrow summarizes result recording by the worker; it is not a provider-owned database write."},
       "notification-reliability:relation:3": {"meaning": "decision", "condition": "After bounded retry policy is exhausted.", "explanation": "The retained attempt and context move to operator-visible dead-letter handling."},
       "notification-reliability:relation:4": {"meaning": "response", "condition": "For a transient failure or ambiguous provider timeout eligible for bounded retry.", "explanation": "The provider outcome returns to Worker, which chooses backoff and retry. Permanent invalid destinations are not retried."}
     },
@@ -429,7 +429,7 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
         "id": "notification-reliability:predict:timeout-after-accept",
         "title": "Predict ambiguous retry",
         "prompt": "Provider accepted the request, then Worker crashed before storing its result. What can a repeated queue attempt risk?",
-        "options": ["Duplicate provider effects unless supported idempotency prevents them", "Exactly one recipient delivery by queue guarantee", "The provider request is automatically reversed"],
+        "options": ["A duplicate send, unless provider idempotency stops it", "Nothing, because the queue guarantees exactly one send", "A lost send, because the queue drops crashed attempts", "A reversal, because Provider undoes the first request"],
         "correctIndex": 0,
         "explanation": "At-least-once work can execute again after the worker crash. A stable attempt key and provider idempotency reduce duplicates, while unsupported external idempotency leaves residual ambiguity.",
         "reveal": {
@@ -516,8 +516,8 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-pacing:predict:notification-q17",
         "title": "Predict the design consequence",
-        "prompt": "A large campaign and urgent receipts share a send pipeline. What helps preserve receipt latency?",
-        "options": ["Delete every campaign item", "Reserve priority capacity and release the campaign in bounded batches", "Make receipts promotional", "Use one unbounded batch"],
+        "prompt": "A sale announcement to 3 million people goes out at noon, and receipts for orders placed during the sale must still arrive within seconds. Which arrangement keeps receipts fast?",
+        "options": ["Let Pacer send receipts after the campaign batch clears", "Give receipts the Urgent lane and batch the campaign", "Put receipts and the campaign in one larger shared batch", "Raise the per-user cap so receipts skip consent checks"],
         "correctIndex": 1,
         "explanation": "Pacing campaign work and reserving transactional capacity prevent a bulk release from starving receipts.",
         "reveal": {
@@ -592,8 +592,8 @@ export const notificationTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "notification-operations:predict:notification-q20",
         "title": "Predict the design consequence",
-        "prompt": "An email provider is down while SMS remains healthy. What is a sound response?",
-        "options": ["Discard the email backlog", "Pause all channels", "Send all email intents by SMS", "Retain and control the email backlog while other channels continue"],
+        "prompt": "Monitor shows Provider errors rising for one email vendor and Queue age climbing behind it, while error rates on the other channels stay flat. What should operators do with that queue?",
+        "options": ["Move that email backlog to SMS until errors subside", "Pause every channel until the email errors subside", "Discard that backlog so recovery starts from empty", "Retain and pace that backlog; let other channels run"],
         "correctIndex": 3,
         "explanation": "Channel isolation and durable queues let healthy providers continue while email is retried or held under policy.",
         "reveal": {

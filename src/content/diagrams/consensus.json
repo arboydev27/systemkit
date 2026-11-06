@@ -1,0 +1,74 @@
+{
+  "cs-linearizability": {
+    "kind": "flow",
+    "title": "A read after the acknowledgment must see the write",
+    "description": "A timeline where a write runs from t=10 to t=30, a read overlapping it may see either value, a read at t=40 must see the new value, and a lagging replica returning the old value breaks the guarantee.",
+    "note": "Once a write completes, no later read may return the older value.",
+    "items": [
+      { "title": "A writes “sold”", "detail": "starts t=10, acked t=30" },
+      { "title": "B reads, overlapping", "detail": "t=15: may see old or new" },
+      { "title": "C reads after ack", "detail": "t=40: must see “sold”" },
+      { "title": "Lagging replica", "detail": "returning “free” breaks it" }
+    ]
+  },
+  "cs-cap": {
+    "kind": "comparison",
+    "title": "Two choices in a partition, two without one",
+    "description": "During a partition a cut-off node either refuses requests or answers with possibly stale data. On a healthy network, writes either wait for remote replicas or return early and risk losing recent data.",
+    "note": "CAP covers only the partition case; the healthy case trades latency against freshness.",
+    "items": [
+      { "title": "Partition: refuse", "detail": "no stale data, some errors" },
+      { "title": "Partition: answer", "detail": "stays up, may be stale" },
+      { "title": "Healthy: sync write", "detail": "current, adds a round trip" },
+      { "title": "Healthy: async write", "detail": "fast, recent data at risk" }
+    ]
+  },
+  "cs-ordering": {
+    "kind": "flow",
+    "title": "Wall clocks can reverse cause and effect",
+    "description": "A node with a fast clock stamps an earlier write higher than a later write on an accurate node, so last-write-wins drops the later write, while Lamport counters keep the two in causal order.",
+    "note": "A counter carried on each message keeps causally later writes later.",
+    "items": [
+      { "title": "A’s clock runs fast", "detail": "90 stamped 12:00:00.100" },
+      { "title": "B reads, then writes", "detail": "80 stamped 12:00:00.085" },
+      { "title": "Last write wins", "detail": "keeps 90, drops the later 80" },
+      { "title": "Lamport counters", "detail": "stamps 8 then 9, so 80 wins" }
+    ]
+  },
+  "cs-fencing": {
+    "kind": "flow",
+    "title": "A paused leader wakes up after losing its lease",
+    "description": "P1 takes a lease with token 71 and pauses, the lease expires and P2 gets token 72 and writes, P1 wakes believing it still leads, and storage rejects its write because 71 is below 72.",
+    "note": "Storage enforces safety, because the paused process cannot know it is stale.",
+    "items": [
+      { "title": "P1 gets the lease", "detail": "token 71, then a long pause" },
+      { "title": "Lease expires", "detail": "P2 gets token 72, writes" },
+      { "title": "P1 wakes up", "detail": "still thinks it is leader" },
+      { "title": "Storage checks token", "detail": "71 is below 72: rejected" }
+    ]
+  },
+  "cs-raft": {
+    "kind": "flow",
+    "title": "A committed entry survives a change of leader",
+    "description": "In a five-node group, the term 7 leader stores entry 42 on a majority of three, a partition cuts the leader off, a node missing the entry cannot gather a majority, and a node holding it wins term 9.",
+    "note": "Any two majorities share a node, so a winner cannot lack a committed entry.",
+    "items": [
+      { "title": "Leader appends", "detail": "N1, term 7, entry 42" },
+      { "title": "Majority stores it", "detail": "N1, N2, N3: committed" },
+      { "title": "N4 tries in term 8", "detail": "N3 refuses: two votes only" },
+      { "title": "N3 wins term 9", "detail": "three votes, keeps entry 42" }
+    ]
+  },
+  "cs-2pc": {
+    "kind": "comparison",
+    "title": "Atomic commit, consensus, and where each fits",
+    "description": "Two-phase commit needs every participant, consensus needs a majority, running 2PC over consensus groups survives a coordinator crash, and a coordination service packages consensus for small data.",
+    "note": "Use a tested coordination service rather than writing your own consensus.",
+    "items": [
+      { "title": "Two-phase commit", "detail": "all must vote yes; can block" },
+      { "title": "Consensus", "detail": "a majority is enough" },
+      { "title": "2PC over consensus", "detail": "decision survives a crash" },
+      { "title": "Coordination service", "detail": "etcd, ZooKeeper; small data" }
+    ]
+  }
+}

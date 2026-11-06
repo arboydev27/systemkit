@@ -69,8 +69,8 @@ function assertGeometry(scene) {
   }
 }
 
-test('all 116 lessons preserve original components, directions, semantics, and relation origins in valid routed geometry', () => {
-  const all = lessons(); assert.equal(all.length,116);
+test('all lessons preserve original components, directions, semantics, and relation origins in valid routed geometry', () => {
+  const all = lessons(); assert.equal(all.length,chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0));
   for (const { chapter, step, lesson } of all) {
     validateSpatialLesson(lesson); assertGeometry(lesson.scene);
     const base = getSpatialScene(chapter.id,step.diagramId), byId = new Map(lesson.scene.links.map(link => [link.id,link]));
@@ -191,7 +191,7 @@ test('lesson data loads in a fresh process without depending on diagram componen
     const { chapters } = require('./src/content/chapters.ts');
     let count = 0;
     for (const chapter of chapters) for (const step of chapter.steps) { getSpatialLesson(chapter.id,step.diagramId); count++; }
-    if (count !== 116) throw new Error('Expected all 116 live lessons');
+    if (count !== chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0)) throw new Error('Expected every live lesson');
   `], { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' });
   assert.equal(result.status,0,result.stderr || result.stdout);
 });
@@ -233,9 +233,9 @@ test('lesson continuity follows semantic identity across IDs, excludes other cha
   assert.equal(rememberSpatialLesson({...current,chapterId:'continuity-other'}),null);
 });
 
-test('all 116 lessons contain explanations and predictions, with authored subset reveals and compact focused views', () => {
+test('all lessons contain explanations and predictions, with authored subset reveals and compact focused views', () => {
   const all = lessons(); let subsetPredictions = 0, subsetScenes = 0, subsetViews = 0;
-  assert.equal(all.length,116);
+  assert.equal(all.length,chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0));
   for (const { step, lesson } of all) {
     assert.ok(lesson.content.scenes.length > 0,`explanations ${step.id}`);
     assert.ok(lesson.content.predictions.length > 0,`predictions ${step.id}`);

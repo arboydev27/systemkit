@@ -1,0 +1,74 @@
+{
+  "se-log": {
+    "kind": "flow",
+    "title": "An append-only log with an in-memory index",
+    "description": "A write is appended to a log file and synced to disk, the hash index records its byte offset, and a later read jumps straight to that offset.",
+    "note": "Durable after the sync; findable through an index that is rebuilt after a restart.",
+    "items": [
+      { "title": "Append record", "detail": "parcel 8841, shipped" },
+      { "title": "Sync to disk", "detail": "fsync before acknowledging" },
+      { "title": "Update hash index", "detail": "8841 at offset 4096" },
+      { "title": "Read by offset", "detail": "one lookup, one disk read" }
+    ]
+  },
+  "se-lsm": {
+    "kind": "flow",
+    "title": "An LSM tree's path from memory to merged files",
+    "description": "A write enters a write-ahead log and a sorted in-memory memtable, the memtable is flushed as an immutable sorted file, and compaction later merges those files.",
+    "note": "Writes stay cheap because no file is edited; compaction pays that debt later.",
+    "items": [
+      { "title": "Write-ahead log", "detail": "protects unflushed writes" },
+      { "title": "Memtable", "detail": "sorted, in memory" },
+      { "title": "Sorted files", "detail": "immutable, flushed when full" },
+      { "title": "Compaction", "detail": "merges, drops old versions" }
+    ]
+  },
+  "se-btree": {
+    "kind": "flow",
+    "title": "A B-tree page change, protected by a log",
+    "description": "The engine changes a cached page, records the change in the write-ahead log, syncs the log at commit, and writes the page to disk later.",
+    "note": "The commit is safe once the log is synced, even though the page is still only in memory.",
+    "items": [
+      { "title": "Change cached page", "detail": "dirty page, split if full" },
+      { "title": "Log the change", "detail": "WAL record for the page" },
+      { "title": "Sync log at commit", "detail": "now safe to acknowledge" },
+      { "title": "Write page later", "detail": "at the next checkpoint" }
+    ]
+  },
+  "se-choose": {
+    "kind": "comparison",
+    "title": "Write amplification by engine and row size",
+    "description": "With example settings, a B-tree's write amplification falls sharply as rows grow from 100 bytes to 4 KB, while an LSM tree's stays about the same, so row size flips the winner.",
+    "note": "Assumes 16 KB pages, one changed row per page flush, and four 10x LSM levels.",
+    "items": [
+      { "title": "B-tree, 100-byte row", "detail": "about 160x, plus the log" },
+      { "title": "B-tree, 4 KB row", "detail": "about 4x, plus the log" },
+      { "title": "LSM, 100-byte row", "detail": "up to 40x, plus the log" },
+      { "title": "LSM, 4 KB row", "detail": "up to 40x, plus the log" }
+    ]
+  },
+  "se-indexes": {
+    "kind": "comparison",
+    "title": "What each indexing choice buys and costs",
+    "description": "Four options compared: no index, a secondary index, a covering index, and many indexes, each with its effect on reads and writes.",
+    "note": "Each index speeds some reads; every insert pays for all of them.",
+    "items": [
+      { "title": "No index", "detail": "scan every row; cheap writes" },
+      { "title": "Secondary index", "detail": "find rows, then fetch each" },
+      { "title": "Covering index", "detail": "answers without row fetches" },
+      { "title": "Many indexes", "detail": "each insert updates them all" }
+    ]
+  },
+  "se-olap": {
+    "kind": "comparison",
+    "title": "Row and column storage for two kinds of query",
+    "description": "A row store handles a single-row lookup cheaply but reads everything for a scan; a column store reverses that, scanning few columns cheaply but rebuilding rows from many files.",
+    "note": "Scan sizes assume 1 billion rows of 500 bytes, and 3 columns of 8 bytes each.",
+    "items": [
+      { "title": "Row store, lookup", "detail": "one page holds the whole row" },
+      { "title": "Row store, scan", "detail": "reads all columns, 500 GB" },
+      { "title": "Column store, lookup", "detail": "rebuilds row from many files" },
+      { "title": "Column store, scan", "detail": "reads 3 columns, 24 GB" }
+    ]
+  }
+}
