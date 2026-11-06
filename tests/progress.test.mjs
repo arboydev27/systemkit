@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyProgress, parseProgress, resumeLesson, resumeStepInChapter } from "../src/lib/progress.ts";
+import { emptyProgress, nextLessonInOrder, parseProgress, resumeLesson, resumeStepInChapter } from "../src/lib/progress.ts";
 import { collectBackup, completedLessons, parseBackup, restoreBackup } from "../src/lib/backup.ts";
 import { analyticsAllowed, dueReturnEvents, eventName, needsConsent, parseUsage } from "../src/lib/analytics.ts";
 import { correctIsStrictlyLongest, longestOptionShare, optionOrder, quizIssues } from "../src/lib/quiz.ts";
@@ -129,4 +129,22 @@ test("quiz checks catch the patterns that let a learner pass without understandi
   assert.equal(correctIsStrictlyLongest(question(["aaaa", "bb", "cc", "dd"])), true);
   assert.equal(correctIsStrictlyLongest(question(["aaaa", "bbbb", "cc", "dd"])), false);
   assert.equal(longestOptionShare([question(["aaaa", "bb", "cc", "dd"]), question(["aa", "bbbb", "cc", "dd"])]), 0.5);
+});
+
+test("the next lesson follows the order given, for new and returning visitors", () => {
+  const outline = [
+    { id: "a", number: "1", title: "A", part: "P", storageKey: "ka", stepIds: ["a1", "a2"] },
+    { id: "b", number: "2", title: "B", part: "P", storageKey: "kb", stepIds: ["b1"] },
+    { id: "c", number: "3", title: "C", part: "P", storageKey: "kc", stepIds: ["c1"] },
+  ];
+  const saved = (progress) => (key) => progress[key] ?? emptyProgress;
+  assert.deepEqual(nextLessonInOrder(outline, null, saved({})), { chapterId: "a", stepId: "a1" });
+  assert.deepEqual(nextLessonInOrder([...outline].reverse(), null, saved({})), { chapterId: "c", stepId: "c1" });
+  assert.deepEqual(nextLessonInOrder(outline, "removed-chapter", saved({})), { chapterId: "a", stepId: "a1" });
+  assert.deepEqual(nextLessonInOrder(outline, "b", saved({})), { chapterId: "b", stepId: "b1" });
+  const mid = { ka: { ...emptyProgress, completed: ["a1"] } };
+  assert.deepEqual(nextLessonInOrder(outline, "a", saved(mid)), { chapterId: "a", stepId: "a2" });
+  const everything = { ka: { ...emptyProgress, completed: ["a1", "a2"] }, kb: { ...emptyProgress, completed: ["b1"] }, kc: { ...emptyProgress, completed: ["c1"] } };
+  assert.equal(nextLessonInOrder(outline, "a", saved(everything)), null);
+  assert.equal(nextLessonInOrder([], null, saved({})), null);
 });

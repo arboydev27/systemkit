@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowRight, Check, Download, Upload } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { collectBackup, completedLessons, LAST_BACKUP_KEY, parseBackup, restoreBackup, type Backup } from "@/lib/backup";
-import { chapterHref, lessonHref } from "@/lib/links";
-import { ACTIVE_CHAPTER_KEY, completedCount, GOAL_KEY, readProgress, resumeLesson, resumeStepInChapter, type OutlineChapter } from "@/lib/progress";
+import { lessonHref } from "@/lib/links";
+import { ACTIVE_CHAPTER_KEY, completedCount, readProgress, resumeLesson, resumeStepInChapter, type OutlineChapter } from "@/lib/progress";
 import { browserReviewStorage, countDue, readReviewState } from "@/lib/review";
 import styles from "./Site.module.css";
 
@@ -27,71 +27,6 @@ export function ContinueLink({ outline, firstHref, firstLabel }: { outline: Outl
     if (target && chapter) setResume({ href: lessonHref(target.chapterId, target.stepId), label: `Continue ${chapter.title}` });
   }, [outline]);
   return <Link className={styles.primaryLink} href={resume?.href ?? firstHref}>{resume?.label ?? firstLabel} <ArrowRight size={17} aria-hidden="true" /></Link>;
-}
-
-export type CourseChapter = OutlineChapter & { summary: string; lessonCount: number };
-export type GoalOption = { id: string; label: string; detail: string; order: string[] };
-
-function ChapterRow({ chapter, done }: { chapter: CourseChapter; done: number }) {
-  return <li className={styles.row}>
-    <Link href={chapterHref(chapter.id)}>
-      <span className={styles.rowNumber}>{chapter.number}</span>
-      <span className={styles.rowTitle}>{chapter.title}</span>
-      <span className={`${styles.rowMeta} ${done === chapter.lessonCount ? styles.rowDone : ""}`}>
-        {done === chapter.lessonCount ? <><Check size={13} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Done</> : done > 0 ? `${done} of ${chapter.lessonCount} lessons` : `${chapter.lessonCount} lessons`}
-      </span>
-      <span className={styles.rowDetail}>{chapter.summary}</span>
-    </Link>
-  </li>;
-}
-
-export function CourseMap({ chapters, goals }: { chapters: CourseChapter[]; goals: GoalOption[] }) {
-  const [goalId, setGoalId] = useState<string | null>(null);
-  const [done, setDone] = useState<Record<string, number>>({});
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(GOAL_KEY);
-      if (goals.some((goal) => goal.id === saved)) setGoalId(saved);
-    } catch { /* The full path shows without a saved goal. */ }
-    setDone(Object.fromEntries(chapters.map((chapter) => [chapter.id, completedCount(chapter.stepIds, readProgress(chapter.storageKey))])));
-  }, [chapters, goals]);
-
-  function choose(id: string) {
-    setGoalId(id);
-    trackEvent(`goal_${id}`);
-    try { window.localStorage.setItem(GOAL_KEY, id); } catch { /* The choice still applies for this visit. */ }
-  }
-
-  const goal = goals.find((item) => item.id === goalId);
-  const groups = useMemo(() => {
-    if (goal) {
-      const byId = new Map(chapters.map((chapter) => [chapter.id, chapter]));
-      return [{ title: "Suggested order", chapters: goal.order.flatMap((id) => byId.get(id) ?? []) }];
-    }
-    return chapters.reduce<{ title: string; chapters: CourseChapter[] }[]>((all, chapter) => {
-      const last = all[all.length - 1];
-      if (last?.title === chapter.part) last.chapters.push(chapter);
-      else all.push({ title: chapter.part, chapters: [chapter] });
-      return all;
-    }, []);
-  }, [chapters, goal]);
-
-  return <>
-    <fieldset className={styles.goal}>
-      <legend>What are you here for?</legend>
-      <div className={styles.goalOptions}>
-        {goals.map((option) => <label key={option.id} className={goalId === option.id ? styles.goalOn : undefined}>
-          <input type="radio" name="course-goal" checked={goalId === option.id} onChange={() => choose(option.id)} />
-          <span>{option.label}</span>
-        </label>)}
-      </div>
-    </fieldset>
-    <p className={styles.goalDetail} role="status">{goal?.detail ?? "Choose one and the chapters below will reorder to suit it. You can change your mind at any time."}</p>
-    {groups.map((group) => <div key={group.title} className={styles.part}>
-      <h3 className={styles.partTitle}>{group.title}</h3>
-      <ol className={styles.rows}>{group.chapters.map((chapter) => <ChapterRow key={chapter.id} chapter={chapter} done={done[chapter.id] ?? 0} />)}</ol>
-    </div>)}
-  </>;
 }
 
 export function ProgressTools() {

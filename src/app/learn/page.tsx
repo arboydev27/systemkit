@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { CourseMap } from "@/components/site/SiteClient";
+import { CourseMap } from "@/components/site/CourseMap";
 import { SitePage } from "@/components/site/SiteChrome";
 import styles from "@/components/site/Site.module.css";
-import { courseChapters, courseGoals, lessonCount } from "@/lib/course";
+import { courseChapters, courseGoals, courseOrb, lessonCount } from "@/lib/course";
 
 export const metadata: Metadata = {
   title: "The system design learning path | SystemKit",
@@ -16,7 +16,7 @@ export default function LearnPage() {
       <h1>The learning path</h1>
       <p className={styles.lede}>{courseChapters.length} chapters and {lessonCount} lessons. Building blocks come before the products that use them, but every chapter stands on its own, so start wherever you need.</p>
     </div>
-    <CourseMap chapters={courseChapters} goals={courseGoals} />
+    <CourseMap chapters={courseChapters} goals={courseGoals} orb={courseOrb} />
     <div style={{ height: 48 }} />
   </SitePage>;
 }

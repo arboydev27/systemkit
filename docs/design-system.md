@@ -36,3 +36,9 @@ The home, chapter, labs, and practice pages share these tokens. List chapters an
 ## Labs and charts
 
 Charts use blue for successful work and orange for offered load, with validated light and dark values in `Lab.module.css`. Reference lines are neutral and dashed. Every chart has a legend, and its values are also available as text or a table. Draw charts at their container's real width so labels stay readable on phones.
+
+## The course orb
+
+The learning path opens as an orb, because the course is a connected structure rather than a table of contents. It is drawn in ink on the page, with no panel behind it: pale stippling in the light theme, starlight in the dark. Every dot is a lesson and every line is real: a chapter's thread winds through its lessons in order, and links from a lesson's `related` field dive through the middle. A dot's size says how many links it has, and its brightness says how far back it sits and whether the lesson is finished, so progress lights the orb up. The only mark that isn't course data is the faint rim that makes it read as a sphere.
+
+The chapter list stays in the page in either view, and it shows instead whenever the orb can't run. Anything that can be done on the orb can also be done in the panel beside it, in ruled rows.
