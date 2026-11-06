@@ -11,7 +11,7 @@ const scenes: Record<string, Scene> = {
   'url-scope': {
     title: 'Two actions, different workloads',
     description: 'Creation writes a durable short-to-long mapping. Many more visits read that mapping and redirect to the destination.',
-    note: 'Example average: 1,160 creations/s · 11,600 redirects/s · plan for peaks.',
+    note: 'Example average: 350 creations/s · 8,700 redirects/s · plan for peaks.',
     nodes: [n(35, 110, 205, 'Creator', 'submits a long URL', 'browser'), n(378, 110, 235, 'Shortener', 'creates a new key', 'api'), n(750, 110, 215, 'Mapping', 'key → destination', 'store'), n(35, 277, 205, 'Visitor', 'opens a short URL', 'browser'), n(378, 277, 235, 'Redirect service', 'resolves the key', 'api'), n(750, 277, 215, 'Destination', 'receives the visitor', 'browser')],
     edges: [e([[240, 147], [378, 147]], 'create', [309, 129]), e([[613, 147], [750, 147]], 'persist', [682, 129]), e([[240, 314], [378, 314]], 'open', [309, 297]), e([[613, 314], [750, 314]], 'redirect', [682, 297]), e([[857, 191], [857, 238], [495, 238], [495, 277]], 'read mapping', [697, 229], true)],
   },

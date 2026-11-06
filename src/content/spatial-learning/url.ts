@@ -32,7 +32,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-scope:explain:2",
         "title": "Size creation and read demand separately",
-        "description": "Suppose the service creates 100 million links each day and each is opened ten times. Average creation traffic is about 1,160 writes per second; redirects average about 11,600 reads per second. Peaks need separate headroom. Ten years yields about 365 billion mappings. At 100 bytes of destination text each, that is about 36.5 TB of raw URL text, before identifiers, indexes, metadata, replicas, and overhead.",
+        "description": "Suppose the service creates 30 million links each day and each is opened 25 times. Average creation traffic is about 350 writes per second; redirects average about 8,700 reads per second. Peaks need separate headroom. Five years yields about 55 billion mappings. At 120 bytes of destination text each, that is about 6.6 TB of raw URL text, before identifiers, indexes, metadata, replicas, and overhead.",
         "nodeIds": ["url-scope:node:1", "url-scope:node:2", "url-scope:node:3", "url-scope:node:4", "url-scope:node:5"],
         "linkIds": ["url-scope:relation:1", "url-scope:relation:2", "url-scope:relation:3", "url-scope:relation:4"],
         "viewId": "url-scope:view:point-2"
@@ -49,7 +49,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-scope:view:point-2",
         "title": "Size creation and read demand separately",
-        "description": "Suppose the service creates 100 million links each day and each is opened ten times. Average creation traffic is about 1,160 writes per second; redirects average about 11,600 reads per second. Peaks need separate headroom. Ten years yields about 365 billion mappings. At 100 bytes of destination text each, that is about 36.5 TB of raw URL text, before identifiers, indexes, metadata, replicas, and overhead.",
+        "description": "Suppose the service creates 30 million links each day and each is opened 25 times. Average creation traffic is about 350 writes per second; redirects average about 8,700 reads per second. Peaks need separate headroom. Five years yields about 55 billion mappings. At 120 bytes of destination text each, that is about 6.6 TB of raw URL text, before identifiers, indexes, metadata, replicas, and overhead.",
         "members": ["url-scope:node:1", "url-scope:node:2", "url-scope:node:3", "url-scope:node:4", "url-scope:node:5"],
         "layout": "pipeline"
       }
@@ -223,7 +223,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-keys:explain:1",
         "title": "Budget the lifetime key space",
-        "description": "Base62 uses digits and uppercase and lowercase letters. Six characters provide about 56.8 billion combinations; seven provide about 3.52 trillion, enough for the example’s 365 billion mappings before reservations and uneven allocation. A unique integer encoded in base62 is compact and collision-free when the ID allocator is truly unique. It also exposes a guessable sequence unless keys are obfuscated or access policy accepts enumeration.",
+        "description": "Base62 uses digits and uppercase and lowercase letters. Six characters provide about 56.8 billion combinations, which the example’s 55 billion mappings would almost fill; seven provide about 3.52 trillion, leaving room for reservations and uneven allocation. A unique integer encoded in base62 is compact and collision-free when the ID allocator is truly unique. It also exposes a guessable sequence unless keys are obfuscated or access policy accepts enumeration.",
         "nodeIds": ["url-keys:node:1", "url-keys:node:2", "url-keys:node:4"],
         "linkIds": ["url-keys:relation:1", "url-keys:relation:3", "url-keys:relation:4"],
         "viewId": "url-keys:view:point-1"
@@ -241,7 +241,7 @@ export const urlTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "url-keys:view:point-1",
         "title": "Budget the lifetime key space",
-        "description": "Base62 uses digits and uppercase and lowercase letters. Six characters provide about 56.8 billion combinations; seven provide about 3.52 trillion, enough for the example’s 365 billion mappings before reservations and uneven allocation. A unique integer encoded in base62 is compact and collision-free when the ID allocator is truly unique. It also exposes a guessable sequence unless keys are obfuscated or access policy accepts enumeration.",
+        "description": "Base62 uses digits and uppercase and lowercase letters. Six characters provide about 56.8 billion combinations, which the example’s 55 billion mappings would almost fill; seven provide about 3.52 trillion, leaving room for reservations and uneven allocation. A unique integer encoded in base62 is compact and collision-free when the ID allocator is truly unique. It also exposes a guessable sequence unless keys are obfuscated or access policy accepts enumeration.",
         "members": ["url-keys:node:1", "url-keys:node:2", "url-keys:node:4"],
         "layout": "pipeline"
       },

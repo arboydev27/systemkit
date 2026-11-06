@@ -30,7 +30,7 @@ export const youtubeTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "youtube-scope:explain:2",
         "title": "Estimate uploads and delivery from behavior",
-        "description": "Use behavior rather than registered users to estimate demand. As an exercise, five million daily viewers watching five 300 MB videos imply about 7.5 PB delivered per day. If 10% upload one 300 MB source daily, originals alone add about 150 TB per day before renditions, replication, and retention. These illustrative inputs are not current YouTube measurements. State peak-to-average ratios and recalculate when an assumption changes. Playback may dominate network egress, transcoding compute, and uploads storage.",
+        "description": "Use behavior rather than registered users to estimate demand. As an exercise, eight million daily viewers watching three 200 MB videos imply about 4.8 PB delivered per day. If 2% upload one 400 MB source daily, originals alone add about 64 TB per day before renditions, replication, and retention. These illustrative inputs are not current YouTube measurements. State peak-to-average ratios and recalculate when an assumption changes. Playback may dominate network egress, transcoding compute, and uploads storage.",
         "nodeIds": ["youtube-scope:node:0", "youtube-scope:node:1", "youtube-scope:node:2", "youtube-scope:node:3", "youtube-scope:node:4"],
         "linkIds": ["youtube-scope:relation:0", "youtube-scope:relation:1", "youtube-scope:relation:2", "youtube-scope:relation:3"]
       }

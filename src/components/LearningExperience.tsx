@@ -23,6 +23,7 @@ import { LessonSearch } from "./LessonSearch";
 import { CopyLessonLink } from "./CopyLessonLink";
 import { DiagramView } from "./DiagramView";
 import { InlineText } from "./InlineText";
+import { AnalyticsSettingsButton } from "./site/AnalyticsConsent";
 import { optionOrder } from "@/lib/quiz";
 import { browserReviewStorage, countDue, readReviewState, recordStoredLessonStudy, recordStoredQuizAttempt } from "@/lib/review";
 import {
@@ -179,9 +180,8 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
   const correctCount = questions.filter((item) => progress.answers[item.id] === item.correctIndex).length;
   const scenarioDraft = progress.scenarioDrafts[step.id] ?? "";
   const scenarioRevealed = progress.revealedScenarios.includes(step.id);
-  const needsReasoning = Boolean(step.scenarioAnswer);
-  const reasoningWritten = !needsReasoning || scenarioDraft.trim().length >= MIN_REASONING_LENGTH;
-  const canComplete = questions.length > 0 && correctCount === questions.length && reasoningWritten;
+  const reasoningWritten = scenarioDraft.trim().length >= MIN_REASONING_LENGTH;
+  const canComplete = questions.length > 0 && correctCount === questions.length;
   const isLastLesson = activeIndex === steps.length - 1;
   const Lab = lessonLabs[`${chapter.id}/${step.id}`];
   const Diagram = diagrams[chapter.id] ?? SceneDiagram;
@@ -255,11 +255,6 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
     else groups.push({ title: item.part, chapters: [item] });
     return groups;
   }, []);
-
-  const remaining = [
-    correctCount < questions.length ? `${correctCount} of ${questions.length} checkpoints answered correctly` : "",
-    !reasoningWritten ? "write your reasoning in the decision point above" : "",
-  ].filter(Boolean).join("; ");
 
   return (
     <div className="app-shell">
@@ -403,7 +398,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
                   <p><InlineText text={step.scenario} /></p>
                   {step.scenarioAnswer ? (
                     <div className="scenario-reflection">
-                      <label htmlFor={`scenario-draft-${step.id}`}>Your reasoning</label>
+                      <label htmlFor={`scenario-draft-${step.id}`}>Your reasoning <span>Optional</span></label>
                       <textarea
                         id={`scenario-draft-${step.id}`}
                         value={scenarioDraft}
@@ -522,7 +517,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
                 : <Link className="next-button" href="/practice/">Practice designs <ArrowRight size={17} /></Link>}
           </div>
           <p id="completion-hint" className="completion-hint">
-            {isComplete ? "Lesson complete. You can answer any checkpoint again." : canComplete ? "Ready to mark complete." : `To finish this lesson: ${remaining}.`}
+            {isComplete ? "Lesson complete. You can answer any checkpoint again." : canComplete ? "Ready to mark complete." : `${correctCount} of ${questions.length} checkpoints answered correctly to complete this lesson.`}
           </p>
 
           {isLastLesson && isComplete ? (
@@ -539,7 +534,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
             </section>
           ) : null}
 
-          <footer className="site-footer"><span>SystemKit</span><span>Learn the decisions behind the diagram.</span></footer>
+          <footer className="site-footer"><span>SystemKit</span><span>Learn the decisions behind the diagram. <AnalyticsSettingsButton /></span></footer>
         </div>
       </main>
     </div>

@@ -40,10 +40,6 @@ export function EstimationDrill({ standalone = false, headingLevel = 2 }: { stan
     if (fromLink && buildDrill(fromLink)) setDrillId(fromLink);
   }, [standalone]);
 
-  useEffect(() => {
-    if (standalone) window.history.replaceState(null, "", `?drill=${drillId}`);
-  }, [drillId, standalone]);
-
   function check(event: FormEvent) {
     event.preventDefault();
     const given = parseQuantity(text, drill.unit);

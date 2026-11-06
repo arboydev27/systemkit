@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { emptyProgress, parseProgress, resumeLesson, resumeStepInChapter } from "../src/lib/progress.ts";
 import { collectBackup, completedLessons, parseBackup, restoreBackup } from "../src/lib/backup.ts";
-import { dueReturnEvents, parseUsage } from "../src/lib/analytics.ts";
+import { analyticsAllowed, dueReturnEvents, eventName, needsConsent, parseUsage } from "../src/lib/analytics.ts";
 import { correctIsStrictlyLongest, longestOptionShare, optionOrder, quizIssues } from "../src/lib/quiz.ts";
 
 function memoryStorage(initial = {}, { failOn } = {}) {
@@ -85,6 +85,30 @@ test("return milestones fire once and never before they are reached", () => {
   assert.deepEqual(dueReturnEvents({ firstSeen: 0, sent: ["returned_d1"] }, 8 * day), ["returned_d7"]);
   assert.deepEqual(parseUsage("broken", 5), { firstSeen: 5, sent: [] });
   assert.deepEqual(parseUsage(JSON.stringify({ firstSeen: 2, sent: ["a", 1] }), 5), { firstSeen: 2, sent: ["a"] });
+});
+
+test("visitors in Europe are asked first, and an explicit choice always wins", () => {
+  for (const zone of ["Europe/Berlin", "Europe/London", "Atlantic/Reykjavik", "Asia/Nicosia", undefined]) assert.equal(needsConsent(zone), true, String(zone));
+  for (const zone of ["America/Chicago", "Asia/Tokyo", "Africa/Lagos", "Asia/Tbilisi"]) assert.equal(needsConsent(zone), false, zone);
+  assert.equal(analyticsAllowed(null, "Europe/Paris"), false);
+  assert.equal(analyticsAllowed("granted", "Europe/Paris"), true);
+  assert.equal(analyticsAllowed(null, "America/Chicago"), true);
+  assert.equal(analyticsAllowed("denied", "America/Chicago"), false);
+});
+
+test("event names meet Google's rules", () => {
+  assert.equal(eventName("lab_run_rate-limiters"), "lab_run_rate_limiters");
+  assert.equal(eventName("challenge_started_address-autocomplete"), "challenge_started_address_autocomplete");
+  assert.ok(eventName("x".repeat(60)).length <= 40);
+  assert.match(eventName("goal_work"), /^[a-zA-Z0-9_]+$/);
+});
+
+test("a backup never carries one device's analytics choice to another", () => {
+  const source = memoryStorage({ "systemkit-analytics-consent": "granted", "systemkit:goal:v1": "work" });
+  assert.deepEqual(Object.keys(collectBackup(source, 1).items), ["systemkit:goal:v1"]);
+  const target = memoryStorage({ "systemkit-analytics-consent": "denied" });
+  restoreBackup(target, { app: "systemkit", version: 1, exportedAt: 1, items: {} });
+  assert.equal(target.getItem("systemkit-analytics-consent"), "denied");
 });
 
 test("option order is stable, complete, and differs between questions", () => {

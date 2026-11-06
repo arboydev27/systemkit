@@ -5,7 +5,7 @@ import { Check, Link as LinkIcon, RotateCcw, TriangleAlert } from "lucide-react"
 import { trackOnce } from "@/lib/analytics";
 import styles from "./Lab.module.css";
 
-/** Keeps a lab's settings in its own page's address, so a setup can be shared as a link. */
+/** Reads settings from a shared link and builds the link to share. The page's own URL stays put, so moving a slider isn't counted as a page view. */
 export function useLabLink(labId: string, standalone: boolean, query: string, apply: (params: URLSearchParams) => void) {
   const applied = useRef(false);
   useEffect(() => {
@@ -13,9 +13,6 @@ export function useLabLink(labId: string, standalone: boolean, query: string, ap
     applied.current = true;
     if (standalone) apply(new URLSearchParams(window.location.search));
   });
-  useEffect(() => {
-    if (standalone && applied.current) window.history.replaceState(null, "", `?${query}`);
-  }, [query, standalone]);
   return `/labs/${labId}/?${query}`;
 }
 

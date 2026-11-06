@@ -28,7 +28,7 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-scope:explain:2",
         "title": "Size operations, revisions, and bytes",
-        "description": "Size operations and bytes separately. As an example, assume 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
+        "description": "Size operations and bytes separately. As an example, assume 6 million daily users, three uploads each per day, and 800 KB per file: about 18 million uploads and 14.4 TB of new originals each day before versions and replicas. That is roughly 210 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
         "nodeIds": ["drive-scope:node:0", "drive-scope:node:1", "drive-scope:node:2"],
         "linkIds": ["drive-scope:relation:0", "drive-scope:relation:1"],
         "viewId": "drive-scope:view:point-2"
@@ -45,7 +45,7 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-scope:view:point-2",
         "title": "Size operations, revisions, and bytes",
-        "description": "Size operations and bytes separately. As an example, assume 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
+        "description": "Size operations and bytes separately. As an example, assume 6 million daily users, three uploads each per day, and 800 KB per file: about 18 million uploads and 14.4 TB of new originals each day before versions and replicas. That is roughly 210 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
         "members": ["drive-scope:node:0", "drive-scope:node:1", "drive-scope:node:2"],
         "layout": "pipeline"
       }

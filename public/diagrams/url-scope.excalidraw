@@ -1960,14 +1960,14 @@
       "updated": 0,
       "link": null,
       "locked": false,
-      "text": "Example average: 1,160 creations/s · 11,600 redirects/s · plan for peaks.",
+      "text": "Example average: 350 creations/s · 8,700 redirects/s · plan for peaks.",
       "fontSize": 13,
       "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "middle",
       "baseline": 11,
       "lineHeight": 1.25,
-      "originalText": "Example average: 1,160 creations/s · 11,600 redirects/s · plan for peaks.",
+      "originalText": "Example average: 350 creations/s · 8,700 redirects/s · plan for peaks.",
       "autoResize": false
     }
   ]

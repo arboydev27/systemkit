@@ -20,7 +20,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-scope:explain:1",
         "title": "Define conversations and supported devices",
-        "description": "“Build chat” leaves important choices unanswered. For this design, assume text messages, one-to-one conversations, groups of at most 100 members, multiple devices per account, online indicators, and notifications when the app is away. Agree on a target audience, latency goal, history retention, and whether edits, attachments, or end-to-end encryption belong in the first release.",
+        "description": "“Build chat” leaves important choices unanswered. For this design, assume text messages, one-to-one conversations, groups of at most 250 members, multiple devices per account, online indicators, and notifications when the app is away. Agree on a target audience, latency goal, history retention, and whether edits, attachments, or end-to-end encryption belong in the first release.",
         "nodeIds": ["chat-scope:node:0", "chat-scope:node:1", "chat-scope:node:2", "chat-scope:node:3"],
         "linkIds": ["chat-scope:relation:0", "chat-scope:relation:1", "chat-scope:relation:2"]
       },
@@ -502,7 +502,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-groups:explain:1",
         "title": "Persist before authorized group fanout",
-        "description": "Authorize the sender against the group membership version, assign a sequence in that group, and persist one canonical message. A fanout job can put references in recipients’ inboxes or push live events to their devices. For groups capped near 100 members, this write-side work may make each person’s inbox simple to read.",
+        "description": "Authorize the sender against the group membership version, assign a sequence in that group, and persist one canonical message. A fanout job can put references in recipients’ inboxes or push live events to their devices. For groups capped near 250 members, this write-side work may make each person’s inbox simple to read.",
         "nodeIds": ["chat-groups:node:0", "chat-groups:node:1", "chat-groups:node:3", "chat-groups:node:4", "chat-groups:node:5"],
         "linkIds": ["chat-groups:relation:0", "chat-groups:relation:3", "chat-groups:relation:4"],
         "viewId": "chat-groups:view:point-1"
@@ -528,7 +528,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-groups:view:point-1",
         "title": "Persist before authorized group fanout",
-        "description": "Authorize the sender against the group membership version, assign a sequence in that group, and persist one canonical message. A fanout job can put references in recipients’ inboxes or push live events to their devices. For groups capped near 100 members, this write-side work may make each person’s inbox simple to read.",
+        "description": "Authorize the sender against the group membership version, assign a sequence in that group, and persist one canonical message. A fanout job can put references in recipients’ inboxes or push live events to their devices. For groups capped near 250 members, this write-side work may make each person’s inbox simple to read.",
         "members": ["chat-groups:node:0", "chat-groups:node:1", "chat-groups:node:3", "chat-groups:node:4", "chat-groups:node:5"],
         "layout": "pipeline"
       },
