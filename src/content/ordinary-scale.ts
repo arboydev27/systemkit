@@ -42,6 +42,10 @@ export const ordinaryScaleSteps: Step[] = [
     diagramId: 'os-database',
     scenario: 'Your SaaS runs on one Postgres instance. Dashboard p95 has climbed from 200 ms to 3 seconds over six months, CPU sits near 85% during the workday, and `pg_stat_statements` shows a single query taking 60% of total database time. A teammate proposes a read replica and Redis. What do you do first, and what would change your mind?',
     scenarioAnswer: 'Run EXPLAIN on that query and fix it with an index or a rewrite, then re-measure, since a replica would only run the same slow query on a second machine. Reconsider if CPU still saturates on many different reads after tuning (then a replica, accepting lag), or if writes are what saturate the machine (then a larger machine, and after that splitting the data).',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-lag', reason: 'What replication lag does to reads, and how to handle it' },
+      { chapterId: 'scaling', stepId: 'sharding', reason: 'What splitting data across databases costs you' },
+    ],
   },
   {
     id: 'os-monolith',
@@ -63,6 +67,9 @@ export const ordinaryScaleSteps: Step[] = [
     diagramId: 'os-monolith',
     scenario: 'A seven-person team runs one codebase. Month-end PDF generation uses so much memory that web servers are killed, and a teammate proposes a separate PDF microservice with its own repository, database, and API. What do you do?',
     scenarioAnswer: 'First run PDF generation in a separate worker pool from the same codebase, so its memory use cannot kill web processes and there is no new network contract or database. Reconsider if it still needs its own runtime or deploy schedule, for example a headless browser with a different security profile, or if a distinct team comes to own it. Extraction would then add retries, versioning, and another deploy to run.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-protect', reason: 'How timeouts and breakers contain a slow service' },
+    ],
   },
   {
     id: 'os-cache-queue',
@@ -84,6 +91,10 @@ export const ordinaryScaleSteps: Step[] = [
     diagramId: 'os-cache-queue',
     scenario: 'The invoice list for your largest customer takes 4 seconds. A teammate’s pull request adds Redis with a 5-minute expiry. Finance users mark an invoice paid and reload this page immediately. What do you do with the pull request?',
     scenarioAnswer: 'Hold it. Run EXPLAIN, and try an index such as `(customer_id, issued_at)` with pagination. A 5-minute cache would show paid invoices as unpaid for up to 5 minutes on a page people check right after writing, unless every write path invalidates it, and its key must include the customer ID. Reconsider for something expensive that repeats and can be a little old, such as a monthly revenue chart, and only if a summary table did not solve it.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How to make a retried job safe to run twice' },
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'The same commit-together idea for events sent to a broker' },
+    ],
   },
   {
     id: 'os-availability',
@@ -105,6 +116,9 @@ export const ordinaryScaleSteps: Step[] = [
     diagramId: 'os-availability',
     scenario: 'A prospect’s questionnaire asks whether you are multi-region, and the contract asks for 99.9% availability with an RPO of 1 hour. You run one Postgres primary in one zone, with nightly backups that nobody has restored. What do you do, and how do you answer?',
     scenarioAnswer: 'Nightly backups can lose up to 24 hours, which misses the 1-hour RPO. Turn on continuous log archiving for point-in-time recovery, add a standby in a second zone, and run a timed restore. Then answer plainly: single region, multi-zone, with your tested RPO and RTO, and ask what risk the question is really about. Multi-region becomes worth pricing if the contract must survive a regional outage or a law requires data in a specific place.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-failover', reason: 'Why promoting a follower can lose acknowledged writes' },
+    ],
   },
   {
     id: 'os-reversible',

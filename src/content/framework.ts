@@ -32,6 +32,9 @@ export const frameworkSteps: Step[] = [
     diagramId: 'framework-requirements',
     scenario: 'A feed must let people post and read, but nobody specified ordering or traffic. How do you proceed?',
     scenarioAnswer: 'Record posting and reading as features. Ask for ordering and usage expectations. If answers are unavailable, state an ordering and workload assumption explicitly, then design against them.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-limits', reason: 'How to turn latency and uptime goals into numbers' },
+    ],
   },
   {
     id: 'framework-estimates',
@@ -49,6 +52,9 @@ export const frameworkSteps: Step[] = [
     diagramId: 'framework-estimates',
     scenario: 'A product has one million accounts but no usage data. Can you size its feed service?',
     scenarioAnswer: 'Not yet. Ask about active users, read and write frequency, peaks, item and media size, and retention. Then compute order-of-magnitude request, storage, and transfer needs with stated assumptions.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-workload', reason: 'How to turn user behavior into workload numbers' },
+    ],
   },
   {
     id: 'framework-blueprint',

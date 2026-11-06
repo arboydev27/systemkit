@@ -54,6 +54,10 @@ export const replicationSteps: Step[] = [
     diagramId: 'rc-failover',
     scenario: 'Your Postgres cluster uses asynchronous followers and fails over after 5 seconds of missed heartbeats. A 6-second network blip on the leader’s rack caused a failover and about 200 writes were lost, even though the old leader was healthy. What do you change, and what do you give up?',
     scenarioAnswer: 'There are two separate fixes. Raise the timeout above normal blips, perhaps to 30 seconds, and accept a longer outage during real failures. Then make a nearby follower semi-synchronous and promote only a follower that holds every acknowledged write, accepting slightly higher commit latency. Also make sure the old leader is fenced as part of promotion, and save its unreplicated writes during recovery so someone can review them rather than silently losing them.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-fencing', reason: 'How a fencing token lets a resource reject a stale leader' },
+      { chapterId: 'consensus', stepId: 'cs-raft', reason: 'How a majority log stops a cut-off minority electing or committing' },
+    ],
   },
   {
     id: 'rc-multi', title: 'Accept writes in more than one place', seoTitle: 'Multi-leader replication and write conflict resolution', eyebrow: '05 · Multi-leader',
@@ -68,6 +72,10 @@ export const replicationSteps: Step[] = [
     diagramId: 'rc-multi',
     scenario: 'You run ticket sales from regions in Europe and the US. A product manager wants all writes local in both regions to keep checkout fast. The writes are user profile edits and seat purchases. How do you split them?',
     scenarioAnswer: 'Treat them differently. Profile edits fit local writes: conflicts are rare and cheap, and a home region per user or last-write-wins per field is enough. Seat purchases should go to one owning region per event, because a double sale cannot be merged away. Distant buyers pay the extra round trip at the moment of purchase, and you tell the product manager that this one step stays slower on purpose.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-ordering', reason: 'Why clock skew can make last-write-wins drop the newer write' },
+      { chapterId: 'key-value', stepId: 'kv-conflicts', reason: 'How to detect concurrent writes and keep both versions' },
+    ],
   },
   {
     id: 'rc-leaderless', title: 'Choose among leaders and quorums', seoTitle: 'Leaderless vs single-leader vs multi-leader replication', eyebrow: '06 · Choosing a model',
@@ -81,6 +89,10 @@ export const replicationSteps: Step[] = [
     diagramId: 'rc-leaderless',
     scenario: 'A delivery company needs storage for GPS pings from 200,000 vehicles, each sending one every 5 seconds, and for its customer billing ledger. A team proposes one replication model for both to keep operations simple. What would you recommend?',
     scenarioAnswer: 'Two models, if you can afford to run them. Pings arrive at 40,000 per second, each with a unique key of vehicle and timestamp, so conflicts cannot occur and an occasional lost ping is tolerable: a leaderless store with W = 1 or W = 2 fits. The ledger needs one order, constraints, and no lost acknowledged writes, so it belongs on a single leader with a semi-synchronous follower. For a small team, sharded single-leader for both is a defensible way to avoid running two systems until pings outgrow it.',
+    related: [
+      { chapterId: 'key-value', stepId: 'kv-quorum', reason: 'The N, W, and R arithmetic and what quorum overlap really promises' },
+      { chapterId: 'key-value', stepId: 'kv-conflicts', reason: 'How sibling versions arise and get merged' },
+    ],
   },
 ];
 

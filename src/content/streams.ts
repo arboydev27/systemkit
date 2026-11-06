@@ -54,6 +54,9 @@ export const streamsSteps: Step[] = [
     diagramId: 'st-delivery',
     scenario: 'A consumer turns “order shipped” events into emails through a third-party API with no idempotency support. A teammate suggests enabling Kafka transactions to stop duplicates. What do you decide?',
     scenarioAnswer: 'Kafka transactions cover records and offsets inside Kafka, not an HTTP call to the provider. For a shipping notice, a duplicate is milder than a missing email, so stay at-least-once. Record a sent marker per event ID to shrink the window, and accept that a crash between the API call and the marker can still send a second email.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How a durable key keeps a repeated effect safe, including external calls' },
+    ],
   },
   {
     id: 'st-cdc', title: 'Follow the database’s own log', eyebrow: '04 · Change data capture',
@@ -72,6 +75,9 @@ export const streamsSteps: Step[] = [
     diagramId: 'st-cdc',
     scenario: 'Your orders table feeds a search index your team owns. Another department wants “order shipped” events, and you plan to split the orders table next quarter. How do you feed each consumer?',
     scenarioAnswer: 'CDC suits the search index, because your team owns both ends and can update the indexer when the table splits. The other department should get an outbox event with a documented contract, because raw row changes would break for them at the split. Both can share one pipeline, since a connector can read the outbox table from the log too.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'How the outbox commit and relay work, and why consumers still deduplicate' },
+    ],
   },
   {
     id: 'st-event-time', title: 'Decide when a window is complete', eyebrow: '05 · Time and windows',

@@ -37,6 +37,9 @@ export const patternsSteps: Step[] = [
     diagramId: 'pt-outbox',
     scenario: 'A teammate proposes keeping the direct Kafka publish but deleting the order row whenever the publish throws an error. They say this keeps the code simple and avoids running a relay. How do you respond?',
     scenarioAnswer: 'A crash skips the error handler and leaves an order with no event. A timeout throws even when the broker received the message, so the handler deletes a valid order whose event is already on its way. Choose the outbox: it adds a relay to operate, but the order and its event then commit together.',
+    related: [
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'How repeated delivery can still apply its effect only once' },
+    ],
   },
   {
     id: 'pt-retries', title: 'Keep retries from sustaining an outage', eyebrow: '03 · Retries and budgets',
@@ -55,6 +58,9 @@ export const patternsSteps: Step[] = [
     diagramId: 'pt-retries',
     scenario: 'The client SDK makes up to 4 attempts, a load balancer up to 2, and your API up to 4 against the database. A 20-second database blip became a 40-minute outage, with retries near their maximum throughout. You can ship one change today. What is it?',
     scenarioAnswer: 'In the worst case one action makes 4 × 2 × 4 = 32 database calls, so cut the amplification first. Keep retries at one layer, most likely the client SDK, which knows whether an operation is safe to repeat, remove the others, and add a retry budget there. Backoff and jitter are worth adding next, but they spread that load rather than cap it.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How to make a retried charge safe to repeat' },
+    ],
   },
   {
     id: 'pt-protect', title: 'Stop slow work from spreading', eyebrow: '04 · Timeouts and breakers',
@@ -111,6 +117,9 @@ export const patternsSteps: Step[] = [
     diagramId: 'pt-stampede',
     scenario: 'A leaderboard key is read by 300 app servers and takes a 3-second query to rebuild. It expires every 60 seconds, and the database spikes each minute. A teammate proposes adding 10 percent jitter to the TTL. What do you do?',
     scenarioAnswer: 'Jitter only moves one key’s expiry, so the spike still comes about once a minute. In-process single-flight caps it at 300 queries, which is still large. A leaderboard tolerates being a little old, so serve stale after a soft expiry and let one worker, holding a short-lived Redis lock, refresh it. Readers do not wait, and the database sees one query per refresh.',
+    related: [
+      { chapterId: 'scaling', stepId: 'cache', reason: 'The expiry and eviction choices behind this failure' },
+    ],
   },
 ];
 

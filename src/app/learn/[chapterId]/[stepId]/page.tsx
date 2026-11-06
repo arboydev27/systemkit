@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { chapters } from "@/content/chapters";
 import { challengeForLesson } from "@/content/challenges";
 import { LearningExperience } from "@/components/LearningExperience";
-import { courseOutline, findLesson } from "@/lib/lessons";
+import { courseOutline, findLesson, relatedLessons } from "@/lib/lessons";
 import { lessonHref } from "@/lib/links";
 import { shareImageSize } from "@/lib/share-image";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -62,6 +62,7 @@ export default async function LessonPage({ params }: Props) {
       outline={courseOutline}
       nextChapter={next ? { id: next.id, title: next.title, firstStepId: next.steps[0].id } : undefined}
       challenge={challengeForLesson(chapter.id, step.id)}
+      related={relatedLessons(step)}
     />
   </>;
 }

@@ -75,6 +75,23 @@ test('every lesson has authored review prompts, and no prompt repeats what the l
   }
 });
 
+test('related lessons point at real lessons, for a reason, and stay few', () => {
+  for (const chapter of chapters) chapter.steps.forEach((step, index) => {
+    const id = `${chapter.id}/${step.id}`;
+    const related = step.related ?? [];
+    assert.ok(related.length <= 2, `${id}: ${related.length} related lessons`);
+    assert.equal(new Set(related.map(link => `${link.chapterId}/${link.stepId}`)).size, related.length, `${id}: repeated link`);
+    for (const link of related) {
+      const target = `${link.chapterId}/${link.stepId}`;
+      const linked = chapters.find(item => item.id === link.chapterId);
+      assert.ok(linked?.steps.some(item => item.id === link.stepId), `${id}: no such lesson ${target}`);
+      const neighbors = [chapter.steps[index - 1]?.id, step.id, chapter.steps[index + 1]?.id];
+      assert.ok(link.chapterId !== chapter.id || !neighbors.includes(link.stepId), `${id}: ${target} is already one click away`);
+      assert.ok(link.reason.trim() && link.reason.length <= 80, `${id}: reason for ${target}`);
+    }
+  });
+});
+
 test('every lesson has a real explanation, a searchable title, a decision, and checkpoints', () => {
   const seoTitles = new Set();
   for (const chapter of chapters) for (const step of chapter.steps) {

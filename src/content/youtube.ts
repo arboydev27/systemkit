@@ -13,6 +13,9 @@ export const youtubeSteps: Step[] = [
     takeaways: ['Size watch traffic, upload bytes, derived renditions, and peaks separately.', 'Treat every figure as an assumption to validate, not a precise production forecast.'],
     diagramId: 'youtube-scope', scenario: 'A teammate says five million people use the service, so five million requests per day should size it. What is missing?',
     scenarioAnswer: 'Ask how many are active, how many videos they watch and upload, video sizes and lengths, peak patterns, device mix, and retention. One viewing session requests many media segments.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-data', reason: 'Why stored bytes and delivered bytes need separate budgets' },
+    ],
   },
   {
     id: 'youtube-upload', title: 'Accept an upload safely', seoTitle: 'Resumable video uploads with presigned URLs', eyebrow: '02 · Durable ingestion',
@@ -39,6 +42,10 @@ export const youtubeSteps: Step[] = [
     takeaways: ['Express dependencies explicitly; parallelize only independent tasks.', 'Retries need durable state, idempotent outputs, and a terminal failure path.'],
     diagramId: 'youtube-pipeline', scenario: 'A worker dies after writing the 720p output but before acknowledging. What happens on redelivery?',
     scenarioAnswer: 'A replacement checks the deterministic output key and task state, verifies the output, and marks it complete or safely overwrites it. Publication still waits for required outputs.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-fencing', reason: 'Why an expired lease needs a token to stop a late worker' },
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'Why a crash between work and acknowledgment forces repeats' },
+    ],
   },
   {
     id: 'youtube-renditions', title: 'Make one source fit many screens', seoTitle: 'Adaptive bitrate streaming: HLS, DASH, and renditions', eyebrow: '04 · Encoding and packaging',
@@ -65,6 +72,9 @@ export const youtubeSteps: Step[] = [
     takeaways: ['Metadata describes and authorizes media; object storage holds the bytes.', 'Publication is a validated state transition, not a queue acknowledgment alone.'],
     diagramId: 'youtube-metadata', scenario: 'A worker reports success, but the manifest is absent from storage. Should the watch page expose the video?',
     scenarioAnswer: 'No. Keep it processing or failed until required objects are verified. Retry or reconcile, then publish only when playback works.',
+    related: [
+      { chapterId: 'transactions', stepId: 'tx-lost-update', reason: 'How compare-and-set guards a value against a repeated write' },
+    ],
   },
   {
     id: 'youtube-playback', title: 'Deliver segments near the viewer', seoTitle: 'How video CDN delivery and adaptive playback work', eyebrow: '06 · Playback path',
@@ -78,6 +88,9 @@ export const youtubeSteps: Step[] = [
     takeaways: ['Separate metadata authorization from bulk media delivery.', 'CDN, origin, and adaptive player behavior form one playback path.'],
     diagramId: 'youtube-playback', scenario: 'A new video is requested in a distant region and the edge has no segments. What serves the first viewer?',
     scenarioAnswer: 'The edge fetches authorized manifest and segments from origin storage, forwards them, and may cache eligible assets for later viewers.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-stampede', reason: 'Single-flight and other limits on simultaneous cache misses' },
+    ],
   },
   {
     id: 'youtube-cost', title: 'Spend capacity where demand is', seoTitle: 'Video CDN costs: egress, popularity, and cold storage', eyebrow: '07 · Cost and scale',

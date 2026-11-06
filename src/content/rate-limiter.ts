@@ -65,6 +65,9 @@ export const rateLimiterSteps: Step[] = [
     diagramId: 'rate-atomic',
     scenario: 'The counter is 99 of 100, and two workers each read 99 and approve. What must change?',
     scenarioAnswer: 'Run the check and update atomically against shared state, so only the first worker consumes the last slot and the second receives a throttle decision.',
+    related: [
+      { chapterId: 'transactions', stepId: 'tx-lost-update', reason: 'The same read-then-write race, and how databases prevent it' },
+    ],
   },
   {
     id: 'rate-distributed', title: 'Enforce one quota across many servers', seoTitle: 'Distributed rate limiting across servers and regions', eyebrow: '06 · Distribution',
@@ -78,6 +81,9 @@ export const rateLimiterSteps: Step[] = [
     diagramId: 'rate-distributed',
     scenario: 'A caller alternates between two data centers and receives twice its stated global quota. Why?',
     scenarioAnswer: 'Each region is likely enforcing an independent counter. Use a coordinated global decision or explicitly allocate regional sub-quotas with a documented overshoot bound.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-failover', reason: 'Why a failover can lose writes that were already accepted' },
+    ],
   },
   {
     id: 'rate-operate', title: 'Explain throttling and tune the rule', seoTitle: 'HTTP 429 and Retry-After: operating a rate limiter', eyebrow: '07 · Operations',
@@ -91,6 +97,9 @@ export const rateLimiterSteps: Step[] = [
     diagramId: 'rate-operate',
     scenario: 'After a new rule ships, database load falls but checkout failures surge. Is the limiter successful?',
     scenarioAnswer: 'No. The rule protects capacity but may be blocking valid checkout traffic. Segment rejects, inspect key choice and thresholds, then tune the policy while retaining the necessary protection.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff, jitter, and budgets keep retries from adding overload' },
+    ],
   },
 ];
 

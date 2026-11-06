@@ -28,6 +28,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-options',
     scenario: 'A small internal tool needs only 500 IDs per second and already has one reliable database. Must it deploy a Snowflake service?',
     scenarioAnswer: 'No. A database sequence may meet the stated scale and availability target more simply. Revisit range leasing or distributed generation only when measured needs justify it.',
+    related: [
+      { chapterId: 'storage-engines', stepId: 'se-btree', reason: 'How B-tree pages split, which explains the random-key slowdown' },
+    ],
   },
   {
     id: 'id-layout', title: 'Budget the 64 bits', eyebrow: '03 · Bit layout',
@@ -57,6 +60,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-generate',
     scenario: 'A worker has issued all 4,096 sequence values in the current millisecond. What must it avoid?',
     scenarioAnswer: 'It must not reset the sequence while the timestamp is unchanged. Wait until the next millisecond or fail according to the API contract.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-backpressure', reason: 'When to make producers wait and when to reject with an error' },
+    ],
   },
   {
     id: 'id-clock', title: 'Handle clocks that move backward', eyebrow: '05 · Time failure',
@@ -71,6 +77,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-clock',
     scenario: 'A machine clock jumps backward by 20 seconds after a correction. Should it continue using the same worker ID and reset its sequence?',
     scenarioAnswer: 'No. That can reuse prior timestamp/sequence pairs. Pause or fail issuance until safe, or use a controlled identity and rollback strategy with alerts.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-ordering', reason: 'How logical counters order events when clocks cannot be trusted' },
+    ],
   },
   {
     id: 'id-workers', title: 'Give each live generator a unique identity', eyebrow: '06 · Coordination',
@@ -85,6 +94,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-workers',
     scenario: 'An autoscaler starts two pods with the same machine ID. Why can their IDs collide?',
     scenarioAnswer: 'If both issue in the same millisecond and use the same sequence, their encoded fields are identical. Allocate distinct live identities and fence stale holders.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-fencing', reason: 'How fencing tokens work when the resource can check them' },
+    ],
   },
   {
     id: 'id-operate', title: 'Prove the service remains unique', eyebrow: '07 · Operations',

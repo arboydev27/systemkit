@@ -13,6 +13,9 @@ export const autocompleteSteps: Step[] = [
     takeaways: ['Specify matching, ranking, context, and latency before choosing an index.', 'Debouncing reduces traffic; stale-response handling preserves correctness.'],
     diagramId: 'autocomplete-scope', scenario: 'A user types “ca” and then “cat,” but the “ca” response arrives last. Which suggestions should remain visible?',
     scenarioAnswer: 'Only results for “cat.” Tag requests by input or sequence and discard stale responses even if cancellation was attempted.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-limits', reason: 'How to split a latency budget and why percentiles do not add' },
+    ],
   },
   {
     id: 'autocomplete-traffic', title: 'Count requests, not just searches', eyebrow: '02 · Workload estimate',
@@ -26,6 +29,9 @@ export const autocompleteSteps: Step[] = [
     takeaways: ['Estimate suggestion reads from typing behavior and peaks.', 'Intermediate prefixes and completed searches are different events.'],
     diagramId: 'autocomplete-traffic', scenario: 'An estimate says 12 million searches per day means 12 million autocomplete requests. What is missing?',
     scenarioAnswer: 'One search can generate several prefix requests. Measure requests per search after debouncing, then apply a peak factor.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-traffic', reason: 'How to turn a daily total into an average and a peak rate' },
+    ],
   },
   {
     id: 'autocomplete-prefix', title: 'Find candidates by prefix', eyebrow: '03 · Prefix index',
@@ -65,6 +71,9 @@ export const autocompleteSteps: Step[] = [
     takeaways: ['Collection, aggregation, building, and serving have different latency and failure needs.', 'Versioned snapshots support consistent rollout; a delta buys freshness at added complexity.'],
     diagramId: 'autocomplete-pipeline', scenario: 'A newly popular query is in today’s events but suggestions use yesterday’s snapshot. Is serving broken?',
     scenarioAnswer: 'Not necessarily; it follows the freshness contract. If same-hour trends matter, shorten builds or add a bounded streaming delta and measure lag.',
+    related: [
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'How a redelivered record can still take effect only once' },
+    ],
   },
   {
     id: 'autocomplete-serve', title: 'Serve a predictable read path', eyebrow: '06 · Fast suggestions',
@@ -78,6 +87,9 @@ export const autocompleteSteps: Step[] = [
     takeaways: ['A versioned, context-aware key prevents mixing results.', 'Shared edge caches suit public stable lists; personal results require isolation.'],
     diagramId: 'autocomplete-serve', scenario: 'Two countries should see different top results for “football.” Why is a cache keyed only by prefix unsafe?',
     scenarioAnswer: 'It mixes rankings. Include region and locale, as well as snapshot version, and avoid shared caching of personalized results.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-stampede', reason: 'More ways to limit rebuilds when many readers miss at once' },
+    ],
   },
   {
     id: 'autocomplete-scale', title: 'Split hot and large indexes', eyebrow: '07 · Sharding and growth',
@@ -91,6 +103,9 @@ export const autocompleteSteps: Step[] = [
     takeaways: ['Partition boundaries should reflect measured load, not equal letter counts.', 'Cross-shard prefixes need fanout and merge; replicas address read heat.'],
     diagramId: 'autocomplete-scale', scenario: 'The “s” shard is saturated while “x” is quiet. Name two remedies.',
     scenarioAnswer: 'Replicate the hot “s” slice to spread reads or split its range and merge candidates for affected prefixes. Measure storage and fanout tradeoffs.',
+    related: [
+      { chapterId: 'scaling', stepId: 'sharding', reason: 'How shard keys, rebalancing, and hotspots work in general' },
+    ],
   },
   {
     id: 'autocomplete-ops', title: 'Keep suggestions trustworthy', eyebrow: '08 · Privacy and operations',

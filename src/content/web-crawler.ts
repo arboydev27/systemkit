@@ -26,6 +26,9 @@ export const crawlerSteps: Step[] = [
     takeaways: ['The frontier closes the discovery loop; parsing and storage are distinct stages.', 'Leases and idempotent processing make worker failure recoverable.'],
     diagramId: 'crawler-pipeline', scenario: 'A worker crashes after downloading a page but before acknowledging its frontier item. What should happen?',
     scenarioAnswer: 'The lease expires and the URL becomes eligible again. Reprocessing is safe when document storage and discovered-link insertion are idempotent.',
+    related: [
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'What at-least-once means and how to make repeats harmless' },
+    ],
   },
   {
     id: 'crawler-policy', title: 'Respect each host', eyebrow: '03 · Robots and politeness',
@@ -92,6 +95,9 @@ export const crawlerSteps: Step[] = [
     takeaways: ['Freshness depends on change history and importance, not one global recrawl interval.', 'Bound retries and suspicious URL expansion while preserving reasons for exclusion.'],
     diagramId: 'crawler-freshness', scenario: 'A calendar generates a new URL for every future date. What protects the crawler?',
     scenarioAnswer: 'Detect the expansion pattern, cap per-site and per-pattern discovery, and review a targeted filter. A generic depth limit alone may miss or overblock pages.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff, jitter, and a retry budget keep retries bounded' },
+    ],
   },
   {
     id: 'crawler-scale', title: 'Partition and operate the crawl', eyebrow: '08 · Distributed operation',
@@ -105,6 +111,9 @@ export const crawlerSteps: Step[] = [
     takeaways: ['Partition by host to preserve rate ownership, then rebalance carefully.', 'Measure both crawl health and the freshness of downstream indexed content.'],
     diagramId: 'crawler-scale', scenario: 'Adding workers raises total QPS but one important host still falls behind. Why?',
     scenarioAnswer: 'That host may be limited by its politeness budget or have an oversized queue. More workers cannot safely exceed its rate; adjust priorities, freshness goals, or host policy with evidence.',
+    related: [
+      { chapterId: 'consistent-hashing', stepId: 'hash-membership', reason: 'How a ring moves only affected ranges, and how to cut over safely' },
+    ],
   },
 ];
 

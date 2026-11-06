@@ -28,6 +28,10 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-partition',
     scenario:'One key receives a third of all writes, though key counts are evenly distributed. Will more virtual nodes solve it?',
     scenarioAnswer:'No. Virtual nodes balance ranges, but that key still has one logical home. Consider splitting the logical write across keys or changing the write model.',
+    related: [
+      { chapterId: 'consistent-hashing', stepId: 'hash-ring', reason: 'A worked walk through clockwise lookup and wraparound' },
+      { chapterId: 'consistent-hashing', stepId: 'hash-replicas', reason: 'How to split a write-hot key and cache a read-hot one' },
+    ],
   },
   {
     id:'kv-replication', title:'Replicate across failure domains', eyebrow:'03 · Copies and placement',
@@ -42,6 +46,9 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-replication',
     scenario:'Three virtual-node copies sit on one physical server. Does N = 3 protect against its failure?',
     scenarioAnswer:'No. That failure removes all copies. Select three distinct physical owners and spread them across the failure domains in the availability goal.',
+    related: [
+      { chapterId: 'consistent-hashing', stepId: 'hash-replicas', reason: 'A worked walk showing why repeat tokens must be skipped' },
+    ],
   },
   {
     id:'kv-quorum', title:'Choose read and write acknowledgments', eyebrow:'04 · Consistency tradeoff',
@@ -56,6 +63,10 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-quorum',
     scenario:'N = 3, W = 1, R = 1. A write succeeds on one node and a read goes to a different node. What can happen?',
     scenarioAnswer:'The read may return an older value before replication reaches it. If immediate visibility matters, use stronger coordination or a session-level read-after-write path.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-linearizability', reason: 'A timeline of what linearizable reads must return' },
+      { chapterId: 'replication', stepId: 'rc-leaderless', reason: 'When quorums fit better than a single leader, and when not' },
+    ],
   },
   {
     id:'kv-conflicts', title:'Resolve concurrent versions', eyebrow:'05 · Causality',
@@ -70,6 +81,10 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-conflicts',
     scenario:'Two offline devices edit an account balance. Should the store silently retain the newest wall-clock value?',
     scenarioAnswer:'No. Starting from $100, one device withdraws $30 and the other $50. Last-write-wins stores $70 or $50 and loses a withdrawal; the real result is $20. Record each change as an immutable ledger entry with a unique ID and compute the balance by summing entries, so both survive and a retry cannot count twice. If the balance must never go negative, an offline device cannot approve a withdrawal: the check has to run in one place, such as a database transaction that reads the balance and inserts the entry atomically, and offline devices can only queue requests.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-ordering', reason: 'How clock skew makes last-write-wins discard a later write' },
+      { chapterId: 'transactions', stepId: 'tx-lost-update', reason: 'How compare-and-set stacks up against atomic updates and locks' },
+    ],
   },
   {
     id:'kv-failure', title:'Serve through temporary failure', eyebrow:'06 · Detection and handoff',
@@ -112,6 +127,10 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-paths',
     scenario:'A node acknowledges when a value reaches memory but before its log is durable. Power fails immediately. What happens?',
     scenarioAnswer:'That replica may lose an acknowledged value. Count it toward W only after the durability boundary promised by the API.',
+    related: [
+      { chapterId: 'storage-engines', stepId: 'se-log', reason: 'Why a write is safe only after a sync, and how engines group them' },
+      { chapterId: 'storage-engines', stepId: 'se-lsm', reason: 'How compaction and Bloom filters behave in an LSM engine' },
+    ],
   },
   {
     id:'kv-operations', title:'Test the promises under failure', eyebrow:'09 · Operate the system',
@@ -126,6 +145,9 @@ export const keyValueSteps: Step[] = [
     diagramId:'kv-operations',
     scenario:'Normal latency is low but hint backlog grows for days. Is the system healthy?',
     scenarioAnswer:'No. Replicas may remain stale or recovery data may be at risk. Investigate backlog age, repair progress, and at-risk copies.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How a client-chosen key makes a retried write safe' },
+    ],
   },
 ];
 

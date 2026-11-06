@@ -16,6 +16,9 @@ export const urlSteps: Step[] = [
     diagramId: 'url-scope',
     scenario: 'A team says “make links as short as possible” but also wants five years of retention. What do you clarify first?',
     scenarioAnswer: 'Clarify the expected number of mappings, allowed alphabet, whether links expire or change, and whether aliases are user-selected. These set the key-space and storage requirements; “short” alone cannot determine a safe length.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-traffic', reason: 'Turning a daily total into average and peak request rates' },
+    ],
   },
   {
     id: 'url-contract',
@@ -33,6 +36,9 @@ export const urlSteps: Step[] = [
     diagramId: 'url-contract',
     scenario: 'The client times out after POST and retries. Should the server always create a second link?',
     scenarioAnswer: 'No. If the API supports an idempotency key, the retry should return the first result. If it does not, duplicate links may be acceptable under an explicit product policy, but the service should not silently assume that equal destinations mean equal owners or expiry.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'Why a retry key must be stored durably alongside the effect' },
+    ],
   },
   {
     id: 'url-redirect',
@@ -66,6 +72,9 @@ export const urlSteps: Step[] = [
     diagramId: 'url-keys',
     scenario: 'Two creation servers generate the same random key at once. Both check that it is unused. What prevents duplicate ownership?',
     scenarioAnswer: 'A database unique constraint or equivalent atomic reservation allows only one insertion. The losing server generates another candidate and retries. A separate read-before-write check cannot close the race.',
+    related: [
+      { chapterId: 'unique-id', stepId: 'id-options', reason: 'Compares sequences, allocated ranges, UUIDs, and time-based IDs' },
+    ],
   },
   {
     id: 'url-scale',
@@ -83,6 +92,9 @@ export const urlSteps: Step[] = [
     diagramId: 'url-scale',
     scenario: 'A newly created link returns 404 for a few seconds while reads use lagging replicas. What should change?',
     scenarioAnswer: 'Route recent-key lookups to a strongly consistent source or populate the cache after the durable write. Check negative-cache TTLs as well. Adding more replicas without addressing lag may make the symptom worse.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-lag', reason: 'Ways to stop a lagging replica hiding a write just made' },
+    ],
   },
   {
     id: 'url-operations',
@@ -100,6 +112,9 @@ export const urlSteps: Step[] = [
     diagramId: 'url-operations',
     scenario: 'An analytics queue is unavailable while people click existing links. Should redirects wait for it?',
     scenarioAnswer: 'Usually no. Return the redirect from the mapping path and buffer or drop analytics according to a documented reliability target. Alert on event loss and queue health, but avoid turning a reporting dependency into a redirect outage.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-stampede', reason: 'How to limit rebuilds when many readers miss the cache at once' },
+    ],
   },
 ];
 

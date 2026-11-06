@@ -19,6 +19,10 @@ export const transactionsSteps: Step[] = [
     diagramId: 'tx-acid',
     scenario: 'A refund job updates an order row and then writes a ledger row, as two separate autocommit statements. About once a month it crashes between them. A teammate proposes a nightly repair script. What would you do instead, and what would still be unsolved?',
     scenarioAnswer: 'Wrap both writes in one transaction, so a crash leaves neither and there is nothing to repair. That does not cover a crash after COMMIT but before the job records that it finished, because the retry would refund again. Give each refund an idempotency key, for example a unique constraint on refund ID in the ledger. If the ledger lives in a different database, one local transaction no longer covers both writes, and you need an outbox (a table of pending work that a relay publishes after commit) or a distributed protocol.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How to make a retried write safe to run twice' },
+      { chapterId: 'storage-engines', stepId: 'se-log', reason: 'What it takes for a log write to survive power loss' },
+    ],
   },
   {
     id: 'tx-read-committed', title: 'Hide unfinished work', eyebrow: '02 · Read committed',
@@ -114,6 +118,9 @@ export const transactionsSteps: Step[] = [
     diagramId: 'tx-serializable',
     scenario: 'Your Postgres app has a dozen rules spanning rows: spending limits, seat allotments, quotas. Each has its own lock or counter table, and two recent bugs came from a code path that forgot a lock. Would you change the approach, and what would you check first?',
     scenarioAnswer: 'Move those paths to SERIALIZABLE, since SSI protects every rule without each path knowing which lock to take. First add a retry loop for SQLSTATE 40001 around whole transactions, keep external calls out of them, and keep them short. Postgres gives the guarantee only among transactions running at SERIALIZABLE, so a path left at read committed is not covered. Load-test the hot paths, and if aborts climb, keep a counter row or atomic update for the hottest rule.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff and jitter keep a retry loop from adding load' },
+    ],
   },
 ];
 

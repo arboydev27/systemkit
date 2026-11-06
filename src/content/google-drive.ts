@@ -14,6 +14,9 @@ export const driveSteps: Step[] = [
     takeaways: ['Scope file sync and collaborative editing separately.', 'Estimate operation rate, occupied bytes, revisions, and peak bandwidth independently.'],
     diagramId: 'drive-scope', scenario: 'A teammate multiplies all accounts by their free quota and calls the result today’s storage use. What is wrong?',
     scenarioAnswer: 'That gives maximum allocated quota, not occupied bytes. Estimate actual uploads, file sizes, versions, retention, and replication.',
+    related: [
+      { chapterId: 'estimation', stepId: 'estimate-data', reason: 'How to budget logical, physical, and delivered bytes' },
+    ],
   },
   {
     id: 'drive-metadata', title: 'Separate names from bytes', eyebrow: '02 · Metadata and objects',
@@ -27,6 +30,9 @@ export const driveSteps: Step[] = [
     takeaways: ['Metadata describes and authorizes files; object storage holds bytes.', 'Publish only after required content is verified.'],
     diagramId: 'drive-metadata', scenario: 'The object arrived, but the API crashed before marking the revision ready. What should readers see?',
     scenarioAnswer: 'Serve the prior ready revision or a clear pending state. Reconciliation can verify and publish the new object or later clean it up.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'How an outbox publishes after commit, and what its relay costs' },
+    ],
   },
   {
     id: 'drive-upload', title: 'Resume and verify uploads', eyebrow: '03 · Upload path',
@@ -40,6 +46,9 @@ export const driveSteps: Step[] = [
     takeaways: ['Resumable chunks save bandwidth; checksums detect corruption.', 'Durable receipt and published revision are separate states.'],
     diagramId: 'drive-upload', scenario: 'A 4 GB upload loses its connection near completion. How should it recover?',
     scenarioAnswer: 'Resume its authorized session, request accepted ranges, send missing chunks, then verify and finalize once.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How a durable key makes a retried commit count only once' },
+    ],
   },
   {
     id: 'drive-sync', title: 'Sync through a change log', eyebrow: '04 · Device convergence',
@@ -53,6 +62,9 @@ export const driveSteps: Step[] = [
     takeaways: ['Durable cursors recover missed changes after offline periods.', 'Notifications prompt a pull; they are not the complete file state.'],
     diagramId: 'drive-sync', scenario: 'A laptop is offline for a week and misses thousands of pushes. How does it catch up?',
     scenarioAnswer: 'Request changes after its persisted cursor. If history expired, fetch a consistent snapshot and resume from its boundary.',
+    related: [
+      { chapterId: 'chat', stepId: 'chat-transport', reason: 'How polling, long polling, SSE, and WebSocket compare' },
+    ],
   },
   {
     id: 'drive-conflicts', title: 'Preserve competing edits', eyebrow: '05 · Versions and conflicts',
@@ -66,6 +78,10 @@ export const driveSteps: Step[] = [
     takeaways: ['Compare base revision at commit.', 'Keep both contents when automatic merge is unsafe.'],
     diagramId: 'drive-conflicts', scenario: 'A phone and laptop both edit revision 12 offline. The phone publishes 13 first. What happens to the laptop edit?',
     scenarioAnswer: 'Its expected base 12 conflicts with current 13. Preserve its bytes as a conflict copy or draft and offer explicit merge or choice.',
+    related: [
+      { chapterId: 'transactions', stepId: 'tx-lost-update', reason: 'When compare-and-set fits and what to do when it fails' },
+      { chapterId: 'key-value', stepId: 'kv-repair', reason: 'Why a delete needs a tombstone, and how long to keep it' },
+    ],
   },
   {
     id: 'drive-sharing', title: 'Authorize every path', eyebrow: '06 · Sharing and privacy',
@@ -105,6 +121,10 @@ export const driveSteps: Step[] = [
     takeaways: ['A restore needs both metadata and required bytes.', 'Measure data integrity and end-to-end sync, not only API uptime.'],
     diagramId: 'drive-operations', scenario: 'Notifications stop for an hour while storage remains healthy. Are devices permanently inconsistent?',
     scenarioAnswer: 'No. Durable change-log cursors allow reconnect or periodic polling to catch up. Monitor lag and stagger retries.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff, jitter, and budgets keep retries from causing a storm' },
+      { chapterId: 'ordinary-scale', stepId: 'os-availability', reason: 'How to set recovery objectives and time a real restore' },
+    ],
   },
 ];
 

@@ -28,6 +28,10 @@ export const feedSteps: Step[] = [
     diagramId: 'feed-publish',
     scenario: 'The post row is saved, but the fanout process crashes before enqueueing work. What prevents a permanently missing feed entry?',
     scenarioAnswer: 'Record the fanout intent durably with the post, such as an outbox row in the same transaction. A publisher can later move that intent to the queue; workers deduplicate by post and recipient.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'How an outbox closes the gap between a commit and a queue' },
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How a client key makes a retried submission safe' },
+    ],
   },
   {
     id: 'feed-media', title: 'Keep media off the post row', seoTitle: 'Storing feed media: object storage, CDN, and signed URLs', eyebrow: '03 · Media path',
@@ -41,6 +45,9 @@ export const feedSteps: Step[] = [
     diagramId: 'feed-media',
     scenario: 'A private video is deleted, but its old CDN URL still works. Which boundary failed?',
     scenarioAnswer: 'The delivery path did not revoke access promptly enough. Invalidate or expire cached access, use short-lived authorized URLs where appropriate, and tie the media lifecycle to post visibility.',
+    related: [
+      { chapterId: 'youtube', stepId: 'youtube-upload', reason: 'How scoped direct uploads to object storage work in detail' },
+    ],
   },
   {
     id: 'feed-fanout', title: 'Choose where fanout happens', seoTitle: 'Fanout on write vs fanout on read: hybrid news feed design', eyebrow: '04 · Distribution strategy',
@@ -55,6 +62,9 @@ export const feedSteps: Step[] = [
     diagramId: 'feed-fanout',
     scenario: 'A musician with 20 million followers publishes twice a day. Most followers open the app weekly. Which fanout choice deserves testing?',
     scenarioAnswer: 'Pull the musician’s recent posts for active readers, or use a hybrid that selectively pushes to active followers. Pushing 20 million entries per post wastes work for inactive accounts; validate the resulting read merge latency.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-backpressure', reason: 'What to do when fanout work outruns its queue' },
+    ],
   },
   {
     id: 'feed-read', title: 'Assemble one feed page', seoTitle: 'News feed pagination: cursors, merging, and hydration', eyebrow: '05 · Retrieval path',

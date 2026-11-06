@@ -16,6 +16,7 @@ Name real systems when it helps the learner connect an idea to practice (Postgre
 - `body`: 2 to 4 paragraphs totalling 170 to 260 words.
 - `takeaways`: 2 or 3 short lines that stand on their own.
 - `scenario` and `scenarioAnswer`: a decision the learner writes about before seeing guidance. Favor a new situation over restating the lesson.
+- `related` (optional): links to lessons this one builds on or uses, each with `chapterId`, `stepId`, and a short `reason` saying what the other lesson adds. Most lessons have 0 to 2. Skip the lessons directly before and after in the chapter, and don't link for coverage.
 
 A good body covers: the problem, how the idea addresses it, one concrete worked example with numbers or a specific sequence of events, and what it costs or when you would not use it. Define a term the first time it appears.
 
