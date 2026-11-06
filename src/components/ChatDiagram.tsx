@@ -15,9 +15,9 @@ const scenes: Record<string,Scene> = {
     note:'Acceptance, online delivery, and offline recovery are separate guarantees.'
   },
   'chat-transport': {
-    title:'Choose the cost of keeping up', description:'Polling repeatedly checks, long polling waits for an update or timeout, and WebSocket keeps a bidirectional connection.',
-    nodes:[n(38,82,220,'Polling','repeated empty checks','clock'),n(38,190,220,'Long polling','wait; reopen on reply','clock'),n(38,298,220,'WebSocket','persistent two-way','gateway'),n(396,188,210,'Chat gateway','receives and pushes','service'),n(735,188,215,'Recipient','gets live update','phone')],
-    edges:[e('M258 123 H330 V215 H396','ask again',330,111,true),e('M258 231 H396','hold request',326,214),e('M258 339 H330 V250 H396','live channel',330,365),e('M606 229 H735','update',671,210)],
+    title:'Choose the cost of keeping up', description:'Polling repeatedly checks, long polling waits for an update or timeout, server-sent events stream one way, and WebSocket keeps a bidirectional connection.',
+    nodes:[n(24,62,205,'Polling','repeated empty checks','clock'),n(245,148,205,'Long polling','wait; reopen on reply','clock'),n(245,320,205,'WebSocket','persistent two-way','gateway'),n(520,188,190,'Chat gateway','receives and pushes','service'),n(770,188,200,'Recipient','gets live update','phone'),n(24,234,205,'Server-sent events','one-way stream','clock')],
+    edges:[e('M229 103 H615 V188','ask again',422,91,true),e('M450 189 H485 V212 H520','hold request',494,177),e('M450 361 H615 V270','live channel',532,349),e('M710 229 H770','update',740,215),e('M229 275 H495 V246 H520','open response',362,263)],
     note:'The live transport is a separate decision from durable history and mobile push.'
   },
   'chat-connections': {

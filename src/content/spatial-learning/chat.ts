@@ -74,13 +74,15 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       "chat-transport:node:1": {"lane": 0, "order": 2, "semanticId": "long-polling"},
       "chat-transport:node:2": {"lane": 0, "order": 4, "semanticId": "websocket"},
       "chat-transport:node:3": {"lane": 1, "order": 2, "semanticId": "chat-gateway"},
-      "chat-transport:node:4": {"lane": 2, "order": 2, "semanticId": "recipient"}
+      "chat-transport:node:4": {"lane": 2, "order": 2, "semanticId": "recipient"},
+      "chat-transport:node:5": {"lane": 0, "order": 3, "semanticId": "server-sent-events"}
     },
     "relationships": {
       "chat-transport:relation:0": {"meaning": "connection", "condition": "", "explanation": "Polling → Chat gateway: ask again. receives and pushes."},
       "chat-transport:relation:1": {"meaning": "request", "condition": "", "explanation": "Long polling → Chat gateway: hold request. receives and pushes."},
       "chat-transport:relation:2": {"meaning": "connection", "condition": "", "explanation": "WebSocket → Chat gateway: live channel. receives and pushes."},
-      "chat-transport:relation:3": {"meaning": "connection", "condition": "", "explanation": "Chat gateway → Recipient: update. gets live update."}
+      "chat-transport:relation:3": {"meaning": "connection", "condition": "", "explanation": "Chat gateway → Recipient: update. gets live update."},
+      "chat-transport:relation:4": {"meaning": "connection", "condition": "", "explanation": "Server-sent events → Chat gateway: open response. receives and pushes."}
     },
     "groups": [],
     "scenes": [
@@ -94,10 +96,10 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       },
       {
         "id": "chat-transport:explain:2",
-        "title": "Maintain a bidirectional live channel",
-        "description": "A WebSocket starts with a client handshake and then holds a bidirectional channel. It suits frequent asynchronous chat updates, but the server must manage many live connections, heartbeats, reconnects, backpressure, and authentication refresh. A persistent channel is a delivery path, not durable storage.",
-        "nodeIds": ["chat-transport:node:2", "chat-transport:node:3", "chat-transport:node:4"],
-        "linkIds": ["chat-transport:relation:2", "chat-transport:relation:3"],
+        "title": "Hold one connection open",
+        "description": "Server-sent events keep one HTTP response open and stream events one way, so sends go over plain HTTP. A WebSocket starts with a client handshake and then holds a bidirectional channel. It suits frequent asynchronous chat updates, but the server must manage many live connections, heartbeats, reconnects, backpressure, and authentication refresh. A persistent channel is a delivery path, not durable storage.",
+        "nodeIds": ["chat-transport:node:5", "chat-transport:node:2", "chat-transport:node:3", "chat-transport:node:4"],
+        "linkIds": ["chat-transport:relation:4", "chat-transport:relation:2", "chat-transport:relation:3"],
         "viewId": "chat-transport:view:point-2"
       },
       {
@@ -118,9 +120,9 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       },
       {
         "id": "chat-transport:view:point-2",
-        "title": "Maintain a bidirectional live channel",
-        "description": "A WebSocket starts with a client handshake and then holds a bidirectional channel. It suits frequent asynchronous chat updates, but the server must manage many live connections, heartbeats, reconnects, backpressure, and authentication refresh. A persistent channel is a delivery path, not durable storage.",
-        "members": ["chat-transport:node:2", "chat-transport:node:3", "chat-transport:node:4"],
+        "title": "Hold one connection open",
+        "description": "Server-sent events keep one HTTP response open and stream events one way, so sends go over plain HTTP. A WebSocket starts with a client handshake and then holds a bidirectional channel. It suits frequent asynchronous chat updates, but the server must manage many live connections, heartbeats, reconnects, backpressure, and authentication refresh. A persistent channel is a delivery path, not durable storage.",
+        "members": ["chat-transport:node:5", "chat-transport:node:2", "chat-transport:node:3", "chat-transport:node:4"],
         "layout": "pipeline"
       }
     ],
