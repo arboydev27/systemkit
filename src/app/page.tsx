@@ -52,7 +52,7 @@ export default function Home() {
 
     <section id="progress" className={styles.section} aria-labelledby="progress-heading">
       <h2 id="progress-heading">Your progress lives in this browser.</h2>
-      <p className={styles.sectionIntro}>There are no accounts, so there’s nothing to sign up for and nothing of yours on a server. The tradeoff is that browsers can clear saved data: Safari, for one, may remove it after seven days of use without a visit here. A backup file keeps it safe, and it’s also how you move to another device.</p>
+      <p className={styles.sectionIntro}>There are no accounts, so there’s nothing to sign up for, and your answers and notes never leave this browser. The tradeoff is that browsers can clear saved data: Safari, for one, may remove it after seven days of use without a visit here. A backup file keeps it safe, and it’s also how you move to another device.</p>
       <ProgressTools />
     </section>
   </SitePage>;

@@ -1,12 +1,12 @@
 # SystemKit content guide
 
-How to write or change a lesson. Run `node scripts/content-check.cjs <chapter-id>` before you finish; it enforces the numeric rules below.
+How to write or change a lesson. Run `npm run check:content -- <chapter-id>` before you finish; it enforces the numeric rules below.
 
 ## Voice
 
-Plain, specific, and calm. Write for a working engineer who is smart but has not built this system. Teach why and what it costs, not just what. No hype, no filler, no "in today's world", and no phrases like "it's important to note". Use original wording and original examples: never reproduce or closely paraphrase a book, course, or article.
+Plain, specific, and calm. Write for a working engineer who hasn't built this system. Teach why and what it costs, not just what. No hype or filler. Use original wording and examples: never reproduce or closely paraphrase a book, course, or article.
 
-Name real systems when it helps the learner connect an idea to practice (Postgres, Redis, Kafka, S3, Cassandra, and so on), but only state things you are confident are true of them. Never invent a statistic, incident, or company detail. Mark example numbers as examples.
+Name real systems when it helps the learner connect an idea to practice (Postgres, Redis, Kafka, S3, Cassandra, and so on), but only state things you are confident are true of them. Never invent a statistic, incident, or company detail. Mark example numbers as examples, and choose your own: don't reuse the inputs of a book's or course's worked example, even when the arithmetic is generic.
 
 ## A lesson (`Step`)
 
@@ -23,14 +23,12 @@ A good body covers: the problem, how the idea addresses it, one concrete worked 
 
 Each lesson has 2 or 3 questions with exactly 4 options. Every wrong answer must be a mistake a thoughtful learner could actually make. The test: would someone who half-understood this choose it?
 
-- No joke or throwaway options, such as anything about CSS, fonts, colors, or deleting the database.
-- The correct answer must not stand out. Across a chapter it may be the longest option in at most 40% of questions, and it should never be much longer than every wrong answer. Bring wrong answers up to the same length and level of detail, and trim padding from the correct answer. Do not make wrong answers longer by adding nonsense.
-- The correct answer must not be the only one using careful qualifiers. Wrong answers should sound equally reasonable until you think about them.
-- Do not write absolutes ("always", "never", "only") mainly in wrong answers.
-- Prefer questions that apply the idea to a new situation over ones that repeat a sentence from the lesson. A question's `difficulty` must be honest: `Recall` restates, `Apply` uses the idea in a new situation, `Diagnose` reasons from a symptom to a cause.
-- `explanation`: say why the right answer is right, and where useful why the tempting wrong one fails. It is shown only after the learner gets the question right or asks to see the answer.
+- No joke or throwaway options.
+- The correct answer must not stand out by length, detail, or careful qualifiers. Across a chapter it may be the longest option in at most 40% of questions. Don't pad wrong answers with nonsense, and don't save absolutes like "always" and "never" for wrong answers.
+- Prefer applying the idea to a new situation over repeating the lesson. Keep `difficulty` honest: `Recall` restates, `Apply` uses the idea somewhere new, `Diagnose` reasons from a symptom to a cause.
+- `explanation` says why the right answer is right and, where useful, why the tempting wrong one fails. Learners see it only after a right answer or on request.
 
-Keep `id`, `stepId`, and `correctIndex` stable on existing questions, because saved answers refer to them. Option order in the file does not matter to learners: display order is shuffled per question.
+Keep `id`, `stepId`, and `correctIndex` stable, because saved answers refer to them. Display order is shuffled per question.
 
 ## Diagram predictions
 

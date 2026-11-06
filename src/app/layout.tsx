@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { UsageBeacon } from "@/components/site/SiteClient";
+import { AnalyticsConsent } from "@/components/site/AnalyticsConsent";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { siteShareImage } from "@/lib/share-image";
 import "./globals.css";
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         {children}
-        <UsageBeacon />
+        <AnalyticsConsent />
         <Analytics />
       </body>
     </html>

@@ -27,7 +27,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-scope:explain:2",
         "title": "Count fetch attempts and retained bytes",
-        "description": "Capacity starts with attempts, not just stored pages. As an illustration, one billion fetches per month is roughly 386 fetches per second on average over 30 days. Peak load, retries, redirects, page size, and recrawls increase the real budget. A crawler must also be polite and robust: the public web contains slow hosts, malformed responses, loops, and changing rules.",
+        "description": "Capacity starts with attempts, not just stored pages. As an illustration, 600 million fetches per month is roughly 230 fetches per second on average over 30 days. Peak load, retries, redirects, page size, and recrawls increase the real budget. A crawler must also be polite and robust: the public web contains slow hosts, malformed responses, loops, and changing rules.",
         "nodeIds": ["crawler-scope:node:1", "crawler-scope:node:3"],
         "linkIds": ["crawler-scope:relation:2"],
         "viewId": "crawler-scope:view:point-2"
@@ -37,7 +37,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-scope:view:point-2",
         "title": "Count fetch attempts and retained bytes",
-        "description": "Capacity starts with attempts, not just stored pages. As an illustration, one billion fetches per month is roughly 386 fetches per second on average over 30 days. Peak load, retries, redirects, page size, and recrawls increase the real budget. A crawler must also be polite and robust: the public web contains slow hosts, malformed responses, loops, and changing rules.",
+        "description": "Capacity starts with attempts, not just stored pages. As an illustration, 600 million fetches per month is roughly 230 fetches per second on average over 30 days. Peak load, retries, redirects, page size, and recrawls increase the real budget. A crawler must also be polite and robust: the public web contains slow hosts, malformed responses, loops, and changing rules.",
         "members": ["crawler-scope:node:1", "crawler-scope:node:3"],
         "layout": "pipeline"
       }

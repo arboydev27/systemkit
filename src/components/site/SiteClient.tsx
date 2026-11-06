@@ -4,17 +4,12 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowRight, Check, Download, Upload } from "lucide-react";
-import { recordVisit, trackEvent } from "@/lib/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { collectBackup, completedLessons, LAST_BACKUP_KEY, parseBackup, restoreBackup, type Backup } from "@/lib/backup";
 import { chapterHref, lessonHref } from "@/lib/links";
 import { ACTIVE_CHAPTER_KEY, completedCount, GOAL_KEY, readProgress, resumeLesson, resumeStepInChapter, type OutlineChapter } from "@/lib/progress";
 import { browserReviewStorage, countDue, readReviewState } from "@/lib/review";
 import styles from "./Site.module.css";
-
-export function UsageBeacon() {
-  useEffect(() => recordVisit(), []);
-  return null;
-}
 
 export function DueReviewBadge() {
   const [due, setDue] = useState(0);
