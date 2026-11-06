@@ -51,7 +51,7 @@ Follow [docs/content-guide.md](docs/content-guide.md), then check your chapter:
 npm run check:content -- <chapter-id>
 ```
 
-[docs/design-system.md](docs/design-system.md) covers color, contrast, and interaction.
+[docs/design-system.md](docs/design-system.md) covers color, contrast, and interaction. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of how to send a change.
 
 ## Analytics
 
