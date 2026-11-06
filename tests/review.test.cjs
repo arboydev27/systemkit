@@ -12,7 +12,7 @@ const compiled = spawnSync(process.execPath, [require.resolve("typescript/bin/ts
 { encoding: "utf8" });
 if (compiled.status !== 0) throw new Error(compiled.stdout + compiled.stderr);
 const {
-  DAY, SESSION_LIMIT, REVIEW_STORAGE_KEY, emptyReviewState, recordQuizAttempt, recordRecall,
+  DAY, SESSION_LIMIT, REVIEW_STORAGE_KEY, addDays, countDue, emptyReviewState, firstDueAt, recordQuizAttempt, recordRecall, startOfDay,
   markStudied, buildReviewSession, importLegacyStudy, parseReviewState, readReviewState, saveReviewState,
 } = require(join(directory, "lib/review.js"));
 const { reviewCards } = require(join(directory, "content/review.js"));
@@ -34,11 +34,14 @@ test("a corrected retry preserves the original mistake and first-attempt time", 
   assert.deepEqual(initial, corrected);
 });
 
-test("newly studied ideas become due the next day and exclude unstudied lessons", () => {
+test("newly studied ideas become due on the next calendar day and exclude unstudied lessons", () => {
   const state = recordQuizAttempt(emptyReviewState(), input, now);
+  const tomorrow = addDays(startOfDay(now), 1);
   assert.equal(buildReviewSession([card("cache"), card("cdn")], state, now).length, 0);
-  assert.equal(buildReviewSession([card("cache"), card("cdn")], state, now + DAY - 1).length, 0);
-  assert.deepEqual(buildReviewSession([card("cache"), card("cdn")], state, now + DAY).map((item) => item.card.id), ["scaling/cache"]);
+  assert.equal(buildReviewSession([card("cache"), card("cdn")], state, tomorrow - 1).length, 0);
+  assert.deepEqual(buildReviewSession([card("cache"), card("cdn")], state, tomorrow).map((item) => item.card.id), ["scaling/cache"]);
+  assert.equal(countDue(state, tomorrow - 1), 0);
+  assert.equal(countDue(state, tomorrow), 1);
 });
 
 test("a session is bounded and prioritizes earlier mistakes among due studied ideas", () => {
@@ -54,15 +57,29 @@ test("a session is bounded and prioritizes earlier mistakes among due studied id
 test("successful recalls extend spacing, missed recalls reset it, and prompts vary", () => {
   const initial = markStudied(emptyReviewState(), "scaling", "cache", now - DAY);
   const first = recordRecall(initial, "scaling/cache", true, now);
-  assert.equal(first.recalls["scaling/cache"].dueAt, now + 3 * DAY);
-  assert.equal(buildReviewSession([card("cache")], first, now + 3 * DAY)[0].prompt.prompt, "Different context");
-  const second = recordRecall(first, "scaling/cache", true, now + 3 * DAY);
-  assert.equal(second.recalls["scaling/cache"].dueAt, now + 10 * DAY);
-  const missed = recordRecall(second, "scaling/cache", false, now + 10 * DAY);
+  const firstDue = addDays(startOfDay(now), 3);
+  assert.equal(first.recalls["scaling/cache"].dueAt, firstDue);
+  assert.equal(buildReviewSession([card("cache")], first, firstDue)[0].prompt.prompt, "Different context");
+  const second = recordRecall(first, "scaling/cache", true, firstDue);
+  const secondDue = addDays(firstDue, 7);
+  assert.equal(second.recalls["scaling/cache"].dueAt, secondDue);
+  const missed = recordRecall(second, "scaling/cache", false, secondDue);
   assert.equal(missed.recalls["scaling/cache"].streak, 0);
-  assert.equal(missed.recalls["scaling/cache"].dueAt, now + 11 * DAY);
+  assert.equal(missed.recalls["scaling/cache"].dueAt, addDays(secondDue, 1));
   assert.equal(initial.recalls["scaling/cache"], undefined);
   assert.equal(recordRecall(initial, "scaling/unstudied", true, now), initial);
+});
+
+test("practising early counts as practice but does not advance the schedule", () => {
+  const initial = markStudied(emptyReviewState(), "scaling", "cache", now - DAY);
+  const first = recordRecall(initial, "scaling/cache", true, now);
+  let state = first;
+  for (let round = 1; round <= 4; round++) state = recordRecall(state, "scaling/cache", true, now + round * 60_000);
+  assert.equal(state.recalls["scaling/cache"].dueAt, first.recalls["scaling/cache"].dueAt);
+  assert.equal(state.recalls["scaling/cache"].streak, first.recalls["scaling/cache"].streak);
+  assert.equal(state.recalls["scaling/cache"].reviews, 5);
+  const forgot = recordRecall(state, "scaling/cache", false, now + 300_000);
+  assert.equal(forgot.recalls["scaling/cache"].dueAt, addDays(startOfDay(now), 1));
 });
 
 test("legacy progress imports study eligibility without inventing first attempts or changing values", () => {
@@ -112,5 +129,5 @@ test("a missed review is prioritized without an earlier quiz mistake", () => {
   let state = markStudied(emptyReviewState(), "scaling", "cache", now - DAY);
   state = markStudied(state, "scaling", "cdn", now - 5 * DAY);
   state = recordRecall(state, "scaling/cache", false, now);
-  assert.equal(buildReviewSession([card("cache"), card("cdn")], state, now + DAY)[0].card.id, "scaling/cache");
+  assert.equal(buildReviewSession([card("cache"), card("cdn")], state, addDays(startOfDay(now), 1))[0].card.id, "scaling/cache");
 });

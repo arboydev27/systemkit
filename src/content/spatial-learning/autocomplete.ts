@@ -54,8 +54,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-scope:predict:acq02",
         "title": "Predict the design consequence",
-        "prompt": "An older request finishes after a newer one and replaces current suggestions. What should the client do?",
-        "options": ["Submit automatically", "Disable caching", "Ignore results whose input or sequence is stale", "Increase result count"],
+        "prompt": "A user types “ne,” then clears the box before the response arrives. What should the client do when the “ne” list lands?",
+        "options": ["Show it, since it is the newest response received", "Cache it and show it as the empty-input default", "Discard it, because it no longer matches the input", "Send “ne” again so the list can be confirmed"],
         "correctIndex": 2,
         "explanation": "Response order is not typing order; only the latest input should update the list.",
         "reveal": {
@@ -114,8 +114,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-traffic:predict:completion-signal",
         "title": "Predict the learning event",
-        "prompt": "Typing client sends four suggestion requests and then Submit search records one completion. Which path should become the ranking signal?",
-        "options": ["Submit search → Event log", "Each Suggestion API prefix read as a completed search", "Every returned suggestion as a chosen result"],
+        "prompt": "A typing client sends four suggestion requests, and then Submit search records one completion. Which path should become the ranking signal?",
+        "options": ["Submit search → Event log", "Suggestion API reads, one per prefix", "Serving index hits, one per suggestion", "Typing client keystrokes, before debounce"],
         "correctIndex": 0,
         "explanation": "The displayed Submit search → Event log branch records completed-search behavior. Prefix reads serve suggestions and should not inflate completion counts.",
         "reveal": {
@@ -182,8 +182,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-prefix:predict:broad-prefix",
         "title": "Predict broad-prefix work",
-        "prompt": "The trie locates Input: ca quickly. Why does Top-K cache still help before Results?",
-        "options": ["It avoids scanning and sorting all Descendants on every read", "It makes every prefix a complete search", "It removes the need to filter results"],
+        "prompt": "Suppose Top-K cache is removed and every “ca” read goes straight to Descendants. Which cost grows as the catalog grows?",
+        "options": ["Scanning and sorting all Descendants on every read", "Walking the edges from the root to the Prefix node", "Normalizing the input text before the Prefix node", "Serializing the five entries sent back as Results"],
         "correctIndex": 0,
         "explanation": "Prefix traversal and candidate ranking are different costs. Descendants can be large, so precomputed bounded candidates in Top-K cache keep serving work small.",
         "reveal": {
@@ -250,8 +250,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-rank:predict:acq10",
         "title": "Predict the design consequence",
-        "prompt": "A public list has five slots and may filter blocked entries. How many candidates should it retain internally?",
-        "options": ["One", "Exactly five", "Enough beyond five to fill after filtering", "Every raw event"],
+        "prompt": "A new rule blocks three of today’s top five for one prefix in one country. The Policy filter runs at read time. What keeps the visible list full?",
+        "options": ["Rerunning the Score step for that one prefix", "Showing two suggestions until the next build", "Extra ranked entries held in Candidates", "Blending in results from a neighboring country"],
         "correctIndex": 2,
         "explanation": "Extra ranked candidates keep the list full after removals.",
         "reveal": {
@@ -318,8 +318,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-pipeline:predict:acq13",
         "title": "Predict the design consequence",
-        "prompt": "A collector retries the same completed-search event. What prevents double counting?",
-        "options": ["A larger prefix", "An idempotency key or durable checkpoint", "Browser animation", "Sorting after each request"],
+        "prompt": "The Aggregate consumer crashes after adding a batch of Search events to its counts, but before saving its stream position. On restart it reads that batch again. What keeps counts correct?",
+        "options": ["A larger batch size, so that restarts happen less", "Event IDs, or saving counts and position atomically", "Re-sorting the stream by event time before reading", "A shorter stream retention, so old events fall away"],
         "correctIndex": 1,
         "explanation": "Retried delivery requires deduplication or idempotent aggregation.",
         "reveal": {
@@ -377,8 +377,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-serve:predict:acq17",
         "title": "Predict the design consequence",
-        "prompt": "A cold popular prefix causes many simultaneous snapshot reads. What helps?",
-        "options": ["Delete all caches", "Coalesce requests or warm broad prefixes", "Retain more raw logs", "Return every match"],
+        "prompt": "A new snapshot version goes live, so every Fast cache key changes at once. Which rollout step protects the Snapshot store?",
+        "options": ["Drop the Fast cache tier until the rollout ends", "Preload popular prefixes and coalesce the misses", "Retry each failed Snapshot store read right away", "Send each broad prefix to every Query API node"],
         "correctIndex": 1,
         "explanation": "Coalescing and warming prevent a miss stampede.",
         "reveal": {
@@ -441,8 +441,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-scale:predict:acq19",
         "title": "Predict the design consequence",
-        "prompt": "Why can equal letter ranges overload one shard?",
-        "options": ["All letters have identical demand", "Prefix and storage distributions are uneven", "A trie cannot contain “s”", "Replicas remove all reads"],
+        "prompt": "A launch in a new market sends most queries to terms starting with a few letters, while the Range map still uses equal letter ranges. What should you expect?",
+        "options": ["Even load, because hashing spreads the terms", "Hot slice A saturates while Slice B stays quiet", "Merge top-K slows evenly on every shard at once", "Range map rebalances itself as the demand shifts"],
         "correctIndex": 1,
         "explanation": "Hot letters and short prefixes concentrate demand.",
         "reveal": {
@@ -510,8 +510,8 @@ export const autocompleteTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "autocomplete-ops:predict:acq22",
         "title": "Predict the design consequence",
-        "prompt": "An unsafe public suggestion needs immediate removal. What is the full response?",
-        "options": ["Hide it in CSS", "Suppress it now and exclude it from future builds", "Wait for next build", "Delete all search records"],
+        "prompt": "A coordinated script made a slur the top result for one prefix in last night’s build. Which path removes it today and keeps it out tomorrow?",
+        "options": ["Block the accounts and rely on the next build", "Serving filter now, then Source correction", "Source correction now, then wait for the next build", "Fallback to the last-good snapshot until the next build"],
         "correctIndex": 1,
         "explanation": "Fast filtering handles current responses; source cleanup prevents reappearance.",
         "reveal": {

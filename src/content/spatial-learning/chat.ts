@@ -53,8 +53,8 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-scope:predict:chat-q02",
         "title": "Predict the design consequence",
-        "prompt": "A PM says “a sent message must survive the receiver being offline.” What system promise does that require?",
-        "options": ["A green online indicator", "A shorter polling interval", "Durable storage and later catch-up", "A push notification only"],
+        "prompt": "A recipient’s phone is switched off for a weekend while friends keep sending messages. What lets the phone show them all on Monday?",
+        "options": ["A hold on each send until presence shows the phone online", "A queue of push alerts holding the text for later playback", "Durable storage of each message, and catch-up on reconnect", "A socket the gateway keeps open for the phone over the weekend"],
         "correctIndex": 2,
         "explanation": "The server must retain the message and let the recipient fetch it later. Presence and push cannot guarantee history.",
         "reveal": {
@@ -128,8 +128,8 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-transport:predict:chat-q05",
         "title": "Predict the design consequence",
-        "prompt": "Which path best fits frequent server-initiated chat updates?",
-        "options": ["A persistent WebSocket channel with connection management", "A CDN object per message", "DNS polling on each send", "A daily batch job"],
+        "prompt": "A multiplayer lobby chat exchanges several messages a second in both directions. Which path in the diagram should carry them?",
+        "options": ["WebSocket, kept open with heartbeats and reconnects", "Polling, repeated once a second from every client", "Long polling, with a new request after each update", "Mobile push, with each client replying over plain HTTP"],
         "correctIndex": 0,
         "explanation": "WebSocket offers a bidirectional live channel. The gateway still needs authentication, heartbeats, reconnects, and backpressure.",
         "reveal": {
@@ -215,7 +215,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
         "id": "chat-connections:predict:gateway-down",
         "title": "Predict route recovery",
         "prompt": "Gateway 1 is unavailable, but Gateway 2 is healthy. What should recovery update after a device reconnects?",
-        "options": ["Its device-to-host entry in Routes", "The canonical message into process-local memory", "Every account to one permanent gateway"],
+        "options": ["Its device-to-host entry in Routes", "The message positions in its open chats", "The saved cursor for each conversation", "Every device on the account, to one host"],
         "correctIndex": 0,
         "explanation": "Placement must choose a healthy gateway and Routes must identify the new device host. A socket on the failed gateway cannot be recovered by a balancer alone.",
         "reveal": {
@@ -315,7 +315,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
         "id": "chat-delivery:predict:offline-recipient",
         "title": "Predict durable acceptance",
         "prompt": "The recipient is offline after the service commits the message. Which state can the sender safely show?",
-        "options": ["Durably accepted; delivery and read may happen later", "Read by every recipient", "Lost because the live socket is unavailable"],
+        "options": ["Durably accepted; delivery and read may happen later", "Delivered, because a push notification has been queued", "Pending, until the recipient’s device acknowledges it", "Failed, because no live socket could take the message"],
         "correctIndex": 0,
         "explanation": "History already contains the canonical message. The Offline device branch can notify and later fetch; lack of a live socket does not undo acceptance.",
         "reveal": {
@@ -384,7 +384,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
         "id": "chat-ordering:predict:laptop-cursor",
         "title": "Predict the displayed replay",
         "prompt": "Laptop has the displayed cursor 39 and Ordered history contains positions 40–46. What should the laptop retrieve?",
-        "options": ["Positions 40–46", "Only positions 45–46, using the phone’s cursor", "Nothing because the phone is up to date"],
+        "options": ["Positions 40–46, after its own cursor", "Positions 45–46, after the phone’s cursor", "Positions 1–46, then drop what it has seen", "Position 46 only, as the latest chat state"],
         "correctIndex": 0,
         "explanation": "The History → Laptop relation is labelled after 39. Cursors belong to each device and conversation; Phone has a different cursor, 44.",
         "reveal": {
@@ -466,8 +466,8 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "chat-presence:predict:chat-q17",
         "title": "Predict the design consequence",
-        "prompt": "A phone disconnects briefly but a laptop remains connected. What is the best account-level status?",
-        "options": ["Online, because at least one device has a current lease", "Offline until the phone returns", "Always unknown", "Use the message sequence as status"],
+        "prompt": "A phone’s battery dies without a logout, while the same account’s laptop keeps renewing its lease. What should contacts see?",
+        "options": ["Online, because at least one device has a current lease", "Offline, because the newest device event was a lost phone", "Offline, once the phone lease reaches the end of its grace", "Unknown, because the two devices now report different states"],
         "correctIndex": 0,
         "explanation": "Account presence aggregates eligible devices. The laptop still provides a current online signal.",
         "reveal": {
@@ -552,7 +552,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
         "id": "chat-groups:predict:fanout-delay",
         "title": "Predict delayed group fanout",
         "prompt": "Fanout job is delayed after Channel log persists the group message. Which displayed responsibility still holds the canonical record?",
-        "options": ["Channel log", "Every transient socket buffer only", "Fanout job as the sole message history"],
+        "options": ["Channel log, the one durable record", "Fanout job, until each delivery ends", "Member inboxes, once they are written", "Socket buffers on each active gateway"],
         "correctIndex": 0,
         "explanation": "One durable Channel log record precedes the retryable fanout job. Delivery copies can lag without becoming the canonical message.",
         "reveal": {
@@ -646,7 +646,7 @@ export const chatTeachingContent: Record<string, TeachingContent> = {
         "id": "chat-recovery:predict:worker-crash",
         "title": "Predict a fanout crash",
         "prompt": "The worker crashes before acknowledging a delivery job. What should the durable Job queue permit?",
-        "options": ["Another worker can retry with idempotent effects", "Canonical history disappears", "The client cursor becomes proof that every recipient read it"],
+        "options": ["Another worker can retry with idempotent effects", "The job is dropped, as history already has the message", "The job waits until the same worker has restarted", "The recipient device must ask for the job to be rerun"],
         "correctIndex": 0,
         "explanation": "Unacknowledged work remains retryable under the queue policy. History survives separately, and repeated processing must avoid duplicate effects.",
         "reveal": {

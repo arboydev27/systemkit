@@ -28,7 +28,7 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-scope:explain:2",
         "title": "Size operations, revisions, and bytes",
-        "description": "Size operations and bytes separately. The book’s exercise assumes 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
+        "description": "Size operations and bytes separately. As an example, assume 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
         "nodeIds": ["drive-scope:node:0", "drive-scope:node:1", "drive-scope:node:2"],
         "linkIds": ["drive-scope:relation:0", "drive-scope:relation:1"],
         "viewId": "drive-scope:view:point-2"
@@ -45,7 +45,7 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-scope:view:point-2",
         "title": "Size operations, revisions, and bytes",
-        "description": "Size operations and bytes separately. The book’s exercise assumes 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
+        "description": "Size operations and bytes separately. As an example, assume 10 million daily users, two uploads each per day, and 500 KB per file: about 20 million uploads and 10 TB of new originals each day before versions and replicas. That is roughly 230 average upload starts per second. Peak traffic, upload duration, and large-file tails matter too. Reserved quota is not the same as occupied storage.",
         "members": ["drive-scope:node:0", "drive-scope:node:1", "drive-scope:node:2"],
         "layout": "pipeline"
       }
@@ -54,8 +54,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-scope:predict:dq02",
         "title": "Predict the design consequence",
-        "prompt": "What best estimates new original storage per day?",
-        "options": ["Accounts × free quota", "Daily uploads × average file size", "API server count × RAM", "Number of folders"],
+        "prompt": "A photo-backup client launches, and users will upload 3 files a day averaging 4 MB. Finance asks how fast Storage will fill. Which input gives the best estimate?",
+        "options": ["Registered accounts × the quota each account is allowed", "Daily uploads × average size, before versions and replicas", "Upload requests per second × the API servers handling them", "Daily active users × the size of their largest uploaded file"],
         "correctIndex": 1,
         "explanation": "Actual uploads and sizes estimate occupied new bytes before versions and replicas.",
         "reveal": {
@@ -104,8 +104,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-metadata:predict:dq04",
         "title": "Predict the design consequence",
-        "prompt": "Metadata says ready, but a required block was never stored. What failed?",
-        "options": ["CDN placement", "Publication before object verification", "Folder sorting", "Browser cookies"],
+        "prompt": "To cut commit latency, a developer marks a revision ready as soon as the client reports that all blocks were sent. One client’s last upload had silently failed. What went wrong?",
+        "options": ["The metadata row was written before the manifest was complete", "Ready was committed with no check of the blocks in storage", "The object store saved the blocks out of manifest order", "The change event went out before the client disconnected"],
         "correctIndex": 1,
         "explanation": "Ready status must follow verification of all required bytes.",
         "reveal": {
@@ -172,8 +172,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-upload:predict:dq05",
         "title": "Predict the design consequence",
-        "prompt": "A mobile upload disconnects near completion. What should it do?",
-        "options": ["Restart with a new file ID", "Publish without checks", "Resume missing ranges in the same session", "Ask the CDN to infer bytes"],
+        "prompt": "A phone loses signal in a tunnel mid-upload and reconnects 40 minutes later, before its session expires. What should it do next?",
+        "options": ["Ask for a new session and send the file again from byte zero", "Mark the revision ready and let a later sync fill any gaps", "Ask the session which ranges arrived, then send only the rest", "Wait for the object store to tell the client it may resume"],
         "correctIndex": 2,
         "explanation": "The session records accepted ranges so only missing bytes transfer.",
         "reveal": {
@@ -230,8 +230,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-sync:predict:missed-notification",
         "title": "Predict a missed wake-up hint",
-        "prompt": "Device B misses Notification while offline. Which displayed path recovers committed revisions when it returns?",
-        "options": ["Change log → Device B after its saved cursor", "Notification as the complete file history", "Device A must upload every file again"],
+        "prompt": "A push provider drops every notification for a phone that stays online all afternoon, while Device A commits 12 revisions. How does Device B still get them?",
+        "options": ["Its next pull of Change log after its saved cursor", "A replay from Notification, which holds the full history", "A fresh upload of all 12 revisions directly from Device A", "A full rescan comparing every file with Device A’s copy"],
         "correctIndex": 0,
         "explanation": "Notification is only a wake-up hint. The durable Change log → Device B pull path uses the saved cursor to recover missed committed events.",
         "reveal": {
@@ -290,8 +290,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-conflicts:predict:stale-laptop",
         "title": "Predict the stale edit branch",
-        "prompt": "Laptop submits an edit based on revision 12, but Current file is already revision 13. Which branch preserves its competing content?",
-        "options": ["Conflict copy", "Publish as though the base still matched", "Silently discard the newer revision"],
+        "prompt": "Two people edit the same shared file from revision 12. One commits while the other is on a flight, so Current file reads 13 when the plane lands. Where do the second person’s bytes go?",
+        "options": ["Conflict copy, kept beside revision 13 for a later choice", "Publish, replacing revision 13 as the most recent write", "Publish, after the system merges both sets of file bytes", "Rejected at commit, with the client told to drop the edit"],
         "correctIndex": 0,
         "explanation": "The expected base no longer matches Current file. The preserve relation selects Conflict copy instead of treating the stale edit as an ordinary base-matched publish.",
         "reveal": {
@@ -356,8 +356,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-sharing:predict:dq12",
         "title": "Predict the design consequence",
-        "prompt": "A shared link must stop working rapidly after revocation. What fits?",
-        "options": ["A week-long signed URL", "Online checks or very short tokens", "Public immutable caching forever", "Only hide the name"],
+        "prompt": "A contractor is removed from a shared folder at noon. At 12:10 they replay a download link issued at 11:55. Which setup denies that request?",
+        "options": ["A 24-hour link, with the file’s name hidden from listings", "A 5-minute link, or a live access check on each read", "A 24-hour link, served through a public immutable cache", "A 24-hour link, with access rules rechecked once a day"],
         "correctIndex": 1,
         "explanation": "Long-lived capabilities remain valid until expiry without a serving-time check.",
         "reveal": {
@@ -405,8 +405,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-download:predict:dq14",
         "title": "Predict the design consequence",
-        "prompt": "One of 100 cached blocks changes. What does a delta-aware client need?",
-        "options": ["All 100 again", "New manifest and changed block", "No manifest", "Only a push payload"],
+        "prompt": "Someone corrects a typo in place in a 300 MB disk image, altering one block, on a file a laptop already holds. What does the laptop fetch?",
+        "options": ["The full new revision, then a check against its cached blocks", "The new manifest, plus the one block it does not yet have", "The changed block alone, with no manifest needed to place it", "A push payload, which carries the changed bytes inside it"],
         "correctIndex": 1,
         "explanation": "The manifest identifies order; verified unchanged blocks can be reused.",
         "reveal": {
@@ -456,8 +456,8 @@ export const googleDriveTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "drive-operations:predict:dq16",
         "title": "Predict the design consequence",
-        "prompt": "Restored metadata references missing blocks. Why is restore incomplete?",
-        "options": ["Metadata and content must recover together", "More users must sign in", "All names must change", "Cache should be larger"],
+        "prompt": "A disaster drill restores metadata from backup and reports success because every row is back. No block was checked. Is the file set recovered?",
+        "options": ["Not yet, since each revision also needs its blocks in storage", "Yes, since metadata rows hold enough to rebuild the blocks", "Yes, since devices will re-upload whatever turns out missing", "Not yet, since all device cursors must first reset to zero"],
         "correctIndex": 0,
         "explanation": "A revision is usable only with its metadata and required bytes.",
         "reveal": {

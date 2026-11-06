@@ -15,6 +15,13 @@ import { consistentHashingTeachingContent } from "./spatial-learning/consistent-
 import { uniqueIdTeachingContent } from "./spatial-learning/unique-id";
 import { googleDriveTeachingContent } from "./spatial-learning/google-drive";
 import { webCrawlerTeachingContent } from "./spatial-learning/web-crawler";
+import { ordinaryScaleTeachingContent } from "./spatial-learning/ordinary-scale";
+import { storageEnginesTeachingContent } from "./spatial-learning/storage-engines";
+import { replicationTeachingContent } from "./spatial-learning/replication";
+import { transactionsTeachingContent } from "./spatial-learning/transactions";
+import { consensusTeachingContent } from "./spatial-learning/consensus";
+import { streamsTeachingContent } from "./spatial-learning/streams";
+import { patternsTeachingContent } from "./spatial-learning/patterns";
 
 const chapters: Record<string, Record<string, TeachingContent>> = {
   "framework": frameworkTeachingContent,
@@ -32,6 +39,13 @@ const chapters: Record<string, Record<string, TeachingContent>> = {
   "unique-id": uniqueIdTeachingContent,
   "google-drive": googleDriveTeachingContent,
   "web-crawler": webCrawlerTeachingContent,
+  "ordinary-scale": ordinaryScaleTeachingContent,
+  "storage-engines": storageEnginesTeachingContent,
+  replication: replicationTeachingContent,
+  transactions: transactionsTeachingContent,
+  consensus: consensusTeachingContent,
+  streams: streamsTeachingContent,
+  patterns: patternsTeachingContent,
 };
 
 export function createTeachingContent(chapterId: string, diagramId: string, base: SpatialScene): TeachingContent {

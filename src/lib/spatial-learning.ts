@@ -40,7 +40,7 @@ export function rememberSpatialLesson(scene: LearningScene): LessonChanges | nul
   if (existing?.current.lessonId === scene.lessonId) return existing.changes;
   const changes = existing ? compareSpatialLessons(existing.current, scene) : null;
   chapterScenes.set(scene.chapterId, { current: scene, changes });
-  if (chapterScenes.size > 15) chapterScenes.delete(chapterScenes.keys().next().value!);
+  if (chapterScenes.size > 25) chapterScenes.delete(chapterScenes.keys().next().value!);
   return changes;
 }
 

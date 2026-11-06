@@ -1,6 +1,36 @@
-export const designChallenge = {
+export type ChallengeFieldId = "estimate" | "architecture" | "resilience" | "adaptation";
+
+export type DesignChallengeContent = {
+  id: string;
+  chapterId: string;
+  stepId: string;
+  title: string;
+  summary: string;
+  brief: string;
+  minutes: number;
+  assumptions: string[];
+  change: string;
+  adaptationTitle: string;
+  fields: { id: ChallengeFieldId; title: string; prompt: string; placeholder: string }[];
+  rubric: { id: string; title: string; detail: string }[];
+  estimateGuide: string;
+  solutions: {
+    id: string;
+    title: string;
+    approach: string;
+    paths: string[];
+    failure: string;
+    adaptation: string;
+    tradeoff: string;
+  }[];
+};
+
+export const designChallenge: DesignChallengeContent = {
   id: "photo-sharing",
-  storageKey: "systemkit:design-challenge:photo-sharing:v1",
+  chapterId: "scaling",
+  stepId: "synthesis",
+  minutes: 30,
+  adaptationTitle: "International traffic",
   title: "Design a photo-sharing service",
   summary: "Bring the chapter together in one design, then revisit it when the requirements change.",
   brief: "People upload photos, browse the newest public photos, and open an image. Design the first version for one million registered users, with 100,000 active each day. Keep comments, followers, private albums, and video outside this exercise.",
@@ -74,13 +104,17 @@ export const designChallenge = {
       tradeoff: "Fewer services simplify the first release. Workers share database capacity with API reads and writes, so leases, efficient polling, and a clear threshold for moving the queue are essential.",
     },
   ],
-} as const;
+};
 
-export type ChallengeFieldId = (typeof designChallenge.fields)[number]["id"];
+export function challengeStorageKey(id: string) {
+  return `systemkit:design-challenge:${id}:v1`;
+}
+
 export type ChallengeDraft = {
   answers: Record<ChallengeFieldId, string>;
   checked: string[];
   reviewed: boolean;
+  timer?: { startedAt: number; minutes: number };
 };
 
 export const challengeAnswerLimit = 4000;
@@ -89,11 +123,11 @@ export function emptyChallengeDraft(): ChallengeDraft {
   return { answers: { estimate: "", architecture: "", resilience: "", adaptation: "" }, checked: [], reviewed: false };
 }
 
-export function hasChallengeAttempt(draft: ChallengeDraft): boolean {
-  return designChallenge.fields.every(({ id }) => draft.answers[id].trim().length > 0);
+export function hasChallengeAttempt(draft: ChallengeDraft, challenge: DesignChallengeContent = designChallenge): boolean {
+  return challenge.fields.every(({ id }) => draft.answers[id].trim().length > 0);
 }
 
-export function parseChallengeDraft(raw: string | null): ChallengeDraft {
+export function parseChallengeDraft(raw: string | null, challenge: DesignChallengeContent = designChallenge): ChallengeDraft {
   const draft = emptyChallengeDraft();
   if (!raw) return draft;
   try {
@@ -101,23 +135,56 @@ export function parseChallengeDraft(raw: string | null): ChallengeDraft {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return draft;
     const value = parsed as Partial<ChallengeDraft>;
     if (value.answers && typeof value.answers === "object" && !Array.isArray(value.answers)) {
-      for (const { id } of designChallenge.fields) {
+      for (const { id } of challenge.fields) {
         const answer = value.answers[id];
         if (typeof answer === "string") draft.answers[id] = answer.slice(0, challengeAnswerLimit);
       }
     }
     if (Array.isArray(value.checked)) {
-      draft.checked = designChallenge.rubric.map(({ id }) => id).filter((id) => value.checked?.includes(id));
+      draft.checked = challenge.rubric.map(({ id }) => id).filter((id) => value.checked?.includes(id));
     }
-    draft.reviewed = value.reviewed === true && hasChallengeAttempt(draft);
+    draft.reviewed = value.reviewed === true && hasChallengeAttempt(draft, challenge);
+    const timer = value.timer;
+    if (timer && Number.isFinite(timer.startedAt) && Number.isFinite(timer.minutes) && timer.minutes > 0) {
+      draft.timer = { startedAt: timer.startedAt, minutes: timer.minutes };
+    }
     return draft;
   } catch {
     return draft;
   }
 }
 
-export function formatChallengeDraft(draft: ChallengeDraft): string {
-  const answers = designChallenge.fields.map(({ id, title }) => `${title}\n${draft.answers[id] || "(No response yet)"}`);
-  const checks = designChallenge.rubric.map(({ id, title }) => `${draft.checked.includes(id) ? "[x]" : "[ ]"} ${title}`);
-  return [designChallenge.title, designChallenge.brief, "Assumptions", designChallenge.assumptions.join("\n"), "The requirement changes", designChallenge.change, ...answers, "My self-review (not a grade)", checks.join("\n")].join("\n\n");
+function briefText(challenge: DesignChallengeContent) {
+  return [challenge.title, challenge.brief, "Assumptions", challenge.assumptions.join("\n")];
+}
+
+export function formatChallengeDraft(draft: ChallengeDraft, challenge: DesignChallengeContent = designChallenge): string {
+  const answers = challenge.fields.map(({ id, title }) => `${title}\n${draft.answers[id] || "(No response yet)"}`);
+  const checks = challenge.rubric.map(({ id, title }) => `${draft.checked.includes(id) ? "[x]" : "[ ]"} ${title}`);
+  return [...briefText(challenge), "The requirement changes", challenge.change, ...answers, "My self-review (not a grade)", ...checks].join("\n\n");
+}
+
+/** For the learner to paste into their own chatbot, so feedback needs no server or account. */
+export function critiquePrompt(draft: ChallengeDraft, challenge: DesignChallengeContent = designChallenge): string {
+  const answers = challenge.fields.map(({ id, title }) => `${title}\n${draft.answers[id] || "(No response yet)"}`);
+  const rubric = challenge.rubric.map(({ title, detail }) => `- ${title} ${detail}`);
+  return [
+    "You are a senior engineer reviewing a system design. Be direct and specific. Do not praise the design unless something is genuinely strong, and do not rewrite it for me.",
+    ...briefText(challenge),
+    "A requirement changed partway through", challenge.change,
+    "My design", ...answers,
+    "Review it against these criteria", rubric.join("\n"),
+    "For each criterion, say whether my answer meets it and quote the part that shows it. Then name the two weakest decisions, the failure or number I most likely got wrong, and one question I should be able to answer but did not. If an estimate is wrong, show the corrected arithmetic. If you are unsure about something, say so rather than guessing.",
+  ].join("\n\n");
+}
+
+export function interviewerPrompt(challenge: DesignChallengeContent = designChallenge): string {
+  return [
+    "Act as a system design interviewer. Ask one question at a time and wait for my answer. Do not give me the design, and do not agree with a weak answer just to be polite.",
+    ...briefText(challenge),
+    `We have about ${challenge.minutes} minutes. Start by asking me to clarify scope. Push back on hand-waving, ask for numbers, and probe failure cases. Partway through, introduce this requirement change:`,
+    challenge.change,
+    "When I say we are done, assess me on these points, with evidence from what I actually said:",
+    challenge.rubric.map(({ title }) => `- ${title}`).join("\n"),
+  ].join("\n\n");
 }

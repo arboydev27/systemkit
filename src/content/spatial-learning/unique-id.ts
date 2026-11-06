@@ -46,8 +46,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-contract:predict:iq02",
         "title": "Predict the design consequence",
-        "prompt": "A product demands strict order across two regions. Is a local-clock ID enough?",
-        "options": ["Yes, if it uses 64 bits", "No; cross-region clock skew can reorder IDs", "Yes, if it is numeric", "No, because all IDs must be random"],
+        "prompt": "An auction ranks bids by ID. Bids arrive in Virginia and Frankfurt within the same second, and each region mints IDs from its local clock. What can the ranking promise?",
+        "options": ["Exact arrival order, since the IDs are all 64-bit numbers", "Approximate order, since the two clocks can disagree", "Exact arrival order, since the timestamp fills the top bits", "No order at all, since each region generates independently"],
         "correctIndex": 1,
         "explanation": "Time-based generators provide approximate order unless a coordinated ordering mechanism is used.",
         "reveal": {
@@ -110,8 +110,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-options:predict:iq05",
         "title": "Predict the design consequence",
-        "prompt": "Why might a database sequence fit a modest single-region tool?",
-        "options": ["It is simple and meets the actual contract", "It guarantees no gaps after crashes", "It makes all IDs secret", "It has infinite capacity"],
+        "prompt": "A sequence handles 200 IDs per second with room to spare, and a teammate proposes leasing ranges “for scale”. Which reply fits these two options?",
+        "options": ["Keep the sequence until measured load or outages justify more", "Move to ranges now, since leased ranges remove gaps after crashes", "Move to ranges now, since leased ranges keep strict creation order", "Keep the sequence, since a sequence absorbs any future write rate"],
         "correctIndex": 0,
         "explanation": "Choose the simplest mechanism that satisfies scale, ordering, and availability needs.",
         "reveal": {
@@ -158,8 +158,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-layout:predict:sequence-exhaustion",
         "title": "Predict the field limit",
-        "prompt": "The displayed sequence field has 12 bits. After all 4,096 sequence values are used in one worker millisecond, what must the generator do?",
-        "options": ["Wait for the next millisecond or apply backpressure", "Wrap sequence under the same timestamp and worker", "Borrow bits without changing the layout contract"],
+        "prompt": "A flash sale sends one worker 5,000 ID requests in a single millisecond. With the 12-bit sequence field shown, what happens to request 4,097?",
+        "options": ["It waits for the next millisecond or gets backpressure", "It takes sequence 0 again under the same timestamp and worker", "It gets sequence 4,096, which carries into the machine field", "It borrows a bit from the machine field for just that one ID"],
         "correctIndex": 0,
         "explanation": "The sequence field permits 2^12 = 4,096 values. Reusing one under the same timestamp and worker can repeat an ID; the durable layout cannot silently change.",
         "reveal": {
@@ -207,8 +207,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-generate:predict:iq11",
         "title": "Predict the design consequence",
-        "prompt": "What should happen after 4,096 IDs in one millisecond on one worker?",
-        "options": ["Wrap sequence to zero immediately", "Wait for next millisecond or apply backpressure", "Reuse the first ID", "Change the epoch silently"],
+        "prompt": "To spare callers any wait, a developer makes the sequence return to 0 right after 4,095, in the same millisecond. Follow these steps. What does that cause?",
+        "options": ["No harm, since each call composes a brand-new ID anyway", "A repeat of an ID already issued in that same millisecond", "An ID that sorts early but stays unique across the fleet", "A collision only if another worker shares this machine ID"],
         "correctIndex": 1,
         "explanation": "Wrapping under the same timestamp and worker identity repeats an encoded value.",
         "reveal": {
@@ -263,8 +263,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-clock:predict:iq14",
         "title": "Predict the design consequence",
-        "prompt": "A worker detects its clock is behind its last issued timestamp. Which response is safe?",
-        "options": ["Ignore it and reset sequence", "Pause or stop issuance under a defined rollback policy", "Issue the same ID again", "Delete the last timestamp"],
+        "prompt": "A VM migration leaves a worker’s clock reading T = 104 just after it issued an ID at T = 105. Callers are waiting. What should the generator do?",
+        "options": ["Issue at T = 104 with sequence 0, since 105 is already used", "Hold new IDs until the clock passes 105, or follow its policy", "Issue at T = 104 and rely on a unique index to catch repeats", "Restart the process so its last issued timestamp is cleared"],
         "correctIndex": 1,
         "explanation": "Generation must wait or use another controlled strategy until repeating a prior field combination is impossible.",
         "reveal": {
@@ -295,7 +295,7 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-workers:explain:1",
         "title": "Lease a unique live worker identity",
-        "description": "Assign each generator a unique data-center and machine ID from a small registry or lease service. On startup, obtain and validate the lease before issuing IDs. A duplicate configuration lets two workers generate the same timestamp and sequence combination. If a lease expires during a network partition, an old worker must stop; otherwise a new holder and old holder can collide. A fencing token or equivalent process control can make this transition enforceable.",
+        "description": "Assign each generator a unique data-center and machine ID from a small registry or lease service. On startup, obtain and validate the lease before issuing IDs. A duplicate configuration lets two workers generate the same timestamp and sequence combination. If a lease expires during a network partition, an old worker must stop; otherwise a new holder and old holder can collide. Worker A must stop issuing once it can no longer renew, and the registry should wait out a safe delay before reassigning the ID. Classic fencing tokens need a receiver that can reject stale writers, which ID generation usually lacks.",
         "nodeIds": ["id-workers:node:0", "id-workers:node:1", "id-workers:node:2", "id-workers:node:3"],
         "linkIds": ["id-workers:relation:0", "id-workers:relation:1", "id-workers:relation:2"]
       },
@@ -321,8 +321,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-workers:predict:iq17",
         "title": "Predict the design consequence",
-        "prompt": "A lease expires but the old worker keeps issuing after a replacement starts. What is the risk?",
-        "options": ["Only more logging", "Two live holders can collide", "The timestamp field grows", "A cache miss"],
+        "prompt": "A garbage-collection pause freezes Worker A past its lease on ID 17, and Worker B now holds 17. A wakes with requests queued. What happens if it issues without checking?",
+        "options": ["No collision, since B’s IDs start from a later sequence", "A and B can produce identical IDs in the same millisecond", "The registry rejects A’s IDs when they reach the database", "A’s IDs sort late, but they stay unique across the fleet"],
         "correctIndex": 1,
         "explanation": "A stale holder must be fenced or stopped when its identity is reassigned.",
         "reveal": {
@@ -391,8 +391,8 @@ export const uniqueIdTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "id-operate:predict:iq20",
         "title": "Predict the design consequence",
-        "prompt": "A million generated IDs show no collision. Why is that insufficient proof?",
-        "options": ["The sample may miss restart, lease, and clock failures", "All tests are useless", "Only UUIDs can be tested", "ID layout has no invariants"],
+        "prompt": "A release gate requires zero duplicates across 500 million IDs in staging, where clocks never step and leases never expire. What is the gap in that gate?",
+        "options": ["It never exercises the faults that actually cause duplicates", "It needs several billion IDs before a duplicate could appear", "It needs random IDs so that collision odds can be calculated", "It tests generation, while duplicates arise in serialization"],
         "correctIndex": 0,
         "explanation": "Uniqueness depends on invariants under failures as well as ordinary concurrent samples.",
         "reveal": {

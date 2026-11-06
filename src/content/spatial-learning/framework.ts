@@ -35,8 +35,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-scope:predict:fq01",
         "title": "Predict the design consequence",
-        "prompt": "Someone asks you to design a “news feed.” What is the most useful first move?",
-        "options": ["Clarify users and core feed behaviors", "Choose a distributed database", "Draw five regions", "Optimize ranking"],
+        "prompt": "A product lead asks for “a marketplace like eBay” and wants a diagram by Friday. What is the most useful first move?",
+        "options": ["Clarify who buys and sells and what launches first", "Choose a distributed database to hold the listings", "Draw regional data centers for buyers around the world", "Design the search ranking for listing results"],
         "correctIndex": 0,
         "explanation": "A broad name does not establish the product. Clarifying behavior and scope makes later choices meaningful.",
         "reveal": {
@@ -103,8 +103,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-requirements:predict:fq04",
         "title": "Predict the design consequence",
-        "prompt": "Feed ordering is unspecified. What should you do?",
-        "options": ["Silently choose ranked order", "Skip the read path", "Choose the most complex option", "Ask and record an explicit assumption if needed"],
+        "prompt": "Nobody has said whether job-board search results sort by date or by relevance, and the product manager is away this week. What should you do?",
+        "options": ["Choose relevance silently, since it sounds better", "Build both sort orders now to avoid a wrong guess", "Hold the whole design until the manager returns", "Record an explicit assumption and confirm it later"],
         "correctIndex": 3,
         "explanation": "Ordering changes retrieval. Make the uncertainty visible and confirm or revisit the assumption.",
         "reveal": {
@@ -160,8 +160,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-estimates:predict:fq05",
         "title": "Predict the design consequence",
-        "prompt": "What extra information best turns a count of registered accounts into a read-traffic estimate?",
-        "options": ["Daily active users and feed opens per active user", "Database table count", "CSS framework", "Engineering team size"],
+        "prompt": "A photo app reports 20 million sign-ups. What extra figures let you estimate how many gallery views it serves per day?",
+        "options": ["Daily active users and gallery views per active user", "Photos stored so far and the average size of a photo", "Monthly sign-ups and the share of accounts still open", "Servers in use and the average CPU load on each one"],
         "correctIndex": 0,
         "explanation": "Registered accounts do not indicate request rate. Active usage and frequency do.",
         "reveal": {
@@ -218,8 +218,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-blueprint:predict:fq07",
         "title": "Predict the design consequence",
-        "prompt": "What should each component establish in the first blueprint?",
-        "options": ["Every schema field", "Deployment commands", "Its purpose and the data path through it", "Its final vendor and size"],
+        "prompt": "You have ten minutes to sketch a ride-hailing service for reviewers. For each box you draw, what should be clear?",
+        "options": ["Its schema fields and the indexes it will need", "Its deployment steps and rollback commands", "What it does and which data passes through it", "Its final vendor, instance size, and price"],
         "correctIndex": 2,
         "explanation": "The first diagram establishes responsibilities and flow. Details follow where they resolve a decision.",
         "reveal": {
@@ -287,8 +287,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-flows:predict:fq09",
         "title": "Predict the design consequence",
-        "prompt": "Which pair of walkthroughs best tests a simple feed design?",
-        "options": ["Publish one post and retrieve a friend’s feed", "Deploy a server and rotate a password", "Open a dashboard and change a theme", "Estimate a bill and choose a font"],
+        "prompt": "You have drawn a first design for a shared photo album. Which pair of walkthroughs tests it best?",
+        "options": ["One person uploads a photo; a friend opens the album", "One engineer deploys a server; another rotates its keys", "An admin opens a dashboard; a manager exports a report", "A load test hits the homepage; a job compacts the logs"],
         "correctIndex": 0,
         "explanation": "A write and a read exercise the core behaviors and expose how data is stored, found, and returned.",
         "reveal": {
@@ -354,8 +354,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-iterate:predict:fq11",
         "title": "Predict the design consequence",
-        "prompt": "Feedback adds video to a text-only post feature. What is the best response?",
-        "options": ["Add a CDN without considering upload", "Discard all earlier decisions", "Confirm scope and revise assumptions, flows, and estimates", "Keep the original design"],
+        "prompt": "A reviewer says a text-only support-ticket tool must now accept screen recordings up to 500 MB. What is the best response?",
+        "options": ["Add a CDN now and work out the upload path later", "Restart the design, since the old decisions are void", "Confirm scope, then revise assumptions and flows", "Keep the design and treat recordings as a later add-on"],
         "correctIndex": 2,
         "explanation": "Media affects several parts of the design. Confirm the change, update the model, and explain tradeoffs.",
         "reveal": {
@@ -401,8 +401,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-deep-dive:predict:fq13",
         "title": "Predict the design consequence",
-        "prompt": "How should you choose what to examine after agreeing on the blueprint?",
-        "options": ["Pick the component tied to a major requirement or risk", "Explain every box equally", "Start with the easiest box", "Choose the newest technology"],
+        "prompt": "The blueprint for a concert-ticket site is agreed, and overselling seats is the biggest worry. What do you examine next?",
+        "options": ["Seat reservation under a burst of simultaneous buyers", "The email receipt, since it is the easiest box to finish", "Every box for five minutes, so that none goes unexplained", "A newer database engine that the team wants to learn"],
         "correctIndex": 0,
         "explanation": "Focused detail is useful where it resolves a decision or risk.",
         "reveal": {
@@ -461,8 +461,8 @@ export const frameworkTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "framework-review:predict:fq15",
         "title": "Predict the design consequence",
-        "prompt": "What belongs in the closing review of a design that meets today’s needs?",
-        "options": ["Only the happy path", "Immediate sharding of every database", "Bottlenecks, failure, metrics, rollout, and change triggers", "A claim it is complete forever"],
+        "prompt": "A reporting service meets this quarter’s needs and the review has five minutes left. What should the close cover?",
+        "options": ["A recap of the happy path and the final feature list", "A plan to shard each database before launch traffic", "Bottlenecks, failure, metrics, rollout, and triggers", "Sign-off that the design is finished and can be closed"],
         "correctIndex": 2,
         "explanation": "Review the operating and evolution path as well as the feature flow.",
         "reveal": {

@@ -1,15 +1,20 @@
 .challenge { margin-top: 38px; padding-top: 30px; border-top: 1px solid var(--line); }
-.kicker { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
-.challenge h2 { margin: 8px 0 11px; font-size: clamp(1.3rem, 3vw, 1.6rem); line-height: 1.25; letter-spacing: -.035em; }
+.challenge .title { margin: 0 0 11px; font-size: clamp(1.45rem, 3vw, 1.8rem); line-height: 1.2; letter-spacing: -.035em; }
 .intro, .workspace p, .workspace li { color: var(--ink-soft); font-size: 14px; line-height: 1.7; }
 .intro { max-width: 620px; margin-bottom: 20px; }
-.disclosure { overflow: hidden; border: 1px solid var(--control-border); border-radius: 12px; background: var(--surface); }
-.disclosure > summary { padding: 18px 20px; color: var(--ink); font-size: 14px; font-weight: 720; cursor: pointer; }
-.disclosure > summary > span { display: block; margin: 5px 0 0 18px; color: var(--muted); font-size: 12px; font-weight: 500; }
-.disclosure > summary:hover, .solution > summary:hover { background: var(--surface-soft); }
-.disclosure > summary:focus-visible, .solution > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: -4px; }
-.workspace { padding: 0 24px 24px; border-top: 1px solid var(--line); }
-.brief { padding-top: 24px; }
+.solution > summary:hover { background: var(--surface-soft); }
+.solution > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: -4px; }
+.workspace { padding: 4px 24px 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.brief { padding-top: 20px; }
+.timer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; }
+.workspace .timer p { flex: 1 1 280px; margin: 0; font-size: 13px; line-height: 1.55; }
+.timer strong { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.timeUp { color: var(--error) !important; }
+.textAction { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0; border: 0; background: none; color: var(--ink); font-size: 12px; font-weight: 700; }
+.textAction:hover { text-decoration: underline; text-underline-offset: 3px; }
+.feedback { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.feedback h3 { margin-bottom: 8px; }
+.feedback .actions { margin-top: 14px; }
 .workspace h3 { margin-bottom: 12px; color: var(--ink); font-size: 18px; line-height: 1.4; letter-spacing: -.025em; }
 .brief ul { display: grid; gap: 9px; padding-left: 21px; margin: 16px 0 22px; }
 .workspace .storage { margin: 0; padding: 12px 14px; border-radius: 7px; background: var(--surface-soft); color: var(--muted); font-size: 12px; }
@@ -21,10 +26,10 @@
 .response textarea::placeholder { color: var(--muted); opacity: 1; }
 .response textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .limit { display: block; margin-top: 6px; color: var(--muted); text-align: right; font-size: 11px; line-height: 1.5; font-variant-numeric: tabular-nums; }
-.workspace .change { display: grid; gap: 5px; padding: 14px 16px; border-left: 2px solid var(--accent); background: var(--accent-tint); border-radius: 0 7px 7px 0; }
+.workspace .change { display: grid; gap: 5px; padding: 14px 16px; background: var(--accent-tint); border-radius: 7px; }
 .change strong { color: var(--ink); font-size: 12px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 25px; }
-.primaryButton, .secondaryButton { min-height: 44px; padding: 10px 15px; border-radius: 7px; font-size: 12px; line-height: 1.5; font-weight: 720; }
+.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 10px 15px; border-radius: 7px; font-size: 12px; line-height: 1.5; font-weight: 720; }
 .primaryButton { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
 .primaryButton:hover:not(:disabled) { background: var(--accent-hover); }
 .secondaryButton { border: 1px solid var(--control-border); background: var(--surface); color: var(--ink); }
@@ -55,7 +60,6 @@
 
 @media (max-width: 700px) {
   .workspace { padding: 0 16px 20px; }
-  .disclosure > summary { padding: 16px; }
   .response textarea { font-size: 16px; }
   .intro, .workspace p, .workspace li { font-size: 15px; }
   .actions > button { flex: 1 1 170px; }

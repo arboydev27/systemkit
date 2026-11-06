@@ -48,8 +48,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-contract:predict:range-query",
         "title": "Predict a new query requirement",
-        "prompt": "The displayed get(key) path returns one opaque value. The product now needs a query over many order records. Which diagram responsibility needs a separate design?",
-        "options": ["Other queries: separate index", "get(key) magically becomes an arbitrary join engine", "Client identity alone performs the query"],
+        "prompt": "A support tool must list every customer whose saved address is in Ohio, using the get(key) path shown. Which part of the diagram handles that?",
+        "options": ["A separately kept index, the Other queries branch", "get(key), called once with a state-based key", "Partition, scanning each opaque value it holds", "Client, filtering values after fetching them all"],
         "correctIndex": 0,
         "explanation": "The partition supports exact key lookup. The Other queries branch explicitly calls for a separate index; the key-value contract does not automatically supply arbitrary searches.",
         "reveal": {
@@ -119,8 +119,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-partition:predict:kvq04",
         "title": "Predict the design consequence",
-        "prompt": "A server joins a consistent-hash ring. Which data should normally move?",
-        "options": ["Every key", "Ranges assigned to the new owner", "Only cached values", "Nothing until failure"],
+        "prompt": "The New node joins next to Node B on the ring. A key in range C was already on Node C. What happens to that key?",
+        "options": ["It moves to the New node with all other keys", "It stays on Node C, whose range did not change", "It moves to Node B, which gave up part of its range", "It is copied to every owner until the ring settles"],
         "correctIndex": 1,
         "explanation": "Consistent hashing limits movement to ranges whose ownership changes.",
         "reveal": {
@@ -189,13 +189,13 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
         "id": "kv-replication:predict:rack-loss",
         "title": "Predict a rack failure",
         "prompt": "Replica A in rack 1 is unavailable. Which displayed copies occupy other failure domains?",
-        "options": ["Replica B in rack 2 and Replica C at another site", "Three tokens on Replica A as three independent hosts", "N = 3 as an extra physical storage server"],
+        "options": ["Replica B in rack 2 and Replica C at another site", "Replica A’s other tokens, which count as separate hosts", "Replica B alone, because Replica C sits outside the cluster", "Replica C alone, because racks in one site fail together"],
         "correctIndex": 0,
-        "explanation": "The authored replica details name rack 1, rack 2, and another site, while N = 3 summarizes three hosts. Distinct placement leaves other copies when one rack fails.",
+        "explanation": "The replica details name rack 1, rack 2, and another site, while N = 3 summarizes three hosts. Distinct placement leaves other copies when one rack fails.",
         "reveal": {
           "id": "kv-replication:reveal:rack-loss",
           "title": "Predict a rack failure",
-          "description": "The authored replica details name rack 1, rack 2, and another site, while N = 3 summarizes three hosts. Distinct placement leaves other copies when one rack fails.",
+          "description": "The replica details name rack 1, rack 2, and another site, while N = 3 summarizes three hosts. Distinct placement leaves other copies when one rack fails.",
           "nodeIds": ["kv-replication:node:1", "kv-replication:node:2", "kv-replication:node:3", "kv-replication:node:4"],
           "linkIds": [],
           "statuses": {
@@ -256,14 +256,14 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-quorum:predict:two-acks",
         "title": "Predict the write return",
-        "prompt": "Replica A and Replica B acknowledge the displayed W = 2 write while Replica C may lag. Which displayed outcome can follow once the required acknowledgments are valid?",
-        "options": ["Return after 2 acknowledgments", "Wait for C merely because every operation requires all three", "Return before either acknowledgment"],
+        "prompt": "Replica C’s disk is slow and it falls minutes behind, while A and B answer normally. What does the client see for the write shown?",
+        "options": ["Success after A and B acknowledge", "A delay until C catches up with the others", "Success once the coordinator gets the request", "An error, because not all three replicas answered"],
         "correctIndex": 0,
-        "explanation": "The write contract chooses W = 2. A and B each have an authored acknowledgment path to Return; C can lag, so success does not imply every copy has already converged.",
+        "explanation": "The write contract chooses W = 2. A and B each have an acknowledgment path to Return; C can lag, so success does not imply every copy has already converged.",
         "reveal": {
           "id": "kv-quorum:reveal:two-acks",
           "title": "Predict the write return",
-          "description": "The write contract chooses W = 2. A and B each have an authored acknowledgment path to Return; C can lag, so success does not imply every copy has already converged.",
+          "description": "The write contract chooses W = 2. A and B each have an acknowledgment path to Return; C can lag, so success does not imply every copy has already converged.",
           "nodeIds": ["kv-quorum:node:1", "kv-quorum:node:2", "kv-quorum:node:3", "kv-quorum:node:4", "kv-quorum:node:5"],
           "linkIds": ["kv-quorum:relation:1", "kv-quorum:relation:2", "kv-quorum:relation:4", "kv-quorum:relation:5"]
         }
@@ -325,8 +325,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-conflicts:predict:kvq11",
         "title": "Predict the design consequence",
-        "prompt": "Two clients edit a cart from one original version. Which approach preserves both edits for reconciliation?",
-        "options": ["Keep the newest timestamp", "Return sibling versions", "Discard the original key", "Move partitions"],
+        "prompt": "v2a and v2b reach the Compare step, and their clocks show neither includes the other. What should Compare hand to the next reader?",
+        "options": ["v2b alone, since it reached this replica last", "Both v2a and v2b, as siblings to merge", "v2a alone, since its device edited first", "v1, since the two edits cancel each other out"],
         "correctIndex": 1,
         "explanation": "Siblings preserve concurrent outcomes for domain-aware merging.",
         "reveal": {
@@ -385,8 +385,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-failure:predict:preferred-replica-out",
         "title": "Predict temporary replica failure",
-        "prompt": "Replica B is temporarily out. What does the displayed Substitute C path retain for recovery?",
-        "options": ["A hint for B, later handed off through Recovery", "Proof that B permanently died", "A guarantee that every read has newest data"],
+        "prompt": "Replica B is down for ten minutes while a write succeeds. When B returns, how does it get the write it missed?",
+        "options": ["Substitute C hands its hinted copy back during Recovery", "Replica A replays the coordinator’s full log onto B", "The coordinator re-sends every write from the outage", "B waits for the next client read to bring the value in"],
         "correctIndex": 0,
         "explanation": "Coordinator can use Substitute C under the sloppy-quorum policy. C retains a hint for B and Recovery hands it back; this is separate from guarantees on fixed replica overlap.",
         "reveal": {
@@ -457,8 +457,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-repair:predict:kvq15",
         "title": "Predict the design consequence",
-        "prompt": "An old value reappears when a node missing a delete rejoins. What failed?",
-        "options": ["API syntax", "Deletion metadata expired before safe repair", "Virtual nodes", "TCP"],
+        "prompt": "The Right branch differs because replica A holds key k while replica B deleted it last week. Which record lets Repair keys remove k from A instead of copying it to B?",
+        "options": ["The Left branch hash, which matched on both sides", "A tombstone carrying the deletion version", "The root hash, which names the newer replica", "The leaf hash, which records who wrote last"],
         "correctIndex": 1,
         "explanation": "A retained tombstone carries the deletion version.",
         "reveal": {
@@ -530,8 +530,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-paths:predict:kvq16",
         "title": "Predict the design consequence",
-        "prompt": "When should a replica count toward a durable write acknowledgment?",
-        "options": ["After volatile memory only", "After required log persistence", "After all future compaction", "After Bloom filter maybe"],
+        "prompt": "To speed up writes, a team proposes acknowledging put(k,v) once Memtable is updated and logging in the background. Which step must still come first to keep the durability promise?",
+        "options": ["Updating Memtable, because reads depend on it", "Reaching the Commit log durability gate", "Flushing SSTables, so that data is on disk", "Checking the Bloom filter for an older version"],
         "correctIndex": 1,
         "explanation": "The required log durability boundary must be reached first.",
         "reveal": {
@@ -560,7 +560,7 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       "kv-operations:relation:2": {"meaning": "connection", "condition": "", "explanation": "Route (healthy owners) leads to Hints (backlog age) in this lesson. Verify behavior during partitions and recovery, not only healthy throughput."},
       "kv-operations:relation:3": {"meaning": "connection", "condition": "", "explanation": "Quorum (success / errors) leads to Repair (lag + progress) in this lesson. Verify behavior during partitions and recovery, not only healthy throughput."},
       "kv-operations:relation:4": {"meaning": "connection", "condition": "", "explanation": "Hints (backlog age) leads to Client truth (latency + freshness) in this lesson. Verify behavior during partitions and recovery, not only healthy throughput."},
-      "kv-operations:relation:5": {"meaning": "connection", "condition": "", "explanation": "Repair joins the authored path. The diagram does not name a separate endpoint for this segment."}
+      "kv-operations:relation:5": {"meaning": "connection", "condition": "", "explanation": "Repair joins the path. The diagram does not name a separate endpoint for this segment."}
     },
     "groups": [],
     "scenes": [
@@ -601,8 +601,8 @@ export const keyValueTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "kv-operations:predict:kvq18",
         "title": "Predict the design consequence",
-        "prompt": "Latency is low but hint backlog age rises. What should operators inspect?",
-        "options": ["CSS", "Replica convergence and repair risk", "DNS only", "Key string type"],
+        "prompt": "A fault drill ends and client latency returns to normal within a minute, but Hints and Repair are still climbing. What does Client truth still need to prove?",
+        "options": ["That p99 latency stays below target at peak", "That reads are fresh, as replicas may still differ", "That routing has dropped the failed node for good", "That error rates stay flat across every region"],
         "correctIndex": 1,
         "explanation": "Old hints imply stale replicas and recovery risk.",
         "reveal": {

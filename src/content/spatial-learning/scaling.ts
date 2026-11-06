@@ -44,7 +44,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
         "id": "single-server:predict:dns-result",
         "title": "Predict the next step",
         "prompt": "DNS has returned the address. Which displayed path happens next?",
-        "options": ["The visitor sends HTTP to One server", "DNS queries the database", "The server is automatically replicated"],
+        "options": ["The visitor sends HTTP to One server", "DNS forwards the request to One server", "One server pushes the page to the visitor", "The visitor asks DNS for the page itself"],
         "correctIndex": 0,
         "explanation": "The returned IP identifies the server. The HTTP request now crosses the Visitor → One server relation.",
         "reveal": {
@@ -90,7 +90,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "split-tiers:view:data-path",
         "title": "Web and persistent data",
-        "description": "Inspect both authored read and write relations across the tier boundary.",
+        "description": "Inspect both the read and write relations across the tier boundary.",
         "members": ["web", "db"],
         "layout": "pipeline"
       }
@@ -100,7 +100,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
         "id": "split-tiers:predict:web-growth",
         "title": "Predict the resource change",
         "prompt": "Web application CPU is the bottleneck while database capacity is sufficient. What does separating the tiers permit?",
-        "options": ["Grow web resources independently", "Every query moves to a CDN", "Remove persistent storage"],
+        "options": ["Grow web resources without resizing the database", "Grow both tiers together so they stay balanced", "Move the web code back onto the database machine", "Upgrade the database so it absorbs the web tier’s CPU work"],
         "correctIndex": 0,
         "explanation": "The Web server and Database are separate responsibilities. Web capacity can change without resizing the database.",
         "reveal": {
@@ -159,7 +159,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "scale-web:instance-failure",
         "title": "Route around an unavailable instance",
-        "description": "In this authored outage, Web A is unavailable and the balancer routes new requests to healthy Web B. The balancer itself still needs a resilient deployment.",
+        "description": "In this example outage, Web A is unavailable and the balancer routes new requests to healthy Web B. The balancer itself still needs a resilient deployment.",
         "nodeIds": ["visitors", "balancer", "web-a", "web-b"],
         "linkIds": ["scale-web:relation:0", "scale-web:relation:2"],
         "statuses": {
@@ -181,8 +181,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "scale-web:predict:one-instance-down",
         "title": "Predict healthy routing",
-        "prompt": "Web A is unavailable and Web B is healthy. Where should the balancer route a new request?",
-        "options": ["Web B", "The unavailable Web A", "Directly into database storage"],
+        "prompt": "During a rolling deploy, Web A is failing its health checks while Web B passes. Where should the balancer send a new request?",
+        "options": ["Web B, which is passing its health checks", "Web A, whose turn came up in the rotation", "Both instances, so the faster one can answer", "Neither instance, until both pass their checks"],
         "correctIndex": 0,
         "explanation": "Only the Balancer → Web B route is active in this example. Horizontal redundancy helps only while remaining components have capacity.",
         "reveal": {
@@ -273,14 +273,14 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "replication:predict:primary-down",
         "title": "Predict the write consequence",
-        "prompt": "The primary fails and Replica B is reachable. What can this diagram safely conclude about writes?",
-        "options": ["A recovery plan must choose and redirect to a promoted writer", "Replica B is automatically a safe writer with every committed write", "Both replicas immediately accept independent writes"],
+        "prompt": "A power failure takes the primary offline at noon. Replica B is reachable and was receiving changes asynchronously. What can this diagram safely conclude about writes?",
+        "options": ["A recovery plan must choose and redirect to a promoted writer", "Replica B already holds each committed write and can take writes", "Both replicas can accept independent writes until Primary returns", "Web servers should keep writing to Primary until it restarts"],
         "correctIndex": 0,
-        "explanation": "The authored write arrow terminates at Primary. Replica B has copies and a read role; lag and promotion policy must be resolved before redirecting writes.",
+        "explanation": "The write arrow in this diagram terminates at Primary. Replica B has copies and a read role; lag and promotion policy must be resolved before redirecting writes.",
         "reveal": {
           "id": "replication:reveal:primary-down",
           "title": "Predict the write consequence",
-          "description": "The authored write arrow terminates at Primary. Replica B has copies and a read role; lag and promotion policy must be resolved before redirecting writes.",
+          "description": "The write arrow terminates at Primary. Replica B has copies and a read role; lag and promotion policy must be resolved before redirecting writes.",
           "nodeIds": ["web", "primary", "replica-b"],
           "linkIds": ["replication:relation:0", "replication:relation:4"],
           "statuses": {
@@ -350,7 +350,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "cache:outage",
         "title": "Plan the cache fallback",
-        "description": "In this authored outage, the unavailable cache shifts reads toward the database. The database is marked under pressure to show the lesson’s stated burst risk, not a measured capacity result.",
+        "description": "In this example outage, the unavailable cache shifts reads toward the database. The database is marked under pressure to show the lesson’s stated burst risk, not a measured capacity result.",
         "nodeIds": ["visitor", "web", "cache", "db"],
         "linkIds": ["cache:relation:0", "cache:relation:3", "cache:relation:4"],
         "statuses": {
@@ -380,8 +380,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "cache:predict:cache-outage",
         "title": "Predict fallback pressure",
-        "prompt": "The cache is unavailable and requests fall back to persistent data. Which component can receive the extra read work?",
-        "options": ["Database", "DNS", "A read replica that is not in this diagram"],
+        "prompt": "A deploy flushes the app cache during the lunch peak, so every lookup misses for a while. Which component receives the extra read work?",
+        "options": ["The database, through the web tier’s miss path", "The cache, which queues each miss until it refills", "The CDN edge, which answers misses from its copy", "The load balancer, which retries each missed lookup"],
         "correctIndex": 0,
         "explanation": "The fallback crosses Web tier → Database. Cached hits no longer avoid that work, so the database can face a burst of reads; fallback and spare capacity need a deliberate plan.",
         "reveal": {
@@ -456,8 +456,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "cdn:predict:cold-edge",
         "title": "Predict a cold edge request",
-        "prompt": "The edge has no copy of an asset. Which authored relations supply it?",
-        "options": ["Edge → Origin, then Origin → Edge", "Visitor → database", "Origin disappears after the first hit"],
+        "prompt": "A visitor requests an image that the nearby edge has never served. Which displayed paths supply it?",
+        "options": ["Edge → Origin, then Origin → Edge", "Visitor → Origin, then Origin → Visitor", "Edge → Database, then Database → Edge", "Visitor → Edge, then Edge → Visitor only"],
         "correctIndex": 0,
         "explanation": "A cache miss fetches the source asset from origin and fills the edge. A hit can then return from the edge.",
         "reveal": {
@@ -512,7 +512,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "stateless:replaceable",
         "title": "Replace a web instance without moving sessions",
-        "description": "In this authored outage, Web A is unavailable and Web B uses shared session state. The system still has state outside the web process.",
+        "description": "In this example outage, Web A is unavailable and Web B uses shared session state. The system still has state outside the web process.",
         "nodeIds": ["balancer", "web-a", "web-b", "session"],
         "linkIds": ["stateless:relation:2", "stateless:relation:4"],
         "statuses": {
@@ -534,8 +534,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "stateless:predict:replace-web",
         "title": "Predict login after replacement",
-        "prompt": "Web A is removed. Which displayed responsibility lets Web B retain the user’s login state?",
-        "options": ["The shared Session store", "The removed Web A heap", "A static CDN asset"],
+        "prompt": "An autoscaler removes Web A overnight. Which displayed part lets Web B keep the user’s login state?",
+        "options": ["The shared Session store, which Web B reads", "A copy of Web A’s memory taken at shutdown", "A sticky-session table on the load balancer", "A CDN copy of the user’s last session page"],
         "correctIndex": 0,
         "explanation": "Web B reads the shared Session store. Sessions survive web-instance replacement according to that store’s durability policy.",
         "reveal": {
@@ -567,21 +567,21 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       "multi-dc:relation:0": {"meaning": "request", "condition": "For worldwide entry to the application.", "explanation": "Visitors use geo-aware resolution to find a regional entry."},
       "multi-dc:relation:1": {"meaning": "decision", "condition": "When Region A is nearby and healthy under the routing policy.", "explanation": "GeoDNS selects the Region A application route."},
       "multi-dc:relation:2": {"meaning": "decision", "condition": "When Region B is selected by locality or a tested failover policy.", "explanation": "GeoDNS can direct requests toward Region B; this does not itself recover data."},
-      "multi-dc:relation:3": {"meaning": "read", "condition": "While the regional data store can serve the required read.", "explanation": "Web A reads Data A in the authored regional path."},
+      "multi-dc:relation:3": {"meaning": "read", "condition": "While the regional data store can serve the required read.", "explanation": "Web A reads Data A in the regional path."},
       "multi-dc:relation:4": {"meaning": "read", "condition": "While Region B holds the data required for the request.", "explanation": "Web B reads Data B; redirected traffic can still fail if required records are absent."},
-      "multi-dc:relation:5": {"meaning": "replication", "condition": "Under an explicit A-to-B data synchronization strategy.", "explanation": "The authored arrow copies Data A toward Data B. Lag and failover guarantees depend on the chosen strategy.", "source": "us-db", "target": "eu-db"}
+      "multi-dc:relation:5": {"meaning": "replication", "condition": "Under an explicit A-to-B data synchronization strategy.", "explanation": "The arrow copies Data A toward Data B. Lag and failover guarantees depend on the chosen strategy.", "source": "us-db", "target": "eu-db"}
     },
     "groups": [
       {
         "id": "multi-dc:region-a",
         "title": "Region A",
-        "description": "The authored regional application and its data store.",
+        "description": "The regional application and its data store.",
         "members": ["us-web", "us-db"]
       },
       {
         "id": "multi-dc:region-b",
         "title": "Region B",
-        "description": "The authored regional application and its data store.",
+        "description": "The regional application and its data store.",
         "members": ["eu-web", "eu-db"]
       }
     ],
@@ -596,13 +596,13 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "multi-dc:regional-data",
         "title": "Keep each regional data path visible",
-        "description": "The authored regional applications read their corresponding stores. Data availability must be considered in both regions.",
+        "description": "The regional applications read their corresponding stores. Data availability must be considered in both regions.",
         "nodeIds": ["us-web", "us-db", "eu-web", "eu-db"],
         "linkIds": ["multi-dc:relation:3", "multi-dc:relation:4"]
       },
       {
         "id": "multi-dc:a-to-b",
-        "title": "Copy data in the authored direction",
+        "title": "Copy data in the direction",
         "description": "The diagram shows Data A → Data B synchronization. Treat A as the source of the displayed copy; this does not depict two independent concurrent writers.",
         "nodeIds": ["us-db", "eu-db"],
         "linkIds": ["multi-dc:relation:5"]
@@ -624,7 +624,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "multi-dc:view:data-copy",
         "title": "Regional data synchronization",
-        "description": "Inspect the one authored A → B copy relation.",
+        "description": "Inspect the one A → B copy relation.",
         "members": ["us-db", "eu-db"],
         "layout": "pipeline"
       },
@@ -641,7 +641,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
         "id": "multi-dc:predict:source-region-down",
         "title": "Predict a regional failover",
         "prompt": "Region A, the source of the displayed A → B copy, is unavailable. Can routing to B establish that B is a safe new writer with every acknowledged record?",
-        "options": ["No; data lag, writer promotion, and capacity need an explicit recovery plan", "Yes; the DNS arrow proves all data is synchronized", "Yes; both data stores are independent simultaneous writers"],
+        "options": ["No; data lag, promotion, and capacity need an explicit recovery plan", "Yes; the DNS arrow shows that all data has already been synchronized", "Yes; both data stores act as independent writers at the same moment", "No; B cannot serve any traffic until Region A has been restored first"],
         "correctIndex": 0,
         "explanation": "GeoDNS can change the traffic route. The A → B copy arrow does not promise complete synchronization or safe automatic promotion, so missing records and write recovery remain separate decisions.",
         "reveal": {
@@ -713,7 +713,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "queue:backlog",
         "title": "Pending work survives a worker outage",
-        "description": "In this authored example Worker A is unavailable; pending jobs remain in a suitable durable queue and Worker B can process them. A rising backlog calls for checking arrival rate and worker health.",
+        "description": "In this example, Worker A is unavailable; pending jobs remain in a suitable durable queue and Worker B can process them. A rising backlog calls for checking arrival rate and worker health.",
         "nodeIds": ["web", "queue", "worker-a", "worker-b"],
         "linkIds": ["queue:relation:1", "queue:relation:4"],
         "statuses": {
@@ -736,8 +736,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "queue:predict:worker-outage",
         "title": "Predict pending work",
-        "prompt": "Worker A is unavailable and the queue is durable. What should happen to its unfinished work?",
-        "options": ["Keep it recoverable for a healthy worker under the queue policy", "Report every queued image as processed", "Move the original image bytes into DNS"],
+        "prompt": "Worker A’s host is rebooted for a security patch while 500 resize jobs wait in the durable queue. What should happen to its unfinished work?",
+        "options": ["It stays recoverable for a healthy worker under the queue policy", "It is marked processed so that the backlog does not keep growing", "It returns to the web tier, which processes it inside the request", "It is dropped, and each uploader has to send the image once more"],
         "correctIndex": 0,
         "explanation": "A suitable durable queue retains pending work. The Queue → Worker B path remains available, while queue age and backlog reveal delayed completion.",
         "reveal": {
@@ -771,9 +771,9 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       "observability:relation:1": {"meaning": "connection", "condition": "", "explanation": "Balancer (traffic) leads to Web tier (requests) in this lesson. Logs explain failures; metrics show scale and trends."},
       "observability:relation:2": {"meaning": "read", "condition": "For the application read path.", "explanation": "The web tier accesses this data dependency; inspect its latency and health separately."},
       "observability:relation:3": {"meaning": "read", "condition": "For the application read path.", "explanation": "The web tier accesses this data dependency; inspect its latency and health separately."},
-      "observability:relation:4": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This authored signal collection arrow does not replicate the database or cache contents."},
-      "observability:relation:5": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This authored signal collection arrow does not replicate the database or cache contents."},
-      "observability:relation:6": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This authored signal collection arrow does not replicate the database or cache contents."}
+      "observability:relation:4": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This signal collection arrow does not replicate the database or cache contents."},
+      "observability:relation:5": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This signal collection arrow does not replicate the database or cache contents."},
+      "observability:relation:6": {"meaning": "publish", "condition": "When the tier emits its operational signals.", "explanation": "Telemetry flows toward Monitor. This signal collection arrow does not replicate the database or cache contents."}
     },
     "groups": [],
     "scenes": [
@@ -803,7 +803,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "observability:view:telemetry",
         "title": "Observability signals",
-        "description": "Inspect the authored signal collection paths.",
+        "description": "Inspect the signal collection paths.",
         "members": ["web", "db", "cache", "monitor"],
         "layout": "peers"
       }
@@ -813,7 +813,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
         "id": "observability:predict:falling-hit-rate",
         "title": "Predict the useful investigation",
         "prompt": "Database read load rises while cache hit rate falls. What should the displayed Monitor help investigate first?",
-        "options": ["Cache and query behavior along the read path", "Automatic sharding based only on user count", "Whether DNS stores database rows"],
+        "options": ["Cache and query behavior along the read path", "Whether user growth justifies sharding now", "Whether the web tier needs more servers", "Whether DNS points at the right region"],
         "correctIndex": 0,
         "explanation": "The monitor receives signals from both Cache and Database. Compare those observations with request latency and workload before choosing a tier change.",
         "reveal": {
@@ -899,7 +899,7 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
         "id": "sharding:predict:user-seven",
         "title": "Predict the actual diagram route",
         "prompt": "With the displayed user_id % 3 rule, which branch handles user 7?",
-        "options": ["Shard 0", "Shard 1", "Shard 2"],
+        "options": ["Shard 0", "Shard 1", "Shard 2", "All three shards"],
         "correctIndex": 1,
         "explanation": "7 % 3 = 1. The selected Router → Shard 1 relation represents partition placement, not a replicated write to all three shards.",
         "reveal": {
@@ -992,8 +992,8 @@ export const scalingTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "synthesis:predict:repeated-details",
         "title": "Predict a targeted improvement",
-        "prompt": "The same stable product details are repeatedly fetched from Database. Which displayed path directly avoids repeated database reads?",
-        "options": ["Web tier checks App cache, then uses its hit result", "Deploy every scaling technique at once", "Add worker jobs for every lookup"],
+        "prompt": "A catalog page runs the same query for rarely changing category names on nearly every request. Which displayed path directly avoids those repeated database reads?",
+        "options": ["Web tier checks App cache, then uses its hit result", "Web tier publishes each lookup to a worker queue", "Web tier reads from a new shard holding those rows", "App cache reads from Database on each request it gets"],
         "correctIndex": 0,
         "explanation": "The Web tier → App cache lookup and Cache → Web tier hit return directly address repeated reads. A freshness and invalidation policy is still required.",
         "reveal": {

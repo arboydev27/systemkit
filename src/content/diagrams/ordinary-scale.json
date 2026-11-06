@@ -1,0 +1,74 @@
+{
+  "os-traffic": {
+    "kind": "flow",
+    "title": "From monthly users to peak requests per second",
+    "description": "An example of 20,000 monthly active users becoming 6,000 people on a workday, 240,000 requests a day, and 25 requests per second at peak.",
+    "note": "Replace each assumption with numbers from your logs once you have them.",
+    "items": [
+      { "title": "20,000 MAU", "detail": "example B2B product" },
+      { "title": "6,000 on a workday", "detail": "assume 30% show up" },
+      { "title": "240,000 requests/day", "detail": "assume 40 per person" },
+      { "title": "25 requests/s peak", "detail": "8.3/s over 8 hours, ×3" }
+    ]
+  },
+  "os-database": {
+    "kind": "comparison",
+    "title": "Limits to check before adding a second database",
+    "description": "Four specific limits that often give out before a relational database runs out of total capacity: a missing index, the connection limit, a long transaction, and memory.",
+    "note": "Common suspects, not a ranking: your own benchmark shows which one you hit.",
+    "items": [
+      { "title": "Missing index", "detail": "scan slows as table grows" },
+      { "title": "Connection limit", "detail": "idle app connections fill it" },
+      { "title": "Long transaction", "detail": "others wait on its locks" },
+      { "title": "Memory pressure", "detail": "reads fall through to disk" }
+    ]
+  },
+  "os-monolith": {
+    "kind": "comparison",
+    "title": "Pressures that justify extracting a service",
+    "description": "Four separate pressures that can justify moving a module out of a monolith: team coordination, deploy conflicts, independent scaling, and failure isolation.",
+    "note": "If you cannot name one of these, keep it a module with a clear interface.",
+    "items": [
+      { "title": "Team coordination", "detail": "teams must agree to ship" },
+      { "title": "Deploy conflicts", "detail": "one team's tests block all" },
+      { "title": "Independent scaling", "detail": "needs different resources" },
+      { "title": "Failure isolation", "detail": "a crash hits other features" }
+    ]
+  },
+  "os-cache-queue": {
+    "kind": "flow",
+    "title": "Fixes to try before adding a cache",
+    "description": "The order to try fixes for a slow read: fix the query, add an index, precompute a summary table, and only then add a cache.",
+    "note": "For slow background work, the same logic puts a job table ahead of a broker.",
+    "items": [
+      { "title": "Fix the query", "detail": "remove N+1 patterns" },
+      { "title": "Add an index", "detail": "match the slow filter" },
+      { "title": "Summary table", "detail": "precompute heavy totals" },
+      { "title": "Cache", "detail": "repeated, may be a bit old" }
+    ]
+  },
+  "os-availability": {
+    "kind": "comparison",
+    "title": "Monthly downtime budget for each availability target",
+    "description": "The minutes of downtime allowed in a 30-day month at 99%, 99.5%, 99.9%, and 99.99% availability.",
+    "note": "Based on a 30-day month. A 500 GB restore at 100 MB/s takes about 83 minutes.",
+    "items": [
+      { "title": "99%", "detail": "432 minutes a month" },
+      { "title": "99.5%", "detail": "216 minutes a month" },
+      { "title": "99.9%", "detail": "43.2 minutes a month" },
+      { "title": "99.99%", "detail": "4.32 minutes a month" }
+    ]
+  },
+  "os-reversible": {
+    "kind": "comparison",
+    "title": "What is hard to undo, and what can wait",
+    "description": "Three decisions that are hard to undo, the data model, public APIs, and data ownership, beside a cache or broker, which is easier to add later.",
+    "note": "Spend early effort on the hard ones. Write a revisit trigger for the rest.",
+    "items": [
+      { "title": "Data model", "detail": "hard: every table and query" },
+      { "title": "Public API", "detail": "hard: customers depend on it" },
+      { "title": "Data ownership", "detail": "hard: two writers diverge" },
+      { "title": "Cache or broker", "detail": "easier: add on evidence" }
+    ]
+  }
+}

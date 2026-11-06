@@ -3,6 +3,7 @@
 import { Component, useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Box, PanelsTopLeft } from "lucide-react";
+import { trackOnce } from "@/lib/analytics";
 import styles from "./DiagramView.module.css";
 
 const SpatialDiagram = dynamic(() => import("./SpatialDiagram").then(m => m.SpatialDiagram), {
@@ -26,6 +27,7 @@ export function DiagramView({ chapterId, diagramId, heading, hint, children }: {
   useEffect(() => { try { if (localStorage.getItem(STORAGE_KEY) === "3d") setMode("3d"); } catch { /* Optional preference storage. */ } }, []);
   function choose(next: "static" | "3d") {
     setMode(next); setNotice("");
+    if (next === "3d") trackOnce("diagram_3d_opened");
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* Viewing works without storage. */ }
   }
   function fallback() {

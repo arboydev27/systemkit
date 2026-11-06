@@ -30,7 +30,7 @@ test('every live lesson has a spatial view with valid stable geometry and refere
     assert.deepEqual(getSpatialScene(chapter.id, lesson.diagramId), scene);
     count++;
   }
-  assert.equal(count, 116);
+  assert.equal(count, chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0));
 });
 
 test('read, write, replication and conditional routes retain their supplied direction and meaning', () => {

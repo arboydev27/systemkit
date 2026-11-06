@@ -56,8 +56,8 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "rate-scope:predict:rq01",
         "title": "Predict the design consequence",
-        "prompt": "What must a useful limit rule identify?",
-        "options": ["Only a cache vendor", "Identity, action, quota, and time period", "Only the client IP", "Only peak server capacity"],
+        "prompt": "A team writes the rule “limit abusive traffic” for a password-reset endpoint, and the engineers cannot implement it. Which details must the rule add?",
+        "options": ["The algorithm, the counter store, and its region", "Whose requests count, which action, how many, how long", "The client IP, which alone identifies any caller", "The peak capacity of the servers behind the endpoint"],
         "correctIndex": 1,
         "explanation": "A quota must say whose activity is counted, which action counts, how much is allowed, and over what time scale.",
         "reveal": {
@@ -116,8 +116,8 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "rate-placement:predict:rq04",
         "title": "Predict the design consequence",
-        "prompt": "Why enforce a public API quota before application work?",
-        "options": ["To avoid spending protected resources on requests that will be rejected", "To remove all need for auth", "To make client limits trustworthy", "To persist every request"],
+        "prompt": "A report endpoint takes 2 seconds of database work per call, and one client floods it with calls that are over quota. Why does the check belong at Gateway rather than at the end of the handler?",
+        "options": ["Rejected calls then cost no database or service work", "Gateway can then skip authenticating these callers", "Client-side limits become trustworthy behind a gateway", "Each rejected call then gets saved for a later replay"],
         "correctIndex": 0,
         "explanation": "Early enforcement protects downstream computation and storage capacity.",
         "reveal": {
@@ -175,7 +175,7 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
         "id": "rate-token:predict:current-tokens",
         "title": "Predict the displayed burst",
         "prompt": "The displayed Token bucket has current 7 and no new refill time has elapsed. How many one-token requests can it immediately allow?",
-        "options": ["7", "10 merely because capacity is 10", "0 despite available tokens"],
+        "options": ["7 requests, one per current token", "10 requests, the bucket capacity", "2 requests, the refill per second", "0 requests, until the next refill"],
         "correctIndex": 0,
         "explanation": "Current tokens, not total capacity, pay for requests. Seven requests can spend the seven displayed tokens; after that the empty branch throttles until Time refills the bucket.",
         "reveal": {
@@ -232,8 +232,8 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "rate-windows:predict:rq10",
         "title": "Predict the design consequence",
-        "prompt": "Why can a 100-per-minute fixed window allow almost 200 requests in a short interval?",
-        "options": ["A counter is always eventually consistent", "Requests straddle a window boundary", "The client retries every 429", "A 302 is cached"],
+        "prompt": "A client learns that a service limits uploads to 1,000 per hour using clock-hour blocks. How could it get close to 2,000 accepted uploads within a few minutes?",
+        "options": ["Rely on counters being eventually consistent", "Send them on either side of an hour boundary", "Retry rejected uploads until some of them pass", "Wait for the counter to expire early in the hour"],
         "correctIndex": 1,
         "explanation": "The client can spend one window’s quota just before reset and the next immediately after.",
         "reveal": {
@@ -293,7 +293,7 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
         "id": "rate-atomic:predict:last-slot",
         "title": "Predict two competing requests",
         "prompt": "Atomic decision has one quota slot left. The first request consumes slot 100. Which displayed outcome should the next request receive?",
-        "options": ["Reject because the counter is full", "Allow the same final slot again", "Read the counter without updating it"],
+        "options": ["Reject, because the counter reached its limit", "Allow, because it read the counter before the update", "Wait in a queue until the next window opens", "Allow, since one extra request is within tolerance"],
         "correctIndex": 0,
         "explanation": "Check and mutation happen together. The first relation reaches Allow and consumes slot 100; the next relation reaches Reject after the counter is full.",
         "reveal": {
@@ -342,8 +342,8 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "rate-distributed:predict:rq16",
         "title": "Predict the design consequence",
-        "prompt": "Why do two private limiter counters risk doubling a caller’s quota?",
-        "options": ["Each worker sees only its own requests", "Redis deletes every key", "The load balancer changes HTTP status codes", "The client has two devices"],
+        "prompt": "A deployment scales from two to six limiter workers, each with an in-memory counter and a limit of 100 per minute. One caller’s allowed traffic climbs to around 600 per minute. Why?",
+        "options": ["Each worker counts only the requests it handles", "The shared store lost keys during the deployment", "The load balancer retried rejected calls elsewhere", "The caller now uses six keys across its devices"],
         "correctIndex": 0,
         "explanation": "Without shared state or coordinated allocation, each worker can independently grant the full quota.",
         "reveal": {
@@ -408,8 +408,8 @@ export const rateLimiterTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "rate-operate:predict:rq19",
         "title": "Predict the design consequence",
-        "prompt": "What should a throttled synchronous client usually receive?",
-        "options": ["A 429 and a meaningful retry signal", "A 201 and no body", "A 301 to the database", "A silent disconnect"],
+        "prompt": "A partner’s nightly job hits its limit and retries in a tight loop, because your API gives it nothing to act on. What should Limiter return to that job?",
+        "options": ["429 with Retry-After so it can pace its retries", "503 so that it treats the limit as a brief outage", "200 with an error field so that its job keeps going", "403 so that it stops and asks for more permissions"],
         "correctIndex": 0,
         "explanation": "A clear 429 and Retry-After when computable let clients pace retries rather than hammer the service.",
         "reveal": {

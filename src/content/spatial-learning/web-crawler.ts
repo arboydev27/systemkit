@@ -47,7 +47,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
         "id": "crawler-scope:predict:archive-objective",
         "title": "Predict the storage objective",
         "prompt": "Crawl policy changes from search indexing to preserving historical fetched versions. Which displayed output now matters directly?",
-        "options": ["Web archive", "Search index alone as a complete archive", "Seed URLs as stored page bytes"],
+        "options": ["Web archive, which retains each fetched version", "Search index, which can also serve as a full archive", "Seed URLs, which hold the stored page bytes", "Crawl policy, which keeps a copy of every fetch"],
         "correctIndex": 0,
         "explanation": "The policy’s archive branch leads to retained versions in Web archive. Crawl purpose determines what to fetch, retain, and emit; an index alone is a different output.",
         "reveal": {
@@ -109,7 +109,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-pipeline:lease-recovery",
         "title": "Recover unfinished work through lease expiry",
-        "description": "In this authored failure Downloader is unavailable. A durable lease can expire and make the URL eligible again; downstream effects need idempotency because fetching can repeat.",
+        "description": "In this failure Downloader is unavailable. A durable lease can expire and make the URL eligible again; downstream effects need idempotency because fetching can repeat.",
         "nodeIds": ["crawler-pipeline:node:0", "crawler-pipeline:node:1", "crawler-pipeline:node:2", "crawler-pipeline:node:3"],
         "linkIds": ["crawler-pipeline:relation:0", "crawler-pipeline:relation:1", "crawler-pipeline:relation:2"],
         "statuses": {
@@ -138,8 +138,8 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-pipeline:predict:fetch-crash",
         "title": "Predict a fetch worker crash",
-        "prompt": "Downloader crashes after fetching but before acknowledging its URL lease. What prevents that URL from silently disappearing?",
-        "options": ["Durable frontier state and an expiring lease", "Treating a socket close as successful indexing", "Deleting every extracted link"],
+        "prompt": "A cloud provider reclaims the machine running Downloader mid-fetch, with no warning, while it holds 50 leased URLs. What brings those URLs back into the crawl?",
+        "options": ["Durable frontier state and the expiry of those leases", "Parser finding the same links again on some other page", "The machine’s final acknowledgment, sent during shutdown", "Document sink replaying URLs from pages it already stored"],
         "correctIndex": 0,
         "explanation": "Frontier retains queued and leased state. Lease expiry makes uncompleted work eligible again, which requires repeatable downstream writes and link insertion.",
         "reveal": {
@@ -210,8 +210,8 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-policy:predict:crq06",
         "title": "Predict the design consequence",
-        "prompt": "Why is a global 500-request limit insufficient for politeness?",
-        "options": ["It stores too many URLs", "All 500 requests could hit one host", "It eliminates retries", "It prevents DNS caching"],
+        "prompt": "Frontier holds URLs for a national news portal and a hobby forum on one small server. The fleet cap is 1,000 requests per second. What keeps the forum safe?",
+        "options": ["Lowering the fleet cap until the forum can take the full load", "A Host timer that spaces requests to that forum on its own", "Scheduling the forum after the news portal’s queue drains", "Robots rules, since they set how fast each site is fetched"],
         "correctIndex": 1,
         "explanation": "Rate control must be scoped to each host or site, not only the whole fleet.",
         "reveal": {
@@ -238,7 +238,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       "crawler-frontier:relation:1": {"meaning": "publish", "condition": "When prioritized work is assigned to its host’s queue.", "explanation": "Per-host queued state separates URL value from that host’s next allowed fetch time."},
       "crawler-frontier:relation:2": {"meaning": "publish", "condition": "When prioritized work is assigned to its host’s queue.", "explanation": "Per-host queued state separates URL value from that host’s next allowed fetch time."},
       "crawler-frontier:relation:3": {"meaning": "decision", "condition": "While Host A is eligible now.", "explanation": "Selector can choose a URL from ready Host A under priority and fairness rules."},
-      "crawler-frontier:relation:4": {"meaning": "decision", "condition": "Only after Host B’s authored next-eligible time, 14:05.", "explanation": "Waiting Host B must not be selected merely because its URL has priority."}
+      "crawler-frontier:relation:4": {"meaning": "decision", "condition": "Only after Host B’s next-eligible time, 14:05.", "explanation": "Waiting Host B must not be selected merely because its URL has priority."}
     },
     "groups": [
       {
@@ -259,7 +259,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-frontier:eligibility",
         "title": "Eligibility chooses what may run now",
-        "description": "Host A is ready now; Host B’s authored detail says wait until 14:05. The selector must respect host timing while maintaining fairness.",
+        "description": "Host A is ready now; Host B’s detail says wait until 14:05. The selector must respect host timing while maintaining fairness.",
         "nodeIds": ["crawler-frontier:node:2", "crawler-frontier:node:3", "crawler-frontier:node:4"],
         "linkIds": ["crawler-frontier:relation:3", "crawler-frontier:relation:4"]
       },
@@ -285,7 +285,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
         "id": "crawler-frontier:predict:host-wait",
         "title": "Predict the eligible host",
         "prompt": "At a time before the displayed 14:05 deadline, Host A is ready and Host B is still waiting. Which queue can Selector use now?",
-        "options": ["Host A queue", "Host B queue solely because it has a high-priority URL", "Both queues regardless of host timing"],
+        "options": ["Host A queue, which is eligible now", "Host B queue, since its URL has the higher priority", "Both queues, as long as the fleet limit has room", "Neither queue, until Host B’s wait ends at 14:05"],
         "correctIndex": 0,
         "explanation": "Priority and eligibility are separate decisions. Host A → Selector is eligible; Host B must retain its waiting state until its host policy allows a fetch.",
         "reveal": {
@@ -343,8 +343,8 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-dedup:predict:crq10",
         "title": "Predict the design consequence",
-        "prompt": "Why avoid deleting all history for two URLs with equal HTML?",
-        "options": ["A page cannot redirect", "Their provenance or future content may differ", "Hashes cannot match", "URLs are never reused"],
+        "prompt": "A retailer serves the same “Coming soon” page at 5,000 product URLs this week. To save storage, which approach fits?",
+        "options": ["Store one copy of the bytes and keep just one of the URLs", "Store one copy of the bytes and keep all 5,000 URL records", "Store 5,000 copies, since the pages are bound to diverge", "Drop all 5,000 URLs, since placeholder pages hold no value"],
         "correctIndex": 1,
         "explanation": "Keep URL-to-content relationships and fetch history even when bytes are shared.",
         "reveal": {
@@ -409,8 +409,8 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-fetch:predict:crq12",
         "title": "Predict the design consequence",
-        "prompt": "A public URL redirects into a private network. What failed if the worker follows it?",
-        "options": ["Ranking priority", "Duplicate-content hashing", "The index schema", "Destination validation on each hop"],
+        "prompt": "A hostname resolves to a public IP when its URL is checked, then to 10.0.0.5 a moment later when the worker connects. What stops this request?",
+        "options": ["A ranking rule that gives unknown hosts a lower priority", "A content hash that flags the response as a duplicate", "A robots rule that disallows that internal address path", "An address check applied to the connection actually made"],
         "correctIndex": 3,
         "explanation": "Redirect and resolved-address checks must prevent access to private or local destinations.",
         "reveal": {
@@ -484,7 +484,7 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
         "id": "crawler-freshness:predict:not-modified",
         "title": "Predict a 304 result",
         "prompt": "Fetch result is 304 Not Modified. What should the history and recrawl path do?",
-        "options": ["Retain the URL and schedule its next eligible visit without a new response body", "Delete the URL from Frontier", "Immediately loop without host limits"],
+        "options": ["Record the check and schedule a later visit for the URL", "Delete the URL from Frontier, as it has nothing new to offer", "Refetch right away without validators to confirm the body", "Keep the old schedule, since a 304 tells history nothing"],
         "correctIndex": 0,
         "explanation": "The response reports no new representation. Change history and Recrawl plan retain useful scheduling state, then place a later eligible visit in Frontier.",
         "reveal": {
@@ -555,8 +555,8 @@ export const webCrawlerTeachingContent: Record<string, TeachingContent> = {
       {
         "id": "crawler-scale:predict:crq16",
         "title": "Predict the design consequence",
-        "prompt": "Which signal best reveals an important page is not being revisited in time?",
-        "options": ["Only fleet average QPS", "Card background color", "Total domain count alone", "Queue age and change-detection lag by priority"],
+        "prompt": "A dashboard shows record fetches per second, yet product managers say top-priority pages feel stale. Which measure would confirm it?",
+        "options": ["Fleet-wide fetches per second, split out by each worker", "Total number of domains the crawl has discovered so far", "Bytes stored per day, compared with the previous month", "Queue age and change-detection lag by URL priority"],
         "correctIndex": 3,
         "explanation": "Freshness and queue age reveal starvation that aggregate throughput hides.",
         "reveal": {
