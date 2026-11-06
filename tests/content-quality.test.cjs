@@ -13,6 +13,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 const { chapters, coursePartTitles, goalPaths } = require('../src/content/chapters.ts');
 const { designChallenges } = require('../src/content/challenges/index.ts');
 const { labs } = require('../src/content/labs.ts');
+const { reviewVariations } = require('../src/content/review.ts');
 const { getSpatialLesson } = require('../src/lib/spatial-learning.ts');
 const { correctIsStrictlyLongest, longestOptionShare, MAX_LONGEST_SHARE, optionOrder, quizIssues } = require('../src/lib/quiz.ts');
 
@@ -46,6 +47,30 @@ test('diagram predictions ask something other than the checkpoints', () => {
     const stems = new Set(chapter.questions.map(question => question.prompt.trim().toLowerCase()));
     for (const step of chapter.steps) for (const prediction of getSpatialLesson(chapter.id, step.diagramId).content.predictions) {
       assert.ok(!stems.has(prediction.prompt.trim().toLowerCase()), prediction.id);
+    }
+  }
+});
+
+test('every lesson has authored review prompts, and no prompt repeats what the learner already saw', () => {
+  const stem = text => text.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const lessons = chapters.flatMap(chapter => chapter.steps.map(step => `${chapter.id}/${step.id}`));
+  assert.deepEqual(Object.keys(reviewVariations).sort(), [...lessons].sort());
+  const seen = new Set();
+  for (const chapter of chapters) {
+    const asked = new Set(chapter.questions.map(question => stem(question.prompt)));
+    for (const step of chapter.steps) {
+      const id = `${chapter.id}/${step.id}`;
+      const { prompts, answer } = reviewVariations[id];
+      assert.equal(prompts.length, 2, id);
+      assert.ok(answer.trim(), `${id}: answer`);
+      for (const prompt of prompts) {
+        const key = stem(prompt);
+        assert.ok(key, `${id}: empty prompt`);
+        assert.ok(!asked.has(key), `${id}: repeats a checkpoint question: ${prompt}`);
+        assert.notEqual(key, stem(step.scenario), `${id}: repeats the scenario`);
+        assert.ok(!seen.has(key), `${id}: prompt used by another lesson: ${prompt}`);
+        seen.add(key);
+      }
     }
   }
 });

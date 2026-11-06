@@ -3,6 +3,8 @@ export const DAY = 24 * 60 * 60 * 1000;
 export const SESSION_LIMIT = 5;
 
 export type ReviewPrompt = { prompt: string; answer: string };
+/** Two prompts put one idea in different situations, and one answer covers both. */
+export type ReviewVariation = { prompts: [string, string]; answer: string };
 export type ReviewCard = {
   id: string;
   chapterId: string;

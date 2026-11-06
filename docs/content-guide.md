@@ -30,6 +30,10 @@ Each lesson has 2 or 3 questions with exactly 4 options. Every wrong answer must
 
 Keep `id`, `stepId`, and `correctIndex` stable, because saved answers refer to them. Display order is shuffled per question.
 
+## Review prompts
+
+Every lesson has an entry in `src/content/review/<chapter-id>.ts`: two prompts and one answer that covers both. Spaced review shows a prompt days later, away from the lesson, so each must stand alone and put the idea in a new situation, not repeat a checkpoint question, a diagram prediction, or the scenario. The answer is 2 to 4 short sentences naming the ideas to look for, including the tradeoff.
+
 ## Diagram predictions
 
 Predictions in `src/content/spatial-learning/` follow the same option rules. A prediction's prompt must not repeat a checkpoint question from the same chapter: pose a new scenario whose answer is revealed by the same part of the diagram.

@@ -107,7 +107,7 @@ test("blocked storage and corrupt values leave review helpers usable", () => {
   assert.equal(buildReviewSession([card("cache")], memory, now).length, 1);
 });
 
-test("every live lesson has valid review content and foundation prompts vary", () => {
+test("every live lesson has valid review content and its prompts vary", () => {
   assert.equal(reviewCards.length, chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0));
   assert.equal(new Set(reviewCards.map((item) => item.id)).size, reviewCards.length);
   for (const item of reviewCards) {
@@ -119,9 +119,7 @@ test("every live lesson has valid review content and foundation prompts vary", (
       assert.ok(prompt.answer.trim());
       assert.ok(!prompt.answer.includes("undefined"));
     }
-    if (item.chapterId === "framework" || item.chapterId === "scaling") {
-      assert.ok(new Set(item.prompts.map((prompt) => prompt.prompt)).size >= 2, item.id);
-    }
+    assert.ok(new Set(item.prompts.map((prompt) => prompt.prompt)).size >= 2, item.id);
   }
 });
 
