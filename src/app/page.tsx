@@ -4,10 +4,11 @@ import { ArrowRight } from "lucide-react";
 import { chapters } from "@/content/chapters";
 import { designChallenges } from "@/content/challenges";
 import { labs } from "@/content/labs";
-import { ContinueLink, CourseMap, LabView, ProgressTools } from "@/components/site/SiteClient";
+import { CourseMap } from "@/components/site/CourseMap";
+import { ContinueLink, LabView, ProgressTools } from "@/components/site/SiteClient";
 import { SitePage } from "@/components/site/SiteChrome";
 import styles from "@/components/site/Site.module.css";
-import { courseChapters, courseGoals, lessonCount } from "@/lib/course";
+import { courseChapters, courseGoals, courseOrb, lessonCount } from "@/lib/course";
 import { courseOutline } from "@/lib/lessons";
 import { lessonHref } from "@/lib/links";
 
@@ -47,7 +48,7 @@ export default function Home() {
 
     <section id="path" className={styles.section} aria-labelledby="path-heading">
       <h2 id="path-heading">The learning path</h2>
-      <CourseMap chapters={courseChapters} goals={courseGoals} />
+      <CourseMap chapters={courseChapters} goals={courseGoals} orb={courseOrb} />
     </section>
 
     <section id="progress" className={styles.section} aria-labelledby="progress-heading">

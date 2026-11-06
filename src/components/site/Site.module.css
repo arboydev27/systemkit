@@ -35,6 +35,11 @@
 .verb dd { max-width: 64ch; margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
 .verb dd a { color: var(--ink); font-weight: 650; text-underline-offset: 3px; white-space: nowrap; }
 
+.pathControls { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.viewSwitch { display: inline-flex; padding: 3px; border: 1px solid var(--control-border); border-radius: 10px; }
+.viewSwitch button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 640; transition: background .14s ease, color .14s ease; }
+.viewSwitch button:hover { background: var(--surface-soft); }
+.viewSwitch button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .goal { margin: 0 0 8px; padding: 0; border: 0; }
 .goal legend { padding: 0; color: var(--ink); font-size: 14px; font-weight: 680; }
 .goalOptions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

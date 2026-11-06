@@ -1,5 +1,6 @@
 export const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 export const GOAL_KEY = "systemkit:goal:v1";
+export const COURSE_VIEW_KEY = "systemkit:course-view:v1";
 export const MIN_REASONING_LENGTH = 20;
 
 export type Progress = {
@@ -107,6 +108,16 @@ export function resumeLesson(
     if (stepId) return { chapterId: chapter.id, stepId };
   }
   return null;
+}
+
+/** The next lesson to do when walking chapters in this order, for a new visitor as well as a returning one. */
+export function nextLessonInOrder(
+  order: OutlineChapter[],
+  activeChapterId: string | null,
+  read: (storageKey: string) => Progress,
+) {
+  const start = order.some((chapter) => chapter.id === activeChapterId) ? activeChapterId : order[0]?.id ?? null;
+  return resumeLesson(order, start, read);
 }
 
 export function completedCount(stepIds: string[], progress: Progress) {
