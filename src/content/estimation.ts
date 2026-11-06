@@ -48,6 +48,9 @@ export const estimationSteps: Step[] = [
     diagramId: 'estimate-data',
     scenario: 'A podcast host stores 10,000 episodes of 50 MB each, and each episode gets 2,000 downloads a month. Is storage or transfer the bigger design concern?',
     scenarioAnswer: 'Transfer. Storage is 10,000 × 50 MB = 500 GB. Monthly delivery is 10,000 × 2,000 × 50 MB = 1,000 TB, or 2,000 times as much data moved as stored. Design around delivery first: CDN use, origin load, and transfer cost.',
+    related: [
+      { chapterId: 'scaling', stepId: 'cdn', reason: 'How a CDN serves reusable files near users, and what it leaves out' },
+    ],
   },
   {
     id: 'estimate-limits',
@@ -64,6 +67,9 @@ export const estimationSteps: Step[] = [
     diagramId: 'estimate-limits',
     scenario: 'A page has a 200 ms target, but the database alone takes 180 ms at the 95th percentile. What does the estimate reveal?',
     scenarioAnswer: 'One request in 20 spends at least 180 ms in the database, so those requests have at most 20 ms left for everything else, and the page’s own p95 cannot be below 180 ms. That does not make 20 ms a p95 allowance for the rest, because percentiles do not add. Measure the whole request end to end, then reduce the dominant cost or revisit the target.',
+    related: [
+      { chapterId: 'ordinary-scale', stepId: 'os-availability', reason: 'Turns an uptime target into recovery objectives and timed restores' },
+    ],
   },
   {
     id: 'estimate-decisions',
@@ -81,6 +87,9 @@ export const estimationSteps: Step[] = [
     diagramId: 'estimate-decisions',
     scenario: 'A proposed design works only if peak traffic is less than twice the average, but nobody has measured peaks. What should the team do?',
     scenarioAnswer: 'Treat the multiplier as a high-impact uncertainty. Measure comparable traffic or load-test several peak scenarios, then choose capacity and a trigger for adding more. Do not present the twofold assumption as a fact.',
+    related: [
+      { chapterId: 'ordinary-scale', stepId: 'os-reversible', reason: 'How to tell cheap-to-reverse choices from ones worth early care' },
+    ],
   },
 ];
 

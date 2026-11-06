@@ -82,13 +82,14 @@ function padded(index: number) {
 // A direct visit keeps the browser's default focus; moving between lessons starts at the new heading.
 let hasOpenedLesson = false;
 
-export function LearningExperience({ chapter, step, questions, outline, nextChapter, challenge }: {
+export function LearningExperience({ chapter, step, questions, outline, nextChapter, challenge, related }: {
   chapter: LessonChapter;
   step: Step;
   questions: Question[];
   outline: OutlineChapter[];
   nextChapter?: { id: string; title: string; firstStepId: string };
   challenge?: DesignChallengeContent;
+  related: { href: string; title: string; reason: string }[];
 }) {
   const { steps } = chapter;
   const [progress, setProgress] = useState<Progress>(emptyProgress);
@@ -442,6 +443,12 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
                 <h3>Keep in mind</h3>
                 <ul>{step.takeaways.map((takeaway, index) => <li key={`${step.id}-takeaway-${index}`}><Check size={15} strokeWidth={2.3} aria-hidden="true" /><span><InlineText text={takeaway} /></span></li>)}</ul>
               </div>
+              {related.length ? (
+                <div className="related-lessons">
+                  <h3>Related lessons</h3>
+                  <ul>{related.map((lesson) => <li key={lesson.href}><Link href={lesson.href} prefetch={false}>{lesson.title}</Link><span>{lesson.reason}</span></li>)}</ul>
+                </div>
+              ) : null}
             </article>
 
             <aside className="lesson-side" aria-label="Lesson details">

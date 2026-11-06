@@ -16,6 +16,7 @@ Name real systems when it helps the learner connect an idea to practice (Postgre
 - `body`: 2 to 4 paragraphs totalling 170 to 260 words.
 - `takeaways`: 2 or 3 short lines that stand on their own.
 - `scenario` and `scenarioAnswer`: a decision the learner writes about before seeing guidance. Favor a new situation over restating the lesson.
+- `related` (optional): links to lessons this one builds on or uses, each with `chapterId`, `stepId`, and a short `reason` saying what the other lesson adds. Most lessons have 0 to 2. Skip the lessons directly before and after in the chapter, and don't link for coverage.
 
 A good body covers: the problem, how the idea addresses it, one concrete worked example with numbers or a specific sequence of events, and what it costs or when you would not use it. Define a term the first time it appears.
 
@@ -29,6 +30,10 @@ Each lesson has 2 or 3 questions with exactly 4 options. Every wrong answer must
 - `explanation` says why the right answer is right and, where useful, why the tempting wrong one fails. Learners see it only after a right answer or on request.
 
 Keep `id`, `stepId`, and `correctIndex` stable, because saved answers refer to them. Display order is shuffled per question.
+
+## Review prompts
+
+Every lesson has an entry in `src/content/review/<chapter-id>.ts`: two prompts and one answer that covers both. Spaced review shows a prompt days later, away from the lesson, so each must stand alone and put the idea in a new situation, not repeat a checkpoint question, a diagram prediction, or the scenario. The answer is 2 to 4 short sentences naming the ideas to look for, including the tradeoff.
 
 ## Diagram predictions
 

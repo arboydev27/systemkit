@@ -42,6 +42,9 @@ export const chatSteps: Step[] = [
     diagramId: 'chat-connections',
     scenario: 'A gateway holding 80,000 sockets restarts. What must happen before clients can safely resume?',
     scenarioAnswer: 'Clients reconnect to healthy gateways with capacity, authenticate, re-register their routes, and fetch any messages beyond their saved cursors. Use gradual retries and gateway draining to avoid a reconnect storm.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff and jitter keep synchronized retries from adding overload' },
+    ],
   },
   {
     id: 'chat-delivery', title: 'Follow one message end to end', seoTitle: 'Reliable message delivery in chat: ACKs and idempotency', eyebrow: '04 · One-to-one flow',
@@ -56,6 +59,9 @@ export const chatSteps: Step[] = [
     diagramId: 'chat-delivery',
     scenario: 'The server saves a message but its acknowledgement is lost. The sender retries. What should the service return?',
     scenarioAnswer: 'Look up the original idempotency key and return the existing message ID and status. A new row would duplicate the message. The receiver can still retrieve the persisted record even if the sender never saw the first acknowledgement.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'Why a retry key must be stored durably alongside the effect' },
+    ],
   },
   {
     id: 'chat-ordering', title: 'Order and sync the history', seoTitle: 'Chat message ordering with sequence numbers and cursors', eyebrow: '05 · Conversation timeline',
@@ -69,6 +75,10 @@ export const chatSteps: Step[] = [
     diagramId: 'chat-ordering',
     scenario: 'A phone has seen messages through position 44; a laptop stopped at 39. Both reconnect. What should each request?',
     scenarioAnswer: 'The phone requests positions after 44 and the laptop after 39 for that conversation. Both merge replay with any live arrivals by message ID or sequence, avoiding duplicates and preserving the server-defined order.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-ordering', reason: 'Why machine clocks can reverse cause and effect' },
+      { chapterId: 'unique-id', stepId: 'id-layout', reason: 'How a time-sortable ID divides its 64 bits' },
+    ],
   },
   {
     id: 'chat-presence', title: 'Treat presence as a hint', seoTitle: 'Online presence system design: heartbeats and leases', eyebrow: '06 · Online status',
@@ -97,6 +107,9 @@ export const chatSteps: Step[] = [
     diagramId: 'chat-groups',
     scenario: 'A product lifts the group cap from 250 to 100,000. What part of the design deserves immediate review?',
     scenarioAnswer: 'Review per-member fanout and presence broadcasts. A single post or status change could create 100,000 events. Consider canonical channel storage with pull for inactive readers and selective push for active ones.',
+    related: [
+      { chapterId: 'news-feed', stepId: 'feed-fanout', reason: 'Compares write, read, and hybrid fanout for skewed audiences' },
+    ],
   },
   {
     id: 'chat-recovery', title: 'Design the failure path', seoTitle: 'Chat reliability: at-least-once delivery and recovery', eyebrow: '08 · Reliability and operations',
@@ -111,6 +124,10 @@ export const chatSteps: Step[] = [
     diagramId: 'chat-recovery',
     scenario: 'A delivery worker crashes after pushing to one device but before acknowledging its job. What happens when the job runs again?',
     scenarioAnswer: 'The job is retried. The device may receive the event again, so it deduplicates by stable message ID. The canonical record remains one message, while at-least-once delivery and idempotent processing make recovery safe.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'How an outbox row commits atomically and why its relay may repeat' },
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'How repeated delivery can still produce a single effect' },
+    ],
   },
 ];
 

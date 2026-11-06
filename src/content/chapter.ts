@@ -1,3 +1,10 @@
+export type RelatedLesson = {
+  chapterId: string;
+  stepId: string;
+  /** What the linked lesson adds for someone reading this one. */
+  reason: string;
+};
+
 export type Step = {
   id: string;
   title: string;
@@ -10,6 +17,8 @@ export type Step = {
   diagramId: string;
   scenario?: string;
   scenarioAnswer?: string;
+  /** Lessons elsewhere in the course that this one builds on or uses. */
+  related?: RelatedLesson[];
 };
 
 export type Question = {
@@ -101,6 +110,10 @@ export const steps: Step[] = [
     diagramId: 'replication',
     scenario: 'Monitoring loses contact with the primary and promotes a replica. Ten minutes later the network heals, and some web servers are still writing to the old primary.',
     scenarioAnswer: 'This is split brain: two nodes accept writes and their data is diverging. Fence the old primary at once so only the promoted node takes writes, then compare the two write histories and reconcile what you can. Prevent a repeat with fencing and a majority-based failover tool, because a health check alone cannot tell a dead primary from an unreachable one.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-lag', reason: 'Ways to show people their own writes despite replica lag' },
+      { chapterId: 'replication', stepId: 'rc-failover', reason: 'What failover can lose, and how fencing stops split brain' },
+    ],
   },
   {
     id: 'cache',
@@ -121,6 +134,9 @@ export const steps: Step[] = [
     diagramId: 'cache',
     scenario: 'A product page is popular, but its price changes throughout the day.',
     scenarioAnswer: 'Cache stable product details and give the price a short lifetime or explicit invalidation on updates. This reduces repeated reads, but stale prices remain possible if database and cache changes are not coordinated.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-stampede', reason: 'How to stop an expiry or cold cache from flooding the database' },
+    ],
   },
   {
     id: 'cdn',
@@ -181,6 +197,9 @@ export const steps: Step[] = [
     diagramId: 'multi-dc',
     scenario: 'Two regions each run at 70% of capacity, and leadership wants the product to survive losing either one. What do you tell them?',
     scenarioAnswer: 'The survivor would face 140% of its capacity and overload, so the routing plan alone is not enough. Add capacity until each region runs near 50%, or decide which features to shed during a failover. Then confirm the required data exists in both regions and rehearse the move.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-multi', reason: 'What happens when two regions both accept writes' },
+    ],
   },
   {
     id: 'queue',
@@ -201,6 +220,10 @@ export const steps: Step[] = [
     diagramId: 'queue',
     scenario: 'Uploading a photo takes eight seconds because the request waits for filters to finish.',
     scenarioAnswer: 'Accept the upload, publish a processing job, and let workers apply filters asynchronously. The request can finish sooner, but the UI must show that the processed photo is pending and the queue needs retries and monitoring.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How to make a job safe to run twice' },
+      { chapterId: 'patterns', stepId: 'pt-backpressure', reason: 'What to do when a backlog keeps growing' },
+    ],
   },
   {
     id: 'observability',
@@ -241,6 +264,9 @@ export const steps: Step[] = [
     diagramId: 'sharding',
     scenario: 'Orders are sharded by customer ID. Finance now wants a daily report of revenue by product across all customers.',
     scenarioAnswer: 'That report touches every shard, because no single shard holds all orders for a product. Fan the query out and merge the results, or stream orders into a separate analytics store built for such scans. Changing the key to suit one report would hurt the per-customer paths that run all day.',
+    related: [
+      { chapterId: 'consistent-hashing', stepId: 'hash-modulo', reason: 'Why modulo routing moves so many keys, and what reduces it' },
+    ],
   },
   {
     id: 'synthesis',

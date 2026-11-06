@@ -19,6 +19,10 @@ export const consensusSteps: Step[] = [
     diagramId: 'cs-linearizability',
     scenario: 'A profile service replicates asynchronously to followers. After changing their display name, users sometimes see the old one. You could make all reads linearizable at an extra 10 ms per read, or route a user’s own reads to the leader for 5 seconds after they write. Which do you pick?',
     scenarioAnswer: 'Route the writer’s reads to the leader, which approximates the guarantee known as read-your-writes. The person who notices is the one who made the change, and another viewer seeing an older name for a moment causes no harm. This is not linearizable, since a different user can still read the old name after the write is acknowledged. Keep linearizable operations for cases where stale data does damage, such as a lock or a uniqueness check.',
+    related: [
+      { chapterId: 'replication', stepId: 'rc-lag', reason: 'A cheaper guarantee when only the writer must see the new value' },
+      { chapterId: 'transactions', stepId: 'tx-serializable', reason: 'Serializable isolation, the guarantee this is often confused with' },
+    ],
   },
   {
     id: 'cs-cap', title: 'State CAP honestly', eyebrow: '02 · CAP',
@@ -38,6 +42,9 @@ export const consensusSteps: Step[] = [
     diagramId: 'cs-cap',
     scenario: 'Your ticketing site runs in two regions, and the link between them may fail during a sale. You can stop selling in the region that loses contact with the leader, or give each region its own reserved block of seats in advance. Which do you choose?',
     scenarioAnswer: 'Reserved blocks keep both regions selling without conflict, because each owns a separate set of seats and a partition cannot cause a double sale. The cost is stranded inventory: one region can sell out while the other has seats left, and buyers cannot pick any seat in the house. Stopping sales in one region keeps every seat selectable but loses sales there until traffic moves or the link returns. For assigned seating I would refuse; for interchangeable general-admission places I would divide.',
+    related: [
+      { chapterId: 'key-value', stepId: 'kv-quorum', reason: 'How ONE and QUORUM settings change what a request waits for' },
+    ],
   },
   {
     id: 'cs-ordering', title: 'Order events without trusting clocks', eyebrow: '03 · Ordering',
@@ -57,6 +64,9 @@ export const consensusSteps: Step[] = [
     diagramId: 'cs-ordering',
     scenario: 'A collaborative notes service stores edits on three nodes with last-write-wins on server time, and customers report edits vanishing. One engineer wants to tighten NTP polling, another wants Lamport stamps, and a third wants to keep concurrent edits as separate versions. Which do you back?',
     scenarioAnswer: 'Tighter NTP narrows the window but cannot close it. Lamport stamps fix the causal case, where an edit made after seeing another now wins, but two truly concurrent edits still lose one silently. For notes, losing someone’s text is the real harm, so detect concurrency with version vectors and keep both versions for a merge. That costs merge logic and metadata. Lamport stamps alone suit data where picking one winner is acceptable.',
+    related: [
+      { chapterId: 'key-value', stepId: 'kv-conflicts', reason: 'How per-replica counters detect concurrent writes' },
+    ],
   },
   {
     id: 'cs-fencing', title: 'Survive a leader that wakes up late', eyebrow: '04 · Leases and fencing',
@@ -76,6 +86,9 @@ export const consensusSteps: Step[] = [
     diagramId: 'cs-fencing',
     scenario: 'A compaction leader writes merged files to S3. After a long VM migration, two leaders uploaded different files under the same key, and readers picked up the stale one. S3 will not compare your tokens for you. What do you change?',
     scenarioAnswer: 'Make the stale upload harmless. Each leader writes to a key containing its token, so uploads cannot overwrite each other, then publishes the result by updating a manifest in a store that can compare a token or version, such as your database. Readers follow only the manifest. A stale leader’s manifest update is refused and its file becomes garbage for a later cleanup. The cost is an extra indirection on reads and a cleanup job.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How an idempotency key makes a repeated external call harmless' },
+    ],
   },
   {
     id: 'cs-raft', title: 'Agree through a majority log', eyebrow: '05 · Consensus in practice',
@@ -114,6 +127,10 @@ export const consensusSteps: Step[] = [
     diagramId: 'cs-2pc',
     scenario: 'Checkout writes an order to Postgres and must publish an event to Kafka. A teammate suggests two-phase commit across both so they always agree. What do you do instead?',
     scenarioAnswer: 'Use a transactional outbox: write the order and an outbox row in one Postgres transaction, and have a relay publish the row to Kafka, retrying until acknowledged. Kafka does not take part in XA, the usual standard for 2PC across systems, so that option is not really there. The outbox also avoids tying checkout’s availability to Kafka’s. Delivery is at least once, so consumers must tolerate duplicates. The costs are a relay to run and a short publication delay.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'The usual alternative when one side cannot join two-phase commit' },
+      { chapterId: 'consensus', stepId: 'cs-fencing', reason: 'How ordering numbers from a lease become fencing tokens' },
+    ],
   },
 ];
 

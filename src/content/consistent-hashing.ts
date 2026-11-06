@@ -84,6 +84,9 @@ export const hashingSteps: Step[] = [
     diagramId: 'hash-replicas',
     scenario: 'A celebrity profile key saturates its owner despite hundreds of virtual nodes. What would you try?',
     scenarioAnswer: 'Replicate or cache reads for that key, or split the data and writes if possible. Adding virtual tokens alone leaves the individual key assigned to one primary owner.',
+    related: [
+      { chapterId: 'key-value', stepId: 'kv-replication', reason: 'How failure domains decide which copies survive together' },
+    ],
   },
   {
     id: 'hash-operate', title: 'Keep routing trustworthy during change', eyebrow: '07 · Operations',
@@ -98,6 +101,9 @@ export const hashingSteps: Step[] = [
     diagramId: 'hash-operate',
     scenario: 'Two app servers disagree about the current token map during a node join. What is the immediate risk?',
     scenarioAnswer: 'They may route reads and writes for the same key to different owners. Pause or coordinate cutover through a versioned map, with forwarding or dual-read behavior defined for the transition.',
+    related: [
+      { chapterId: 'key-value', stepId: 'kv-repair', reason: 'How replicas find and copy the data they are missing' },
+    ],
   },
 ];
 

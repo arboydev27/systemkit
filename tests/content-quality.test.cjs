@@ -13,6 +13,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 const { chapters, coursePartTitles, goalPaths } = require('../src/content/chapters.ts');
 const { designChallenges } = require('../src/content/challenges/index.ts');
 const { labs } = require('../src/content/labs.ts');
+const { reviewVariations } = require('../src/content/review.ts');
 const { getSpatialLesson } = require('../src/lib/spatial-learning.ts');
 const { correctIsStrictlyLongest, longestOptionShare, MAX_LONGEST_SHARE, optionOrder, quizIssues } = require('../src/lib/quiz.ts');
 
@@ -48,6 +49,47 @@ test('diagram predictions ask something other than the checkpoints', () => {
       assert.ok(!stems.has(prediction.prompt.trim().toLowerCase()), prediction.id);
     }
   }
+});
+
+test('every lesson has authored review prompts, and no prompt repeats what the learner already saw', () => {
+  const stem = text => text.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const lessons = chapters.flatMap(chapter => chapter.steps.map(step => `${chapter.id}/${step.id}`));
+  assert.deepEqual(Object.keys(reviewVariations).sort(), [...lessons].sort());
+  const seen = new Set();
+  for (const chapter of chapters) {
+    const asked = new Set(chapter.questions.map(question => stem(question.prompt)));
+    for (const step of chapter.steps) {
+      const id = `${chapter.id}/${step.id}`;
+      const { prompts, answer } = reviewVariations[id];
+      assert.equal(prompts.length, 2, id);
+      assert.ok(answer.trim(), `${id}: answer`);
+      for (const prompt of prompts) {
+        const key = stem(prompt);
+        assert.ok(key, `${id}: empty prompt`);
+        assert.ok(!asked.has(key), `${id}: repeats a checkpoint question: ${prompt}`);
+        assert.notEqual(key, stem(step.scenario), `${id}: repeats the scenario`);
+        assert.ok(!seen.has(key), `${id}: prompt used by another lesson: ${prompt}`);
+        seen.add(key);
+      }
+    }
+  }
+});
+
+test('related lessons point at real lessons, for a reason, and stay few', () => {
+  for (const chapter of chapters) chapter.steps.forEach((step, index) => {
+    const id = `${chapter.id}/${step.id}`;
+    const related = step.related ?? [];
+    assert.ok(related.length <= 2, `${id}: ${related.length} related lessons`);
+    assert.equal(new Set(related.map(link => `${link.chapterId}/${link.stepId}`)).size, related.length, `${id}: repeated link`);
+    for (const link of related) {
+      const target = `${link.chapterId}/${link.stepId}`;
+      const linked = chapters.find(item => item.id === link.chapterId);
+      assert.ok(linked?.steps.some(item => item.id === link.stepId), `${id}: no such lesson ${target}`);
+      const neighbors = [chapter.steps[index - 1]?.id, step.id, chapter.steps[index + 1]?.id];
+      assert.ok(link.chapterId !== chapter.id || !neighbors.includes(link.stepId), `${id}: ${target} is already one click away`);
+      assert.ok(link.reason.trim() && link.reason.length <= 80, `${id}: reason for ${target}`);
+    }
+  });
 });
 
 test('every lesson has a real explanation, a searchable title, a decision, and checkpoints', () => {

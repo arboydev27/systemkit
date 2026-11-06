@@ -28,6 +28,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-options',
     scenario: 'A small internal tool needs only 500 IDs per second and already has one reliable database. Must it deploy a Snowflake service?',
     scenarioAnswer: 'No. A database sequence may meet the stated scale and availability target more simply. Revisit range leasing or distributed generation only when measured needs justify it.',
+    related: [
+      { chapterId: 'storage-engines', stepId: 'se-btree', reason: 'How B-tree pages split, which explains the random-key slowdown' },
+    ],
   },
   {
     id: 'id-layout', title: 'Budget the 64 bits', eyebrow: '03 · Bit layout',
@@ -36,7 +39,7 @@ export const uniqueIdSteps: Step[] = [
     body: [
       'One example uses one reserved sign bit, 41 bits of milliseconds since a custom epoch, 5 data-center bits, 5 machine bits, and 12 sequence bits. A custom epoch is a start date you choose in place of 1970. That layout provides 32 data-center values, 32 machine values within each, and 4,096 sequence values per millisecond per worker. The 41-bit timestamp spans about 69.7 years: counted from 1970 it would run out in 2039, while counted from the start of 2024 it lasts until 2093. Record the epoch permanently because decoding old IDs depends on it.',
       'Compose the value by shifting the timestamp into the high bits, then the worker fields, then the sequence. For timestamp 1,000, data center 3, machine 7, and sequence 5, the ID is (1000 << 22) | (3 << 17) | (7 << 12) | 5 = 4,194,725,893. Keep the sign bit zero so a signed 64-bit database field stores a positive number.',
-      'Treat field widths as a budget you can spend differently. This layout allows 4,096,000 IDs per second per worker, far more than a 10,000-per-second system needs, and real infrastructure may not deliver that figure anyway. Moving 2 bits from sequence to timestamp leaves 1,024 values per millisecond and stretches the span to about 279 years. Twitter’s original Snowflake used 41 time bits, 10 machine bits, and 12 sequence bits; Discord documents a 42-bit timestamp from a 2015 epoch. Never change a layout silently if IDs from two schemes share a namespace.',
+      'Treat field widths as a budget you can spend differently. This layout allows 4,096,000 IDs per second per worker, far more than a 25,000-per-second system needs, and real infrastructure may not deliver that figure anyway. Moving 2 bits from sequence to timestamp leaves 1,024 values per millisecond and stretches the span to about 279 years. Twitter’s original Snowflake used 41 time bits, 10 machine bits, and 12 sequence bits; Discord documents a 42-bit timestamp from a 2015 epoch. Never change a layout silently if IDs from two schemes share a namespace.',
     ],
     takeaways: ['Field widths are a capacity budget that must fit the contract.', 'The epoch and layout become durable compatibility rules.'],
     diagramId: 'id-layout',
@@ -57,6 +60,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-generate',
     scenario: 'A worker has issued all 4,096 sequence values in the current millisecond. What must it avoid?',
     scenarioAnswer: 'It must not reset the sequence while the timestamp is unchanged. Wait until the next millisecond or fail according to the API contract.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-backpressure', reason: 'When to make producers wait and when to reject with an error' },
+    ],
   },
   {
     id: 'id-clock', title: 'Handle clocks that move backward', eyebrow: '05 · Time failure',
@@ -71,6 +77,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-clock',
     scenario: 'A machine clock jumps backward by 20 seconds after a correction. Should it continue using the same worker ID and reset its sequence?',
     scenarioAnswer: 'No. That can reuse prior timestamp/sequence pairs. Pause or fail issuance until safe, or use a controlled identity and rollback strategy with alerts.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-ordering', reason: 'How logical counters order events when clocks cannot be trusted' },
+    ],
   },
   {
     id: 'id-workers', title: 'Give each live generator a unique identity', eyebrow: '06 · Coordination',
@@ -85,6 +94,9 @@ export const uniqueIdSteps: Step[] = [
     diagramId: 'id-workers',
     scenario: 'An autoscaler starts two pods with the same machine ID. Why can their IDs collide?',
     scenarioAnswer: 'If both issue in the same millisecond and use the same sequence, their encoded fields are identical. Allocate distinct live identities and fence stale holders.',
+    related: [
+      { chapterId: 'consensus', stepId: 'cs-fencing', reason: 'How fencing tokens work when the resource can check them' },
+    ],
   },
   {
     id: 'id-operate', title: 'Prove the service remains unique', eyebrow: '07 · Operations',

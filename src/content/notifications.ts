@@ -28,6 +28,9 @@ export const notificationSteps: Step[] = [
     diagramId: 'notification-ingest',
     scenario: 'An order commits, but the process crashes before it publishes the receipt event. How can the system avoid losing the receipt?',
     scenarioAnswer: 'Commit an outbox record with the order, then have a separate publisher retry the record until the notification service durably accepts it. Use a stable event ID so publishing the same record again does not create a second logical intent.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-outbox', reason: 'Why dual writes fail, and how consumers handle repeated events' },
+    ],
   },
   {
     id: 'notification-personalize', title: 'Resolve who should receive what', seoTitle: 'Notification preferences, consent, and template rendering', eyebrow: '03 · Policy and content',
@@ -68,6 +71,10 @@ export const notificationSteps: Step[] = [
     diagramId: 'notification-reliability',
     scenario: 'A worker times out after sending an SMS; the provider may have accepted it. What is the safest next step?',
     scenarioAnswer: 'Check the provider using the request or idempotency key if its API supports that. Otherwise mark the attempt ambiguous and follow a policy that weighs duplicate SMS cost against missed delivery; blindly retrying cannot guarantee exactly one message.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-idempotency', reason: 'How a stored key keeps a repeated provider call from counting twice' },
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff, jitter, and budgets stop retries prolonging an outage' },
+    ],
   },
   {
     id: 'notification-pacing', title: 'Control when and how much to send', seoTitle: 'Notification rate limiting, batching, and campaign scheduling', eyebrow: '06 · Scheduling and load',
