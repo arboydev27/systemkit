@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, List, Waypoints } from "lucide-react";
+import { Check } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
-import { chapterHref } from "@/lib/links";
+import { chapterHref, lessonHref } from "@/lib/links";
 import type { OrbGraph } from "@/lib/orb-layout";
-import { ACTIVE_CHAPTER_KEY, COURSE_VIEW_KEY, completedCount, emptyProgress, GOAL_KEY, nextLessonInOrder, readProgress, type OutlineChapter, type Progress } from "@/lib/progress";
+import { ACTIVE_CHAPTER_KEY, completedCount, emptyProgress, GOAL_KEY, mainAction, nextLessonInOrder, readProgress, type OutlineChapter, type Progress } from "@/lib/progress";
 import { CourseOrb } from "./CourseOrb";
 import styles from "./Site.module.css";
 
 export type CourseChapter = OutlineChapter & { summary: string; lessonCount: number };
 export type GoalOption = { id: string; label: string; detail: string; order: string[] };
+export type CourseStateValue = { action: { href: string; label: string } | null; finished: number; total: number };
+
+export const CourseState = createContext<CourseStateValue>({ action: null, finished: 0, total: 0 });
+
+/** What the course offers, until there's progress worth reporting and a reason to back it up. */
+export function CourseScope({ children }: { children: ReactNode }) {
+  const { finished, total } = useContext(CourseState);
+  return <p className={styles.scope}>{finished > 0
+    ? <><strong>You’ve finished {finished} of {total} lessons.</strong> <Link href="/progress/">Keep a backup</Link>.</>
+    : children}</p>;
+}
 
 function ChapterRow({ chapter, done, tucked }: { chapter: CourseChapter; done: number; tucked: boolean }) {
   return <li className={styles.row}>
@@ -26,12 +37,12 @@ function ChapterRow({ chapter, done, tucked }: { chapter: CourseChapter; done: n
   </li>;
 }
 
-export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[]; goals: GoalOption[]; orb: OrbGraph }) {
+/** Where the learner is in the course and the order they've chosen, read from this browser. */
+export function useCoursePath(chapters: CourseChapter[], goals: GoalOption[]) {
   const [goalId, setGoalId] = useState<string | null>(null);
   const [goalChanges, setGoalChanges] = useState(0);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
-  const [view, setView] = useState<"orb" | "list">("orb");
   const [orbFailed, setOrbFailed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -40,7 +51,6 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
       const saved = window.localStorage.getItem(GOAL_KEY);
       if (goals.some((goal) => goal.id === saved)) setGoalId(saved);
       setActiveChapter(window.localStorage.getItem(ACTIVE_CHAPTER_KEY));
-      if (window.localStorage.getItem(COURSE_VIEW_KEY) === "list") setView("list");
     } catch { /* The full path shows without a saved goal. */ }
     setProgress(Object.fromEntries(chapters.map((chapter) => [chapter.storageKey, readProgress(chapter.storageKey)])));
     if (window.matchMedia("(forced-colors: active)").matches) setOrbFailed(true);
@@ -54,13 +64,6 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
     try { window.localStorage.setItem(GOAL_KEY, id); } catch { /* The choice still applies for this visit. */ }
   }
 
-  function switchView(next: "orb" | "list") {
-    if (next === view) return;
-    setView(next);
-    trackEvent(next === "list" ? "path_switch_list" : "path_switch_orb");
-    try { window.localStorage.setItem(COURSE_VIEW_KEY, next); } catch { /* The choice still applies for this visit. */ }
-  }
-
   const goal = goals.find((item) => item.id === goalId);
   const walk = useMemo(() => {
     if (!goal) return chapters;
@@ -70,6 +73,19 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
   const order = useMemo(() => walk.map((chapter) => chapters.indexOf(chapter)), [chapters, walk]);
   const next = useMemo(() => nextLessonInOrder(walk, activeChapter, (key) => progress[key] ?? emptyProgress), [walk, activeChapter, progress]);
   const started = useMemo(() => Object.values(progress).some((saved) => saved.completed.length > 0), [progress]);
+
+  const courseState = useMemo(() => {
+    const read = (key: string) => progress[key] ?? emptyProgress;
+    const finished = chapters.reduce((sum, chapter) => sum + completedCount(chapter.stepIds, read(chapter.storageKey)), 0);
+    const total = chapters.reduce((sum, chapter) => sum + chapter.lessonCount, 0);
+    const lesson = mainAction(walk, activeChapter, read);
+    let action = null;
+    if (hydrated && !lesson && finished === total) action = { href: "/review/", label: "Keep them fresh in review" };
+    else if (hydrated && lesson && (lesson.resuming || lesson.stepId !== chapters[0].stepIds[0])) {
+      action = { href: lessonHref(lesson.chapterId, lesson.stepId), label: `${lesson.resuming ? "Continue" : "Start with"} ${lesson.title}` };
+    }
+    return { action, finished, total };
+  }, [hydrated, walk, activeChapter, progress, chapters]);
 
   const groups = useMemo(() => {
     if (goal) return [{ title: "Suggested order", chapters: walk }];
@@ -81,26 +97,36 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
     }, []);
   }, [chapters, goal, walk]);
 
-  const showOrb = view === "orb" && !orbFailed;
+  return { goalId, goal, choose, goalChanges, walk, order, next, started, progress, courseState, groups, orbFailed, setOrbFailed, hydrated };
+}
+
+/** Search engines and screen readers read this list while the orb is showing. It only leaves the screen and the tab order, and it takes over whenever the orb can't run. */
+export function CourseList({ path }: { path: ReturnType<typeof useCoursePath> }) {
+  return <div className={!path.orbFailed ? "sr-only" : undefined} data-course-list>
+    {path.groups.map((group) => <div key={group.title} className={styles.part}>
+      <h3 className={styles.partTitle}>{group.title}</h3>
+      <ol className={styles.rows}>{group.chapters.map((chapter) => <ChapterRow key={chapter.id} chapter={chapter} done={completedCount(chapter.stepIds, path.progress[chapter.storageKey] ?? emptyProgress)} tucked={!path.orbFailed && path.hydrated} />)}</ol>
+    </div>)}
+  </div>;
+}
+
+/** The learning path page: the goal, then the orb with its lesson panel. */
+export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[]; goals: GoalOption[]; orb: OrbGraph }) {
+  const path = useCoursePath(chapters, goals);
+  const { goal, goalId, choose, goalChanges, order, next, started, progress, orbFailed, setOrbFailed } = path;
 
   return <>
-    <div className={styles.pathControls}>
-      <fieldset className={styles.goal}>
-        <legend>What are you here for?</legend>
-        <div className={styles.goalOptions}>
-          {goals.map((option) => <label key={option.id} className={goalId === option.id ? styles.goalOn : undefined}>
-            <input type="radio" name="course-goal" checked={goalId === option.id} onChange={() => choose(option.id)} />
-            <span>{option.label}</span>
-          </label>)}
-        </div>
-      </fieldset>
-      {orbFailed ? null : <div className={styles.viewSwitch} role="group" aria-label="How to show the learning path" data-course-switch>
-        <button type="button" aria-pressed={view === "orb"} onClick={() => switchView("orb")}><Waypoints size={15} aria-hidden="true" /> Map</button>
-        <button type="button" aria-pressed={view === "list"} onClick={() => switchView("list")}><List size={15} aria-hidden="true" /> List</button>
-      </div>}
-    </div>
+    <fieldset className={styles.goal}>
+      <legend>What are you here for?</legend>
+      <div className={styles.goalOptions}>
+        {goals.map((option) => <label key={option.id} className={goalId === option.id ? styles.goalOn : undefined}>
+          <input type="radio" name="course-goal" checked={goalId === option.id} onChange={() => choose(option.id)} />
+          <span>{option.label}</span>
+        </label>)}
+      </div>
+    </fieldset>
     <p className={styles.goalDetail} role="status">{goal?.detail ?? "Choose one and the course will reorder to suit it. You can change your mind at any time."}</p>
-    {showOrb ? <div data-course-orb>
+    {!orbFailed ? <div data-course-orb>
       <CourseOrb
         graph={orb}
         chapters={chapters}
@@ -113,13 +139,7 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
         onFail={() => setOrbFailed(true)}
       />
     </div> : null}
-    {/* Search engines and screen readers read this list in either view; it only leaves the screen and the tab order. */}
-    <div className={showOrb ? "sr-only" : undefined} data-course-list>
-      {groups.map((group) => <div key={group.title} className={styles.part}>
-        <h3 className={styles.partTitle}>{group.title}</h3>
-        <ol className={styles.rows}>{group.chapters.map((chapter) => <ChapterRow key={chapter.id} chapter={chapter} done={completedCount(chapter.stepIds, progress[chapter.storageKey] ?? emptyProgress)} tucked={showOrb && hydrated} />)}</ol>
-      </div>)}
-    </div>
-    <noscript><style>{"[data-course-orb],[data-course-switch]{display:none}[data-course-list]{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none;white-space:normal}"}</style></noscript>
+    <CourseList path={path} />
+    <noscript><style>{"[data-course-orb]{display:none}[data-course-list]{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none;white-space:normal}"}</style></noscript>
   </>;
 }

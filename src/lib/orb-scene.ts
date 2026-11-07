@@ -1,5 +1,5 @@
 import type { OrbGraph } from "./orb-layout";
-import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
+import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, rimNameFades, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
 import {
   arcControl, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
@@ -19,7 +19,10 @@ const PITCH_LIMIT = 1.2;
 const TURN_RESPONSE = 0.9;
 const ZOOM_RESPONSE = 0.7;
 const EMPHASIS_EASE = 0.16;
+const NAME_GAP = 0.12; // Radians of clear rim between two part names before the farther one starts to fade.
 const IDLE_FRAME = 30; // Slow rotation looks the same at 30 frames a second and costs half the battery.
+const TOUCH_IDLE_FRAME = 60; // On a phone, 15 frames a second: the rim still moves less than a pixel a frame.
+const IDLE_LIMIT = 45_000; // The orb opens the home page, so left alone it comes to rest rather than drawing for as long as the tab stays open.
 const SIGNAL_HOP = 0.075;
 const SIGNAL_WIDTH = 0.14;
 const PULSE_EVERY = 1.3;
@@ -32,15 +35,32 @@ export type OrbSceneEvents = {
   onOpen: (lesson: number, inNewTab: boolean) => void;
   /** The canvas stopped working, so the page should show the list instead. */
   onFail: () => void;
+  /** A part's name on the rim was clicked or tapped. Only asked for where the rim is navigation. */
+  onPart?: (part: number) => void;
 };
 
-export type OrbFocus = { chapter: number | null; lesson: number | null; faceLesson: boolean };
+export type OrbFocus = {
+  chapter: number | null;
+  lesson: number | null;
+  faceLesson: boolean;
+  /** A part being browsed: the orb turns to its lobe and quietens the others. */
+  part?: number | null;
+  /** A chapter being pointed at in a list, which the orb turns to and lights without selecting it. */
+  preview?: number | null;
+};
+
+export type OrbSceneOptions = {
+  /** The orb is the home page's navigation: its part names can be clicked, and the page names the next lesson itself. */
+  navigation?: boolean;
+};
 
 export type OrbScene = {
   setProgress: (finished: boolean[], next: number | null, nextLabel: string) => void;
   setOrder: (order: number[] | null) => void;
   setFocus: (focus: OrbFocus) => void;
   setHold: (hold: boolean) => void;
+  /** Stops drawing while the page has covered the orb, leaving the last frame on screen. */
+  setResting: (resting: boolean) => void;
   /** Turns to a lesson and sends a signal out from it, then goes back to drifting. */
   announce: (lesson: number) => void;
   destroy: () => void;
@@ -67,7 +87,7 @@ function makeHalo() {
   return halo;
 }
 
-export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, tooltip: HTMLElement | null, events: OrbSceneEvents): OrbScene | null {
+export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, tooltip: HTMLElement | null, events: OrbSceneEvents, options: OrbSceneOptions = {}): OrbScene | null {
   const context = canvas.getContext("2d");
   if (!context) return null;
   const ctx = context;
@@ -155,9 +175,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let next: number | null = 0;
   let nextLabel = "Start here";
   let selected: number | null = null;
+  let selectedPart: number | null = null;
+  let preview: number | null = null;
   let active: number | null = null;
   let hovered: number | null = null;
+  let hoveredPart: number | null = null;
   let hold = false;
+  let resting = false;
+  let rimNames: { part: number; radius: number; angle: number; half: number }[] = [];
   let order: number[] | null = null;
   let threadPoints: Float32Array | null = null;
   let threadX = new Float32Array(0);
@@ -172,7 +197,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let pulseClock = 0;
   let clock = 0;
 
-  type Drag = { id: number; touch: boolean; startX: number; startY: number; x: number; y: number; moved: boolean; pressed: number; samples: { t: number; x: number; y: number }[] };
+  type Drag = { id: number; touch: boolean; startX: number; startY: number; x: number; y: number; moved: boolean; pressed: number; pressedPart: number; samples: { t: number; x: number; y: number }[] };
   let drag: Drag | null = null;
   let pointer: { x: number; y: number } | null = null;
 
@@ -181,12 +206,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let frame = 0;
   let lastTick = 0;
   let lastDraw = 0;
+  let lastActivity = performance.now();
   let destroyed = false;
 
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const scheme = window.matchMedia("(prefers-color-scheme: dark)");
   const moreContrast = window.matchMedia("(prefers-contrast: more)");
   let still = motion.matches;
+  const idleFrame = window.matchMedia("(pointer: coarse)").matches ? TOUCH_IDLE_FRAME : IDLE_FRAME;
 
   function readTheme() {
     const styles = getComputedStyle(canvas);
@@ -202,14 +229,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   }
 
   function measure() {
-    const box = canvas.getBoundingClientRect();
-    width = box.width;
-    height = box.height;
+    // Layout size rather than the on-screen box, so an entrance or scroll effect that scales the orb can't lower its resolution.
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
     scale = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     radius = Math.min(width, height) * ORB_RADIUS;
-    labelSize = width < 480 ? 11 : 12;
+    labelSize = options.navigation ? (width < 480 ? 12 : 14) : width < 480 ? 11 : 12;
   }
 
   function turn() {
@@ -285,7 +312,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
           pitchVelocity = 0;
         }
       } else {
-        const wanted = still || hold || hovered !== null || selected !== null || active !== null ? 0 : IDLE_SPIN;
+        const wanted = still || hold || hovered !== null || selected !== null || active !== null || selectedPart !== null || preview !== null ? 0 : IDLE_SPIN;
         spin += (wanted - spin) * (1 - Math.exp(-dt / SPIN_EASE));
         const fade = Math.exp(-dt / SPIN_EASE);
         yawVelocity *= fade;
@@ -300,7 +327,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       }
     }
 
-    const wantedZoom = selected !== null ? (width < 640 ? 1.09 : 1.05) : 1;
+    // Where the orb is navigation it sits inside a sphere drawn by the page, which has to stay the same size.
+    const wantedZoom = selected !== null && !options.navigation ? (width < 640 ? 1.09 : 1.05) : 1;
     if (still) {
       zoom = wantedZoom;
     } else {
@@ -310,9 +338,11 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     }
 
     const ease = still ? 1 : 1 - Math.exp(-dt / EMPHASIS_EASE);
-    const focusChapter = selected ?? (hovered !== null ? chapterOf[hovered] : null);
+    const focusChapter = selected ?? preview ?? (hovered !== null ? chapterOf[hovered] : null);
+    const browsedPart = focusChapter === null ? selectedPart ?? hoveredPart : null;
     for (let chapter = 0; chapter < chapterCount; chapter++) {
-      const wanted = focusChapter === null ? 1 : chapter === focusChapter ? 1.3 : selected !== null ? 0.3 : 0.6;
+      const wanted = browsedPart !== null ? (graph.chapterParts[chapter] === browsedPart ? 1.2 : 0.35)
+        : focusChapter === null ? 1 : chapter === focusChapter ? 1.3 : selected !== null || preview !== null ? 0.3 : 0.6;
       emphasis[chapter] += (wanted - emphasis[chapter]) * ease;
     }
     const lit = active ?? hovered;
@@ -570,36 +600,52 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     ctx.textBaseline = "alphabetic";
     const centerX = width / 2;
     const centerY = height / 2;
-    const selectedPart = selected !== null ? graph.chapterParts[selected] : null;
-    graph.partTitles.forEach((title, part) => {
+    const litPart = hoveredPart ?? (selected !== null ? graph.chapterParts[selected] : selectedPart);
+    const shown = graph.partTitles.flatMap((title, part) => {
       const turned = turnedDirection(partCenters[part]);
       const facing = Math.min(1, Math.max(0, (turned.z + 0.25) / 0.4));
-      if (facing <= 0.01) return;
+      if (facing <= 0.01) return [];
       // Lettering stays on the top or bottom of the rim, where it can be read, even for a lobe near the equator.
       const below = turned.y < 0;
       const steep = Math.PI / 7;
       const across = Math.atan2(Math.abs(turned.y), turned.x);
       const held = Math.min(Math.PI - steep, Math.max(steep, across));
-      const angle = below ? held : -held;
-      const alpha = facing;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = selectedPart === part ? theme.ink : theme.muted;
       const letters = [...title];
       const gaps = letters.map((letter) => ctx.measureText(letter).width + 0.5);
       const total = gaps.reduce((sum, gap) => sum + gap, 0);
       const ring = below ? rim + labelSize * 0.8 : rim;
+      return [{ part, below, letters, gaps, total, ring, facing, angle: below ? held : -held, half: total / 2 / ring, depth: turned.z }];
+    });
+    const fades = rimNameFades(shown, NAME_GAP);
+    rimNames = shown.flatMap(({ part, below, ring, angle, half }, index) => (fades[index] * shown[index].facing > 0.5 ? [{ part, radius: below ? ring - labelSize * 0.4 : ring + labelSize * 0.4, angle, half }] : []));
+    shown.forEach(({ part, below, letters, gaps, total, ring, facing, angle }, index) => {
+      if (fades[index] <= 0.01) return;
+      ctx.globalAlpha = facing * fades[index];
+      ctx.fillStyle = litPart === part ? theme.ink : theme.muted;
       let travel = -total / 2;
-      letters.forEach((letter, index) => {
-        const middle = travel + gaps[index] / 2;
+      letters.forEach((letter, letterIndex) => {
+        const middle = travel + gaps[letterIndex] / 2;
         const theta = below ? angle - middle / ring : angle + middle / ring;
         ctx.save();
         ctx.translate(centerX + Math.cos(theta) * ring, centerY + Math.sin(theta) * ring);
         ctx.rotate(below ? theta - Math.PI / 2 : theta + Math.PI / 2);
         ctx.fillText(letter, 0, 0);
         ctx.restore();
-        travel += gaps[index];
+        travel += gaps[letterIndex];
       });
     });
+  }
+
+  /** The part whose name on the rim is under a point, or -1. */
+  function partAt(x: number, y: number, reach: number) {
+    if (!options.navigation) return -1;
+    const from = Math.hypot(x - width / 2, y - height / 2);
+    const at = Math.atan2(y - height / 2, x - width / 2);
+    for (const name of rimNames) {
+      const apart = Math.abs(Math.atan2(Math.sin(at - name.angle), Math.cos(at - name.angle)));
+      if (Math.abs(from - name.radius) <= reach && apart <= name.half + 0.03) return name.part;
+    }
+    return -1;
   }
 
   function placeTooltip() {
@@ -645,7 +691,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     drawDots();
     drawMarkers();
     drawPartNames();
-    drawNextLabel();
+    if (!options.navigation) drawNextLabel();
     ctx.globalAlpha = 1;
     placeTooltip();
   }
@@ -653,20 +699,23 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   function updateHover() {
     if (!pointer || drag?.moved) return;
     const reach = Math.max(10, radius * 0.045);
-    const found = hitLesson(hitPoints, pointer.x, pointer.y, reach);
+    const part = partAt(pointer.x, pointer.y, 14);
+    const found = part >= 0 ? -1 : hitLesson(hitPoints, pointer.x, pointer.y, reach);
     const lesson = found < 0 ? null : found;
+    hoveredPart = part >= 0 ? part : null;
     if (lesson !== hovered) {
       hovered = lesson;
       events.onHover(lesson);
     }
-    canvas.style.cursor = lesson !== null ? "pointer" : "";
+    canvas.style.cursor = lesson !== null || part >= 0 ? "pointer" : "";
   }
 
   function tick(now: number) {
     frame = 0;
-    if (destroyed || !onScreen || document.visibilityState === "hidden") return;
+    if (destroyed || !onScreen || resting || document.visibilityState === "hidden") return;
     const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001;
-    if (!busy && !still && now - lastDraw < IDLE_FRAME) {
+    if (!busy && !still && now - lastActivity > IDLE_LIMIT) return;
+    if (!busy && !still && now - lastDraw < idleFrame) {
       frame = requestAnimationFrame(tick);
       return;
     }
@@ -686,7 +735,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   }
 
   function wake() {
-    if (!frame && !destroyed && onScreen && document.visibilityState !== "hidden") {
+    lastActivity = performance.now();
+    if (!frame && !destroyed && onScreen && !resting && document.visibilityState !== "hidden") {
       lastTick = 0;
       frame = requestAnimationFrame(tick);
     }
@@ -709,8 +759,9 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     if (event.button !== 0) return;
     const place = pointerPlace(event);
     const touch = event.pointerType !== "mouse";
-    const pressed = hitLesson(hitPoints, place.x, place.y, touch ? Math.max(26, radius * 0.16) : Math.max(10, radius * 0.045));
-    drag = { id: event.pointerId, touch, startX: place.x, startY: place.y, x: place.x, y: place.y, moved: false, pressed, samples: [{ t: event.timeStamp, ...place }] };
+    const pressedPart = partAt(place.x, place.y, touch ? 22 : 14);
+    const pressed = pressedPart >= 0 ? -1 : hitLesson(hitPoints, place.x, place.y, touch ? Math.max(26, radius * 0.16) : Math.max(10, radius * 0.045));
+    drag = { id: event.pointerId, touch, startX: place.x, startY: place.y, x: place.x, y: place.y, moved: false, pressed, pressedPart, samples: [{ t: event.timeStamp, ...place }] };
     if (!still && pressed >= 0) glow[pressed] = 1;
     canvas.setPointerCapture(event.pointerId);
     wake();
@@ -720,7 +771,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     const place = pointerPlace(event);
     if (event.pointerType === "mouse") pointer = place;
     if (!drag || drag.id !== event.pointerId) {
-      if (still) wake();
+      wake();
       return;
     }
     if (!drag.moved && Math.hypot(place.x - drag.startX, place.y - drag.startY) > (drag.touch ? 10 : 5)) {
@@ -756,6 +807,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
         yawVelocity = Math.max(-5, Math.min(5, (ended.x - first.x) / span / reach));
         pitchVelocity = ended.touch ? 0 : Math.max(-4, Math.min(4, (ended.y - first.y) / span / reach));
       }
+    } else if (ended.pressedPart >= 0) {
+      events.onPart?.(ended.pressedPart);
     } else if (ended.touch) {
       const inOrb = Math.hypot(ended.x - width / 2, ended.y - height / 2) < radius * zoom * 1.05;
       events.onTap(ended.pressed >= 0 ? ended.pressed : inOrb ? hitLesson(hitPoints, ended.x, ended.y, radius * 2) : null);
@@ -775,6 +828,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
 
   function onPointerLeave() {
     pointer = null;
+    hoveredPart = null;
     if (hovered !== null && !drag) {
       hovered = null;
       events.onHover(null);
@@ -858,15 +912,27 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     },
     setFocus(focus) {
       const changedChapter = focus.chapter !== selected;
+      const nextPart = focus.part ?? null;
+      const nextPreview = focus.preview ?? null;
+      const changedPart = nextPart !== selectedPart;
+      const changedPreview = nextPreview !== preview;
       selected = focus.chapter;
+      selectedPart = nextPart;
+      preview = nextPreview;
       active = focus.lesson;
       if (focus.lesson !== null && focus.faceLesson) faceTo(position(focus.lesson), false);
       else if (focus.chapter !== null && changedChapter) faceTo(chapterCenters[focus.chapter], false);
-      else if (focus.chapter === null && focus.lesson === null && target && !target.passing) target = null;
+      else if (focus.chapter === null && preview !== null && changedPreview) faceTo(chapterCenters[preview], false);
+      else if (focus.chapter === null && selectedPart !== null && (changedPart || changedPreview)) faceTo(partCenters[selectedPart], false);
+      else if (focus.chapter === null && focus.lesson === null && selectedPart === null && target && !target.passing) target = null;
       wake();
     },
     setHold(nextHold) {
       hold = nextHold;
+      wake();
+    },
+    setResting(nextResting) {
+      resting = nextResting;
       wake();
     },
     announce(lesson) {

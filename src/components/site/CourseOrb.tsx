@@ -51,7 +51,7 @@ function OrbPoster({ graph, hidden }: { graph: OrbGraph; hidden: boolean }) {
   </svg>;
 }
 
-type CourseOrbProps = {
+export type CourseOrbProps = {
   graph: OrbGraph;
   chapters: (OutlineChapter & { lessonCount: number })[];
   /** Chapter indexes in the order to walk them. */
@@ -65,32 +65,18 @@ type CourseOrbProps = {
   onFail: () => void;
 };
 
-export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progress, next, started, onFail }: CourseOrbProps) {
+/** What's selected on the orb and how to move around it, shared by the learning path page and the home page. */
+export function useCourseOrb({ graph, chapters, order, ordered, goalChanges, progress, next, started }: CourseOrbProps) {
   const router = useRouter();
-  const stage = useRef<HTMLDivElement>(null);
-  const tooltip = useRef<HTMLDivElement>(null);
-  const [near, setNear] = useState(false);
-  const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const [part, setPart] = useState<number | null>(null);
+  const [preview, setPreview] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
   const [faceActive, setFaceActive] = useState(false);
   const [tapped, setTapped] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
   const [hold, setHold] = useState(false);
   const [spoken, setSpoken] = useState("");
-
-  useEffect(() => {
-    const node = stage.current;
-    if (!node) return;
-    const watcher = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setNear(true);
-        watcher.disconnect();
-      }
-    }, { rootMargin: "600px 0px" });
-    watcher.observe(node);
-    return () => watcher.disconnect();
-  }, []);
 
   const finished = useMemo(() => chapters.flatMap((chapter) => {
     const saved = progress[chapter.storageKey] ?? emptyProgress;
@@ -110,9 +96,6 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
   const threadOrder = useMemo(() => ordered ? order : null, [ordered, order]);
 
   const shownChapter = selected ?? (nextLesson !== null ? chapterOfLesson(graph, nextLesson) : order[0]);
-  const chapter = chapters[shownChapter];
-  const orderPlace = order.indexOf(shownChapter);
-  const doneInChapter = chapter.stepIds.filter((_, step) => finished[lessonAt(shownChapter, step)]).length;
 
   const hrefOf = useCallback((lesson: number) => {
     const owner = chapterOfLesson(graph, lesson);
@@ -137,6 +120,8 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
   const clear = useCallback(() => {
     setTapped(false);
     setSelected(null);
+    setPart(null);
+    setPreview(null);
     setActive(null);
     setFaceActive(false);
   }, []);
@@ -144,6 +129,16 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
   const showChapter = useCallback((index: number) => {
     setTapped(false);
     setSelected(index);
+    setPreview(null);
+    setActive(null);
+    setFaceActive(false);
+  }, []);
+
+  const showPart = useCallback((index: number) => {
+    setTapped(false);
+    setSelected(null);
+    setPart(index);
+    setPreview(null);
     setActive(null);
     setFaceActive(false);
   }, []);
@@ -196,7 +191,7 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
         event.preventDefault();
         open(active, event.metaKey || event.ctrlKey);
       }
-    } else if (event.key === "Escape" && (active !== null || selected !== null)) {
+    } else if (event.key === "Escape" && (active !== null || selected !== null || part !== null)) {
       clear();
     }
   };
@@ -208,56 +203,140 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
     if (goalChanges === lastGoalChange.current) return;
     lastGoalChange.current = goalChanges;
     setSelected(null);
+    setPart(null);
     setActive(null);
     if (nextLesson !== null) setAnnouncement({ lesson: nextLesson, id: goalChanges });
   }, [goalChanges, nextLesson]);
 
-  const focus = useMemo(() => ({ chapter: selected, lesson: active, faceLesson: faceActive }), [selected, active, faceActive]);
-  const shownLesson = active ?? hovered;
-  const tooltipFacts = shownLesson === null ? "" : `${chapters[chapterOfLesson(graph, shownLesson)].title}${finished[shownLesson] ? " · Finished" : shownLesson === nextLesson ? ` · ${nextLabel}` : ""}`;
-  // Finished rows can push the next lesson off a phone screen, and another chapter hides it altogether.
-  const nextIsOutOfSight = nextLesson !== null && (chapterOfLesson(graph, nextLesson) !== shownChapter || nextLesson - graph.chapterStarts[shownChapter] > 2);
+  const focus = useMemo(() => ({ chapter: selected, lesson: active, faceLesson: faceActive, part, preview }), [selected, active, faceActive, part, preview]);
+
+  return {
+    selected, part, active, tapped, hovered, spoken, hold, focus, announcement, finished, nextLesson, nextLabel, threadOrder, shownChapter,
+    lessonAt, hrefOf, clear, showChapter, showPart, stepChapter, open, onHover, onTap, onKeyDown, setActive, setFaceActive, setTapped, setHold, setPreview,
+    prefetch: (lesson: number) => router.prefetch(hrefOf(lesson)),
+  };
+}
+
+export type CourseOrbState = ReturnType<typeof useCourseOrb>;
+
+/** The orb itself: the first paint, the canvas once it's close to the screen, and the label that follows a lesson. */
+export function OrbStage({ orb, graph, chapters, onFail, navigation = false, resting = false, onPart, className = "", tooltipClassName = "" }: {
+  orb: CourseOrbState;
+  graph: OrbGraph;
+  chapters: CourseOrbProps["chapters"];
+  onFail: () => void;
+  navigation?: boolean;
+  resting?: boolean;
+  onPart?: (part: number) => void;
+  className?: string;
+  tooltipClassName?: string;
+}) {
+  const stage = useRef<HTMLDivElement>(null);
+  const tooltip = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const node = stage.current;
+    if (!node) return;
+    const watcher = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setNear(true);
+        watcher.disconnect();
+      }
+    }, { rootMargin: "600px 0px" });
+    watcher.observe(node);
+    return () => watcher.disconnect();
+  }, []);
+
+  const shownLesson = orb.active ?? orb.hovered;
+  const tooltipFacts = shownLesson === null ? "" : `${chapters[chapterOfLesson(graph, shownLesson)].title}${orb.finished[shownLesson] ? " · Finished" : shownLesson === orb.nextLesson ? ` · ${orb.nextLabel}` : ""}`;
+
+  return <div
+    ref={stage}
+    className={`${styles.stage} ${className}`}
+    role="application"
+    tabIndex={0}
+    aria-label={`Map of ${graph.titles.length} lessons. Left and right arrows move between lessons, up and down between chapters, and Enter opens a lesson.`}
+    onKeyDown={orb.onKeyDown}
+    onFocus={(event) => { if (event.target === event.currentTarget && event.currentTarget.matches(":focus-visible")) orb.setHold(true); }}
+    onBlur={() => orb.setHold(false)}
+  >
+    <OrbPoster graph={graph} hidden={ready} />
+    {near ? <OrbCanvas
+      graph={graph}
+      finished={orb.finished}
+      next={orb.nextLesson}
+      nextLabel={orb.nextLabel}
+      order={orb.threadOrder}
+      focus={orb.focus}
+      hold={orb.hold}
+      announcement={orb.announcement}
+      tooltip={tooltip}
+      onHover={orb.onHover}
+      onTap={orb.onTap}
+      onOpen={orb.open}
+      onPart={onPart}
+      onReady={() => setReady(true)}
+      onFail={onFail}
+      navigation={navigation}
+      resting={resting}
+    /> : null}
+    <div ref={tooltip} className={`${styles.tooltip} ${tooltipClassName} ${shownLesson !== null ? styles.tooltipOn : ""} ${orb.tapped ? styles.tooltipTapped : ""}`} aria-hidden="true">
+      {shownLesson === null ? null : orb.tapped ? <Link href={orb.hrefOf(shownLesson)} tabIndex={-1} onClick={() => trackEvent("orb_open_dot")}>
+        <strong>{graph.titles[shownLesson]} <ArrowRight size={13} aria-hidden="true" /></strong>
+        <span>{tooltipFacts}</span>
+      </Link> : <>
+        <strong>{graph.titles[shownLesson]}</strong>
+        <span>{tooltipFacts}</span>
+      </>}
+    </div>
+    <p className={styles.keyHint} aria-hidden="true">Arrow keys move through the lessons. Enter opens one.</p>
+  </div>;
+}
+
+/** The lessons of one chapter as rows, which point at their dots on the orb. */
+export function ChapterLessons({ orb, graph, chapter, index }: { orb: CourseOrbState; graph: OrbGraph; chapter: CourseOrbProps["chapters"][number]; index: number }) {
+  return <ol className={styles.lessons}>
+    {chapter.stepIds.map((stepId, step) => {
+      const lesson = orb.lessonAt(index, step);
+      const isNext = lesson === orb.nextLesson;
+      return <li key={stepId}>
+        <Link
+          href={lessonHref(chapter.id, stepId)}
+          prefetch={false}
+          className={`${styles.lesson} ${orb.active === lesson ? styles.lessonActive : ""} ${isNext ? styles.lessonNext : ""}`}
+          onClick={() => trackEvent("orb_open_row")}
+          onPointerEnter={(event) => { if (event.pointerType === "mouse") { orb.prefetch(lesson); orb.setTapped(false); orb.setActive(lesson); orb.setFaceActive(true); } }}
+          onPointerLeave={(event) => { if (event.pointerType === "mouse") orb.setActive(null); }}
+          onFocus={() => { orb.prefetch(lesson); orb.setTapped(false); orb.setActive(lesson); orb.setFaceActive(true); }}
+          onBlur={() => orb.setActive(null)}
+        >
+          <span className={styles.lessonNumber}>{step + 1}</span>
+          <span className={styles.lessonTitle}>{graph.titles[lesson]}</span>
+          {orb.finished[lesson] ? <span className={styles.lessonDone}><Check size={13} aria-hidden="true" /> Done</span>
+            : isNext ? <span className={styles.lessonGo}>{orb.nextLabel} <ArrowRight size={14} aria-hidden="true" /></span> : null}
+        </Link>
+      </li>;
+    })}
+  </ol>;
+}
+
+/** Finished rows can push the next lesson off a phone screen, and another chapter hides it altogether. */
+export function nextIsOutOfSight(orb: CourseOrbState, graph: OrbGraph) {
+  return orb.nextLesson !== null && (chapterOfLesson(graph, orb.nextLesson) !== orb.shownChapter || orb.nextLesson - graph.chapterStarts[orb.shownChapter] > 2);
+}
+
+export function CourseOrb(props: CourseOrbProps) {
+  const { graph, chapters, order, ordered, onFail } = props;
+  const orb = useCourseOrb(props);
+  const chapter = chapters[orb.shownChapter];
+  const orderPlace = order.indexOf(orb.shownChapter);
+  const doneInChapter = chapter.stepIds.filter((_, step) => orb.finished[orb.lessonAt(orb.shownChapter, step)]).length;
 
   return <>
     <div className={styles.orb}>
-      <div
-        ref={stage}
-        className={`${styles.stage} ${ready ? styles.stageLive : ""}`}
-        role="application"
-        tabIndex={0}
-        aria-label={`Map of ${graph.titles.length} lessons. Left and right arrows move between lessons, up and down between chapters, and Enter opens a lesson.`}
-        onKeyDown={onKeyDown}
-        onFocus={(event) => { if (event.target === event.currentTarget && event.currentTarget.matches(":focus-visible")) setHold(true); }}
-        onBlur={() => setHold(false)}
-      >
-        <OrbPoster graph={graph} hidden={ready} />
-        {near ? <OrbCanvas
-          graph={graph}
-          finished={finished}
-          next={nextLesson}
-          nextLabel={nextLabel}
-          order={threadOrder}
-          focus={focus}
-          hold={hold}
-          announcement={announcement}
-          tooltip={tooltip}
-          onHover={onHover}
-          onTap={onTap}
-          onOpen={open}
-          onReady={() => setReady(true)}
-          onFail={onFail}
-        /> : null}
-        <div ref={tooltip} className={`${styles.tooltip} ${shownLesson !== null ? styles.tooltipOn : ""} ${tapped ? styles.tooltipTapped : ""}`} aria-hidden="true">
-          {shownLesson === null ? null : tapped ? <Link href={hrefOf(shownLesson)} tabIndex={-1} onClick={() => trackEvent("orb_open_dot")}>
-            <strong>{graph.titles[shownLesson]} <ArrowRight size={13} aria-hidden="true" /></strong>
-            <span>{tooltipFacts}</span>
-          </Link> : <>
-            <strong>{graph.titles[shownLesson]}</strong>
-            <span>{tooltipFacts}</span>
-          </>}
-        </div>
-        <p className={styles.keyHint} aria-hidden="true">Arrow keys move through the lessons. Enter opens one.</p>
-      </div>
+      <OrbStage orb={orb} graph={graph} chapters={chapters} onFail={onFail} />
 
       <div className={styles.panel}>
         <h3 className={styles.panelTitle}>{chapter.title}</h3>
@@ -265,39 +344,18 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
           {chapter.part} · {doneInChapter > 0 ? `${doneInChapter} of ${chapter.lessonCount} lessons finished` : `${chapter.lessonCount} lessons`}
           {ordered ? <> · step {orderPlace + 1} of {order.length} in your order</> : null}
         </p>
-        {nextIsOutOfSight && nextLesson !== null ? <Link className={styles.nextUp} href={hrefOf(nextLesson)} onClick={() => trackEvent("orb_open_row")}>
-          <span>{nextLabel}: {graph.titles[nextLesson]}</span> <ArrowRight size={15} aria-hidden="true" />
+        {nextIsOutOfSight(orb, graph) && orb.nextLesson !== null ? <Link className={styles.nextUp} href={orb.hrefOf(orb.nextLesson)} onClick={() => trackEvent("orb_open_row")}>
+          <span>{orb.nextLabel}: {graph.titles[orb.nextLesson]}</span> <ArrowRight size={15} aria-hidden="true" />
         </Link> : null}
-        <ol className={styles.lessons}>
-          {chapter.stepIds.map((stepId, step) => {
-            const lesson = lessonAt(shownChapter, step);
-            const isNext = lesson === nextLesson;
-            return <li key={stepId}>
-              <Link
-                href={lessonHref(chapter.id, stepId)}
-                className={`${styles.lesson} ${active === lesson ? styles.lessonActive : ""} ${isNext ? styles.lessonNext : ""}`}
-                onClick={() => trackEvent("orb_open_row")}
-                onPointerEnter={(event) => { if (event.pointerType === "mouse") { setTapped(false); setActive(lesson); setFaceActive(true); } }}
-                onPointerLeave={(event) => { if (event.pointerType === "mouse") setActive(null); }}
-                onFocus={() => { setTapped(false); setActive(lesson); setFaceActive(true); }}
-                onBlur={() => setActive(null)}
-              >
-                <span className={styles.lessonNumber}>{step + 1}</span>
-                <span className={styles.lessonTitle}>{graph.titles[lesson]}</span>
-                {finished[lesson] ? <span className={styles.lessonDone}><Check size={13} aria-hidden="true" /> Done</span>
-                  : isNext ? <span className={styles.lessonGo}>{nextLabel} <ArrowRight size={14} aria-hidden="true" /></span> : null}
-              </Link>
-            </li>;
-          })}
-        </ol>
+        <ChapterLessons orb={orb} graph={graph} chapter={chapter} index={orb.shownChapter} />
         <div className={styles.panelFoot}>
           <Link className={styles.chapterLink} href={chapterHref(chapter.id)} onClick={() => trackEvent("orb_open_chapter")}>About this chapter</Link>
           <div className={styles.steppers}>
-            <button type="button" onClick={() => stepChapter(-1)} aria-label="Previous chapter"><ChevronLeft size={17} aria-hidden="true" /></button>
-            <button type="button" onClick={() => stepChapter(1)} aria-label="Next chapter"><ChevronRight size={17} aria-hidden="true" /></button>
+            <button type="button" onClick={() => orb.stepChapter(-1)} aria-label="Previous chapter"><ChevronLeft size={17} aria-hidden="true" /></button>
+            <button type="button" onClick={() => orb.stepChapter(1)} aria-label="Next chapter"><ChevronRight size={17} aria-hidden="true" /></button>
           </div>
         </div>
-        {nextLesson === null ? <p className={styles.allDone}>You’ve finished all {graph.titles.length} lessons. <Link href="/review/">Keep them fresh in review</Link>.</p> : null}
+        {orb.nextLesson === null ? <p className={styles.allDone}>You’ve finished all {graph.titles.length} lessons. <Link href="/review/">Keep them fresh in review</Link>.</p> : null}
       </div>
     </div>
 
@@ -306,10 +364,10 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
       <ul>
         <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2" opacity=".65" /></svg> Not started</li>
         <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg> Finished</li>
-        <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.6" /><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" /></svg> {nextLabel}</li>
+        <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.6" /><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" /></svg> {orb.nextLabel}</li>
         {ordered ? <li><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 9c2-7 5 3 10-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg> Your order, fading as it goes</li> : null}
       </ul>
     </div>
-    <p className="sr-only" aria-live="polite">{spoken}</p>
+    <p className="sr-only" aria-live="polite">{orb.spoken}</p>
   </>;
 }

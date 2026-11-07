@@ -1,60 +1,97 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
+import { designChallenges, findChallenge } from "@/content/challenges";
 import { chapters } from "@/content/chapters";
-import { designChallenges } from "@/content/challenges";
 import { labs } from "@/content/labs";
-import { CourseMap } from "@/components/site/CourseMap";
-import { ContinueLink, LabView, ProgressTools } from "@/components/site/SiteClient";
+import { CourseScope } from "@/components/site/CourseMap";
+import { EstimateRoll, Live, ScaleGameSlot } from "@/components/site/HomeMotion";
+import { CacheChart, DesignChart, ForgettingChart, LimiterChart, QuorumChart, RetryChart } from "@/components/site/HomeVisuals";
+import visuals from "@/components/site/HomeVisuals.module.css";
+import { FluidField, OrbHome } from "@/components/site/OrbHome";
+import home from "@/components/site/OrbHome.module.css";
+import { DueReviewBadge } from "@/components/site/SiteClient";
 import { SitePage } from "@/components/site/SiteChrome";
-import styles from "@/components/site/Site.module.css";
-import { courseChapters, courseGoals, courseOrb, lessonCount } from "@/lib/course";
-import { courseOutline } from "@/lib/lessons";
+import { courseChapters, courseGoals, courseOrb } from "@/lib/course";
 import { lessonHref } from "@/lib/links";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
+const LAB_CHARTS = { "retry-storm": RetryChart, "rate-limiters": LimiterChart, quorum: QuorumChart, cache: CacheChart };
+const LAB_ORDER = ["cache", "retry-storm", "rate-limiters", "quorum"] as const;
+
 export default function Home() {
   const first = chapters[0];
-  return <SitePage>
-    <section className={styles.hero}>
-      <h1>Learn system design by making the calls.</h1>
-      <p className={styles.lede}>Predict what breaks. Run the numbers. Write a design of your own and compare it with worked approaches. Useful for interviews and for the design decisions at your job.</p>
-      <div className={styles.heroActions}>
-        <ContinueLink outline={courseOutline} firstHref={lessonHref(first.id, first.steps[0].id)} firstLabel="Start with lesson one" />
-        <a className={styles.secondaryLink} href="#try">Try a lab first</a>
+  const challenge = findChallenge("pastebin")!;
+
+  return <SitePage home>
+    <FluidField />
+    <div className={home.world}>
+      <OrbHome
+        chapters={courseChapters}
+        goals={courseGoals}
+        graph={courseOrb}
+        start={{ href: lessonHref(first.id, first.steps[0].id), label: "Start lesson one" }}
+        counts={{ labs: labs.length, challenges: designChallenges.length }}
+        words={<h1>Learn system design by making the calls.</h1>}
+        foot={<>
+          <p className={home.lede}>Predict what breaks. Run the numbers. Compare your design with worked approaches.</p>
+          <CourseScope><strong>Free, with no signup.</strong></CourseScope>
+          <a className={home.tryLink} href="#try">Make a call now <ArrowDown size={15} aria-hidden="true" /></a>
+        </>}
+      />
+
+      <section id="try" className={home.try} aria-labelledby="try-heading">
+        <h2 id="try-heading">Your app just went viral.</h2>
+        <ScaleGameSlot />
+        <noscript><p className={home.tryFallback}><Link href="/learn/scaling/">Scale to a Million Users <ArrowRight size={15} aria-hidden="true" /></Link></p><style>{"[data-scale-slot]{display:none}"}</style></noscript>
+      </section>
+    </div>
+
+    <section className={home.asks} aria-labelledby="ways-heading">
+      <h2 id="ways-heading">Four more ways to make the call.</h2>
+      <div className={visuals.bento}>
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileWide}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/labs/">Break it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>{labs.length} labs</span>
+          </div>
+          <div className={visuals.labGrid}>
+            {LAB_ORDER.map((id) => {
+              const lab = labs.find((item) => item.id === id)!;
+              const Chart = LAB_CHARTS[id];
+              return <Link key={id} className={visuals.lab} href={`/labs/${id}/`}>
+                <Chart />
+                <span>{lab.title} <ArrowRight size={14} aria-hidden="true" /></span>
+              </Link>;
+            })}
+          </div>
+        </Live>
+
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileLink} ${visuals.tileNarrow}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/review/">Remember it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>5 minutes <DueReviewBadge /></span>
+          </div>
+          <div className={visuals.tileBody}><ForgettingChart /></div>
+        </Live>
+
+        <div className={`${visuals.tile} ${visuals.tileLink} ${visuals.tileNarrow}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/practice/estimation/">Estimate it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>New numbers each time</span>
+          </div>
+          <div className={visuals.tileBody}><EstimateRoll /></div>
+        </div>
+
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileLink} ${visuals.tileWide}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/practice/">Design it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>{designChallenges.length} challenges</span>
+          </div>
+          <div className={visuals.tileBody}><DesignChart minutes={challenge.minutes} /></div>
+        </Live>
       </div>
-      <p className={styles.scope}>Free, with no signup. {chapters.length} chapters, {lessonCount} lessons, {labs.length} labs, and {designChallenges.length} design challenges.</p>
-    </section>
-
-    <section id="try" className={`${styles.section} ${styles.tryHeading}`} aria-label="Try a lab">
-      <LabView id="retry-storm" standalone={false} headingLevel={2} />
-      <p className={styles.moreLabs}>
-        {labs.filter((lab) => lab.id !== "retry-storm").map((lab) => <Link key={lab.id} href={`/labs/${lab.id}/`}>{lab.question}</Link>)}
-      </p>
-    </section>
-
-    <section className={styles.section} aria-labelledby="how-heading">
-      <h2 id="how-heading">You learn this by doing it, so that’s what you’ll do.</h2>
-      <p className={styles.sectionIntro}>Reading about system design makes it feel familiar. It doesn’t make you able to do it with someone watching. Every part of SystemKit asks you to commit to an answer first.</p>
-      <dl className={styles.verbs}>
-        <div className={styles.verb}><dt>Predict</dt><dd>Labs run real calculations on the settings you choose, and you have to call the outcome before you see it. <Link href="/labs/">See the labs</Link></dd></div>
-        <div className={styles.verb}><dt>Reason</dt><dd>Every lesson puts you in a specific decision and asks for your reasoning in writing before it shows any guidance. <Link href={lessonHref(first.id, first.steps[0].id)}>Open a lesson</Link></dd></div>
-        <div className={styles.verb}><dt>Design</dt><dd>Work through a full design against the clock, with a requirement that changes partway through. Then compare it against a checklist and two worked approaches, or paste a prompt into your own chatbot to get critiqued. <Link href="/practice/">Practice a design</Link></dd></div>
-        <div className={styles.verb}><dt>Estimate</dt><dd>Fresh numbers each time, checked against the worked answer, because this is the one design skill a machine can honestly grade. <Link href="/practice/estimation/">Run a drill</Link></dd></div>
-        <div className={styles.verb}><dt>Recall</dt><dd>Five minutes of spaced review brings back what you studied, just as you’re starting to forget it. <Link href="/review/">Open your review</Link></dd></div>
-      </dl>
-    </section>
-
-    <section id="path" className={styles.section} aria-labelledby="path-heading">
-      <h2 id="path-heading">The learning path</h2>
-      <CourseMap chapters={courseChapters} goals={courseGoals} orb={courseOrb} />
-    </section>
-
-    <section id="progress" className={styles.section} aria-labelledby="progress-heading">
-      <h2 id="progress-heading">Your progress lives in this browser.</h2>
-      <p className={styles.sectionIntro}>There are no accounts, so there’s nothing to sign up for, and your answers and notes never leave this browser. The tradeoff is that browsers can clear saved data: Safari, for one, may remove it after seven days of use without a visit here. A backup file keeps it safe, and it’s also how you move to another device.</p>
-      <ProgressTools />
     </section>
   </SitePage>;
 }
