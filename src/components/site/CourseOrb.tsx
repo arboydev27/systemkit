@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { ArrowRight, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { chapterHref, lessonHref } from "@/lib/links";
 import type { OrbGraph } from "@/lib/orb-layout";
+import type { OrbScene } from "@/lib/orb-scene";
 import { chapterOfLesson, lessonsInOrder, ORB_RADIUS, posterMarks } from "@/lib/orb-view";
 import { emptyProgress, type OutlineChapter, type Progress } from "@/lib/progress";
 import styles from "./CourseOrb.module.css";
@@ -220,7 +221,7 @@ export function useCourseOrb({ graph, chapters, order, ordered, goalChanges, pro
 export type CourseOrbState = ReturnType<typeof useCourseOrb>;
 
 /** The orb itself: the first paint, the canvas once it's close to the screen, and the label that follows a lesson. */
-export function OrbStage({ orb, graph, chapters, onFail, navigation = false, resting = false, onPart, className = "", tooltipClassName = "" }: {
+export function OrbStage({ orb, graph, chapters, onFail, navigation = false, resting = false, onPart, sceneRef, className = "", tooltipClassName = "" }: {
   orb: CourseOrbState;
   graph: OrbGraph;
   chapters: CourseOrbProps["chapters"];
@@ -228,6 +229,7 @@ export function OrbStage({ orb, graph, chapters, onFail, navigation = false, res
   navigation?: boolean;
   resting?: boolean;
   onPart?: (part: number) => void;
+  sceneRef?: RefObject<OrbScene | null>;
   className?: string;
   tooltipClassName?: string;
 }) {
@@ -281,6 +283,7 @@ export function OrbStage({ orb, graph, chapters, onFail, navigation = false, res
       onFail={onFail}
       navigation={navigation}
       resting={resting}
+      sceneRef={sceneRef}
     /> : null}
     <div ref={tooltip} className={`${styles.tooltip} ${tooltipClassName} ${shownLesson !== null ? styles.tooltipOn : ""} ${orb.tapped ? styles.tooltipTapped : ""}`} aria-hidden="true">
       {shownLesson === null ? null : orb.tapped ? <Link href={orb.hrefOf(shownLesson)} tabIndex={-1} onClick={() => trackEvent("orb_open_dot")}>

@@ -4,8 +4,9 @@ import type { OrbGraph } from "./orb-layout";
 // lands exactly on the other. What only the live canvas needs is in orb-motion.ts, which loads with it.
 
 export const ORB_RADIUS = 0.44; // Of the stage's width, leaving a margin for the part names around the rim.
-const CAMERA = 3.1;
-const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
+/** How far the viewer stands from the orb's center, in orb radii, and how much of the stage the orb fills from there. */
+export const CAMERA = 3.1;
+export const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
 
 /** How near a depth of -1 to 1 is to the viewer, from 0 at the back to 1 at the front. */
 export const nearness = (z: number) => Math.min(1, Math.max(0, (z + 1) / 2));

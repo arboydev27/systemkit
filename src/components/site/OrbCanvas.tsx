@@ -20,9 +20,11 @@ export type OrbCanvasProps = OrbSceneEvents & {
   /** The orb is the page's navigation, so its rim can be clicked. */
   navigation?: boolean;
   resting?: boolean;
+  /** Lends the live orb to the page, which borrows its angle for the dive through it. */
+  sceneRef?: RefObject<OrbScene | null>;
 };
 
-export default function OrbCanvas({ graph, finished, next, nextLabel, order, focus, hold, announcement, tooltip, onHover, onTap, onOpen, onPart, onReady, onFail, navigation = false, resting = false }: OrbCanvasProps) {
+export default function OrbCanvas({ graph, finished, next, nextLabel, order, focus, hold, announcement, tooltip, onHover, onTap, onOpen, onPart, onReady, onFail, navigation = false, resting = false, sceneRef }: OrbCanvasProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<OrbScene | null>(null);
   const handlers = useRef({ onHover, onTap, onOpen, onPart, onReady, onFail });
@@ -45,12 +47,14 @@ export default function OrbCanvas({ graph, finished, next, nextLabel, order, foc
       return;
     }
     scene.current = created;
+    if (sceneRef) sceneRef.current = created;
     handlers.current.onReady();
     return () => {
       created.destroy();
       scene.current = null;
+      if (sceneRef?.current === created) sceneRef.current = null;
     };
-  }, [graph, tooltip, navigation]);
+  }, [graph, tooltip, navigation, sceneRef]);
 
   useEffect(() => scene.current?.setProgress(finished, next, nextLabel), [finished, next, nextLabel]);
   useEffect(() => scene.current?.setOrder(order), [order]);
