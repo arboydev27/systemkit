@@ -117,3 +117,49 @@ test('the easings never go backwards', () => {
     assert.ok(Math.abs(last - 1) < 1e-9);
   }
 });
+
+const film = require('../src/lib/neuron-film.ts');
+
+test('the neuron has a node of Ranvier for each lesson the route passes, and its names land in order', () => {
+  const titles = graph.titles;
+  const degrees = require('../src/lib/orb-view.ts').linkDegrees(graph);
+  const route = dive.routeFrom(routes, dive.chooseEntry(graph, dive.turnPoints(graph.positions, 0.7, 0.2), routes));
+  const made = film.makeFilm(route, titles, degrees);
+  assert.equal(made.nodes.length, Math.max(1, Math.min(4, route.length - 2)));
+  assert.deepEqual(made.names, [...route.slice(1, -1).slice(0, 4).map((lesson) => titles[lesson]), titles[route[route.length - 1]]]);
+  for (let index = 1; index < made.nodes.length; index++) assert.ok(made.nodes[index] > made.nodes[index - 1]);
+  assert.ok(made.swell > made.nodes[made.nodes.length - 1] && made.end > made.swell && made.membrane < film.FILM.axon);
+  for (const count of made.branches) assert.ok(count >= 0 && count <= 3);
+  // A route of a single hop still passes one node, left unnamed.
+  const short = film.makeFilm([route[route.length - 2], route[route.length - 1]], titles, degrees);
+  assert.equal(short.nodes.length, 1);
+  assert.equal(short.names[0], '');
+});
+
+test('the camera only moves forward through the neuron, the signal stays ahead of it, and it ends at the terminal', () => {
+  const made = film.makeFilm([0, 1, 2, 3, 4], graph.titles, require('../src/lib/orb-view.ts').linkDegrees(graph));
+  let last = -Infinity;
+  for (let progress = 0; progress <= 1.0001; progress += 0.002) {
+    const depth = film.filmDepth(made, Math.min(1, progress));
+    assert.ok(depth >= last - 1e-9, `goes back at ${progress.toFixed(3)}`);
+    last = depth;
+    if (progress > film.FILM.inside && progress < film.FILM.terminal) assert.ok(film.signalDepth(made, progress) >= depth - 1e-9, `signal behind at ${progress.toFixed(3)}`);
+  }
+  assert.ok(Math.abs(film.filmDepth(made, film.FILM.inside) - film.FILM.axon) < 1e-9);
+  assert.ok(Math.abs(film.filmDepth(made, 1) - (made.end - 1.25)) < 1e-9);
+  assert.ok(film.filmDepth(made, 0.12) < made.membrane && film.filmDepth(made, 0.2) > made.membrane, 'the camera goes through the cell membrane while the dot opens');
+});
+
+test('the camera looks straight down the axon, square and level, and what is dead ahead lands where the screen says', () => {
+  const made = film.makeFilm([0, 1, 2], graph.titles, require('../src/lib/orb-view.ts').linkDegrees(graph));
+  for (const progress of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+    const shot = film.shoot(made, progress, 1440, 900, 700, 450);
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    for (const v of [shot.right, shot.up, shot.forward]) assert.ok(Math.abs(dot(v, v) - 1) < 1e-6);
+    assert.ok(Math.abs(dot(shot.right, shot.up)) < 1e-6 && Math.abs(dot(shot.right, shot.forward)) < 1e-6 && Math.abs(dot(shot.up, shot.forward)) < 1e-6);
+    const ahead = shot.position.map((value, axis) => value + shot.forward[axis] * 3);
+    const spot = film.onFilm(shot, ahead);
+    assert.ok(Math.abs(spot.x - 700) < 1e-6 && Math.abs(spot.y - 450) < 1e-6);
+    assert.equal(film.onFilm(shot, shot.position.map((value, axis) => value - shot.forward[axis])), null);
+  }
+});

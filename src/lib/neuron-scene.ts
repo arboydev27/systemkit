@@ -3,6 +3,7 @@ import { arcPoint, foldPoint } from "./orb-motion";
 import {
   arcControl, CAMERA, CHAPTER_LINE, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
+import { axisAt, FILM, onFilm, type Film, type Shot } from "./neuron-film";
 import {
   buildFlightPath, chooseEntry, FLIGHT, flightDistance, pathIndex, pathPoint, ramp, routeFrom, routesTo, turnPoints, type FlightPath, type Routes, type Vec,
 } from "./neuron-route";
@@ -36,11 +37,23 @@ export type NeuronPlace = {
   holeY: number;
 };
 
+/** How far the far end has opened, as a circle around the place on the game it opens onto. */
+export function holeAt(progress: number, place: NeuronPlace, width: number, height: number) {
+  if (progress <= FLIGHT.open - 0.02) return 0;
+  const hole = ramp(FLIGHT.open - 0.02, FLIGHT.clear, progress);
+  const reach = Math.hypot(Math.max(place.holeX, width - place.holeX), Math.max(place.holeY, height - place.holeY));
+  return 6 + reach * hole * hole;
+}
+
+/** The neuron the WebGL canvas beneath is drawing this frame, so the names can go on its nodes. */
+export type Filmed = { film: Film; shot: Shot };
+
 export type NeuronScene = {
   resize: () => void;
   /** Picks the dot and the route from the angle the orb is showing. Returns the dot's offset from the orb's center, in pixels. */
   launch: (view: { yaw: number; pitch: number }, place: NeuronPlace, finished: boolean[], hint: { x: number; y: number } | null, lens: number) => { x: number; y: number };
-  draw: (progress: number, place: NeuronPlace) => void;
+  /** Draws a frame and says where the dot being dived into is on screen. With a film, the inside is left to the WebGL canvas. */
+  draw: (progress: number, place: NeuronPlace, filmed?: Filmed | null) => { x: number; y: number };
   route: () => number[];
   destroy: () => void;
 };
@@ -522,10 +535,37 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     return along;
   }
 
-  function draw(progress: number, place: NeuronPlace) {
+  /** The names of the lessons on the route, each on its node of the neuron as the camera passes through. */
+  function drawFilmNames({ film, shot }: Filmed, progress: number) {
+    ctx.fillStyle = theme.spark;
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgb(0 0 0 / 70%)";
+    ctx.shadowBlur = 10;
+    const points = film.nodes.map((z, index) => ({ name: film.names[index], z, lift: 0.5 }));
+    points.push({ name: film.names[film.names.length - 1], z: film.end - 0.9, lift: 1.1 });
+    // One name at a time: the next lesson ahead.
+    const next = points.find(({ name, z }) => name && z > shot.depth + 0.7);
+    for (const { name, z, lift } of next ? [next] : []) {
+      const [x, y] = axisAt(film, z);
+      const spot = onFilm(shot, [x + lift * 0.9, y + lift * 0.8, z]);
+      if (!spot) continue;
+      const presence = ramp(9, 4.5, spot.z) * ramp(0.7, 1.6, spot.z) * (1 - ramp(FILM.open, FILM.open + 0.05, progress));
+      if (presence <= 0.01) continue;
+      const size = Math.min(26, Math.max(12, spot.scale * 0.055));
+      ctx.font = `620 ${size.toFixed(1)}px ${theme.font}`;
+      const wide = ctx.measureText(name).width;
+      ctx.globalAlpha = presence;
+      ctx.textAlign = "left";
+      ctx.fillText(name, Math.max(16, Math.min(width - wide - 16, spot.x)), Math.max(24, Math.min(height - 24, spot.y)));
+    }
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+  }
+
+  function draw(progress: number, place: NeuronPlace, filmed: Filmed | null = null) {
     // The canvas has no size while it's hidden between dives.
     if (canvas.clientWidth !== width || canvas.clientHeight !== height) resize();
-    if (!path || !width || !height) return;
+    if (!path || !width || !height) return { x: width / 2, y: height / 2 };
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, width, height);
@@ -597,7 +637,20 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.fillStyle = theme.ink;
         ctx.fillText(label, x, a.y);
       }
-      if (portal > 3) {
+      if (portal > 3 && filmed) {
+        // The dot opens onto the neuron, which the canvas beneath is drawing.
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.strokeStyle = theme.ink;
+        ctx.lineWidth = Math.min(3, 1 + portal / 120);
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (portal > 3) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
@@ -611,12 +664,16 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
         ctx.stroke();
       }
+    } else if (filmed) {
+      drawFilmNames(filmed, progress);
     } else {
       drawInside(progress, along, 1, false);
     }
+    const entryX = a.x;
+    const entryY = a.y;
 
     // The far end opens on the game, and the signal goes on as its first request.
-    if (progress > FLIGHT.open - 0.02) {
+    if (progress > FLIGHT.open - 0.02 && !filmed) {
       const hole = ramp(FLIGHT.open - 0.02, FLIGHT.clear, progress);
       const reach = Math.hypot(Math.max(place.holeX, width - place.holeX), Math.max(place.holeY, height - place.holeY));
       const size = 6 + reach * hole * hole;
@@ -639,6 +696,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    return { x: entryX, y: entryY };
   }
 
   /** The inside of the orb: dark, the course's lines lit, the route as a fibre, and the signal ahead. */
@@ -698,9 +756,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       const scaleTo = CAMERA / (CAMERA - view[p * 3 + 2]);
       return { x: view[p * 3] * scaleTo * orbRadius, y: -view[p * 3 + 1] * scaleTo * orbRadius };
     },
-    draw(progress, place) {
-      draw(progress, place);
-    },
+    draw: (progress, place, filmed) => draw(progress, place, filmed),
     route: () => path?.route ?? [],
     destroy() {
       scheme.removeEventListener("change", onScheme);
