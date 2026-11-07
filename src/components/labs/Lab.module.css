@@ -10,7 +10,7 @@
   box-shadow: var(--shadow);
 }
 .heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 8px 20px; }
-.heading h1, .heading h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.7rem); line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
+.heading h1, .heading h2, .heading h3 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.7rem); line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
 .headingActions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .headingActions button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0; border: 0; background: none; color: var(--ink-soft); font-size: 12px; font-weight: 680; }
 .headingActions button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

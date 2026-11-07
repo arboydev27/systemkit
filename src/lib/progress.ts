@@ -120,6 +120,18 @@ export function nextLessonInOrder(
   return resumeLesson(order, start, read);
 }
 
+/** The lesson the home page's main button offers, and whether that's returning to it or starting out. Null once everything is finished. */
+export function mainAction(
+  order: OutlineChapter[],
+  activeChapterId: string | null,
+  read: (storageKey: string) => Progress,
+) {
+  const next = nextLessonInOrder(order, activeChapterId, read);
+  const chapter = order.find((item) => item.id === next?.chapterId);
+  if (!next || !chapter) return null;
+  return { ...next, title: chapter.title, resuming: order.some((item) => item.id === activeChapterId) };
+}
+
 export function completedCount(stepIds: string[], progress: Progress) {
   return stepIds.filter((id) => progress.completed.includes(id)).length;
 }

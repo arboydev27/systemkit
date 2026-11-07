@@ -33,12 +33,14 @@ Use one recognizable pictogram per system role, always with a visible label and 
 
 The home, chapter, labs, and practice pages share these tokens. List chapters and lessons as ruled rows rather than grids of cards. Headings stand alone, with no small label above them. Show the product working instead of describing it.
 
+The home page keeps words on the left and the working thing on the right, all the way down. The orb and the lesson panel open it, because they serve a new visitor and a returning learner alike; a lab follows, because being asked to answer is the point; then one real question from each other part of the course. Only the primary button is solid in the opening screen, so the eye has one place to land.
+
 ## Labs and charts
 
 Charts use blue for successful work and orange for offered load, with validated light and dark values in `Lab.module.css`. Reference lines are neutral and dashed. Every chart has a legend, and its values are also available as text or a table. Draw charts at their container's real width so labels stay readable on phones.
 
 ## The course orb
 
-The learning path opens as an orb, because the course is a connected structure rather than a table of contents. It is drawn in ink on the page, with no panel behind it: pale stippling in the light theme, starlight in the dark. Every dot is a lesson and every line is real: a chapter's thread winds through its lessons in order, and links from a lesson's `related` field dive through the middle. A dot's size says how many links it has, and its brightness says how far back it sits and whether the lesson is finished, so progress lights the orb up. The only mark that isn't course data is the faint rim that makes it read as a sphere.
+The learning path opens as an orb, because the course is a connected structure rather than a table of contents. It is drawn in ink on the page, with no panel behind it: pale stippling in the light theme, starlight in the dark. Every dot is a lesson and every line is real: a chapter's thread winds through its lessons in order, and links from a lesson's `related` field dive through the middle. A dot's size says how many links it has, and its brightness says how far back it sits and whether the lesson is finished, so progress lights the orb up. The only mark that isn't course data is the faint rim that makes it read as a sphere. It turns slowly when left alone, at 15 frames a second on touch screens, and comes to rest after 45 seconds without interaction.
 
 The chapter list stays in the page in either view, and it shows instead whenever the orb can't run. Anything that can be done on the orb can also be done in the panel beside it, in ruled rows.
