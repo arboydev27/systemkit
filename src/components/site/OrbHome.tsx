@@ -316,7 +316,7 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
       </aside>
     </div>
 
-    {dive && !path.orbFailed ? <NeuronFlight graph={graph} exits={exits} orb={orbScene} finished={orb.finished} /> : null}
+    {dive && !path.orbFailed ? <NeuronFlight graph={graph} exits={exits} orb={orbScene} finished={orb.finished} chapters={chapters} /> : null}
 
     <h2 className="sr-only">The learning path</h2>
     <CourseList path={path} />

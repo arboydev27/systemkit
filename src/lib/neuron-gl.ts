@@ -21,6 +21,7 @@ uniform float uSignal, uRelease, uTime, uTear;
 
 #define TAU 6.2831853
 #define AXON 2.6
+#define NUCLEUS vec2(-1.15, 0.6)
 
 // Hashes without sine, whose precision differs from one GPU to the next (Dave Hoskins).
 float hash(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
@@ -53,7 +54,7 @@ float toNode(float z, out float which) {
 // The membrane's radius: a wide cell body narrowing through the hillock, pinched to about half at each node of
 // Ranvier with a beaded collar either side, faintly ribbed by the actin rings under it, swelling at the terminal.
 float baseRadius(float z, float node) {
-  float body = mix(3.4, 1.0, smoothstep(-1.4, AXON, z));
+  float body = mix(3.4, 1.0, smoothstep(-0.4, AXON + 0.6, z));
   float inAxon = step(AXON - 0.5, z) * (1.0 - step(uShape.y + 0.6, z));
   float pinch = 1.0 - 0.44 * exp(-node * node * 7.0) * inAxon;
   float swell = 1.0 + 1.35 * smoothstep(uShape.y, uShape.y + 1.8, z);
@@ -145,34 +146,62 @@ vec3 map(vec3 p) {
       if (mito < hit.x) hit.xy = vec2(mito, 2.0);
     }
 
-    // Vesicles held on the microtubules, still at this timescale apart from a tremor.
-    float slot = floor(p.z / 1.1);
+    // Vesicles carried along the microtubules: small ones out toward the terminal, larger ones back toward the
+    // cell body, each walking its own track with the tremor of the motor that carries it.
+    float run = uTime * 0.42;
+    float slot = floor((p.z - run) / 1.1);
     float pick = floor(hash(slot + 0.5) * 7.0);
     float lay3 = pick * TAU / 7.0 + (hash(pick + 0.5) - 0.5) * 0.35;
     vec2 v = (mix(0.42, 0.68, hash(pick + 3.5)) * fibre + 0.06) * vec2(cos(lay3), sin(lay3));
     vec3 jitter = 0.008 * vec3(sin(uTime * 37.0 + slot), cos(uTime * 41.0 + slot), 0.0);
-    float ves = length(vec3(q - v, p.z - (slot + 0.5) * 1.1) - jitter) - 0.055;
+    float ves = length(vec3(q - v, p.z - run - (slot + 0.5) * 1.1) - jitter) - 0.055;
     if (ves < hit.x) hit.xy = vec2(ves, 3.0);
+    float back = -uTime * 0.27;
+    float slot2 = floor((p.z - back) / 2.3);
+    float pick2 = floor(hash(slot2 + 9.5) * 7.0);
+    float lay4 = pick2 * TAU / 7.0 + (hash(pick2 + 0.5) - 0.5) * 0.35;
+    vec2 w = (mix(0.42, 0.68, hash(pick2 + 3.5)) * fibre - 0.07) * vec2(cos(lay4), sin(lay4));
+    float body2 = length(vec3(q - w, p.z - back - (slot2 + 0.5) * 2.3)) - 0.085;
+    if (hash(slot2 + 4.0) > 0.35 && body2 < hit.x) hit.xy = vec2(body2, 3.0);
   }
 
   // The terminal: a mitochondrion at the back, and synaptic vesicles crowding toward the active zone.
   if (p.z > uShape.y) {
     vec3 g = vec3(q, p.z) / 0.42;
     vec3 id = floor(g);
-    vec3 f = fract(g) - 0.5 - (vec3(hash3(id), hash3(id + 3.0), hash3(id + 7.0)) - 0.5) * 0.3;
+    vec3 f = fract(g) - 0.5 - (vec3(hash3(id), hash3(id + 3.0), hash3(id + 7.0)) - 0.5) * 0.16;
     float crowd = smoothstep(uShape.z - 3.0, uShape.z - 0.4, p.z) * step(r, radius - 0.3) * step(0.25, hash3(id + 11.0));
     float ves = (length(f) - 0.27 * crowd) * 0.42;
-    if (crowd > 0.05 && ves < hit.x) hit.xy = vec2(ves, 3.0);
+    // As with the organelles, never step past the edge of a vesicle's cell into a neighbour's.
+    vec3 edge = (0.5 - abs(fract(g) - 0.5)) * 0.42;
+    float clear = min(edge.x, min(edge.y, edge.z)) + 0.06;
+    if (crowd > 0.05 && ves < clear) { if (ves < hit.x) hit.xy = vec2(ves, 3.0); }
+    else hit.x = min(hit.x, clear);
     vec3 mp = vec3(q - vec2(1.0, -0.6), p.z - uShape.y - 0.9);
     float mito = length(vec3(mp.xy, max(abs(mp.z) - 0.7, 0.0))) - 0.3;
     if (mito < hit.x) hit.xy = vec2(mito, 2.0);
   }
 
-  // The nucleus, off to one side of the cell body.
-  if (p.z < 1.0) {
-    vec3 n = p - vec3(axis(-1.6) + vec2(1.55, 0.7), -1.9);
-    float nucleus = length(n) - 1.25 - 0.04 * noise(p * 4.0);
+  // The cell body: the nucleus off to one side, in view from where the camera first rests, and the organelles
+  // crowding around it, each in a cell of its own so only one is worked out per point.
+  if (p.z < AXON) {
+    vec3 n = p - vec3(axis(0.8) + NUCLEUS, 0.8);
+    float nucleus = length(n) - 1.05 - 0.04 * noise(p * 4.0);
     if (nucleus < hit.x) hit.xy = vec2(nucleus, 4.0);
+    vec3 g = vec3(q, p.z) / 1.4;
+    vec3 id = floor(g);
+    vec3 o = vec3(hash3(id + 21.0), hash3(id + 22.0), hash3(id + 23.0));
+    vec3 f = (fract(g) - 0.5 - (o - 0.5) * 0.2) * 1.4;
+    float a = o.x * TAU;
+    vec3 axisDir = normalize(vec3(cos(a), sin(a), o.y * 2.0 - 1.0));
+    float h = clamp(dot(f, axisDir), -0.12 - 0.18 * o.z, 0.12 + 0.18 * o.z);
+    float organelle = length(f - axisDir * h) - 0.09 - 0.04 * o.y;
+    // Each stays at least 0.13 inside its cell, so nothing nearer than the cell's edge plus that can be missed.
+    vec3 edge = (0.5 - abs(fract(g) - 0.5)) * 1.4;
+    float clear = min(edge.x, min(edge.y, edge.z)) + 0.13;
+    float keep = step(0.55, hash3(id + 24.0)) * step(r, radius - 0.45) * step(0.6, length(q));
+    if (keep > 0.5 && organelle < clear) { if (organelle < hit.x) hit.xy = vec2(organelle, 2.0); }
+    else hit.x = min(hit.x, clear);
   }
   return hit;
 }
@@ -232,6 +261,11 @@ void main() {
   if (kind == 2.0) albedo *= 0.7 + 0.3 * sin(p.z * 11.0 + angle * 2.0);
   // The active zone: a dark plate where the vesicles dock.
   if (kind == 5.0) albedo *= 0.35 + 0.65 * smoothstep(0.4, 1.0, length(q));
+  // The nucleus's envelope is studded with pores.
+  if (kind == 4.0) {
+    vec3 c = normalize(p - vec3(axis(0.8) + NUCLEUS, 0.8));
+    albedo *= 1.0 - 0.5 * speckle(vec2(atan(c.y, c.x) * 9.0, acos(clamp(c.z, -1.0, 1.0)) * 18.0));
+  }
 
   // Shading the way an electron microscope sees: brightness grows as a surface tilts away, so edges glow, and
   // crevices are dark. One key light from the detector's side, and the light travelling with the wave.
@@ -253,10 +287,17 @@ void main() {
   if (kind == 0.0) {
     float atNode = exp(-node * node * 11.0) * smoothstep(uNodes[int(which)] - 0.6, uNodes[int(which)] + 0.1, uSignal + 0.6);
     float fading = 1.0 - smoothstep(uNodes[int(which)] + 0.5, uNodes[int(which)] + 3.5, uShape.w);
-    glow += wave(p.z) * 0.16 + atNode * fading * (0.12 + 0.95 * speckle(vec2(angle * 13.0, p.z * 34.0)));
+    // Its channels flicker open and shut, and the node fires again every couple of seconds.
+    vec2 cell = vec2(angle * 13.0, p.z * 34.0);
+    float flicker = 0.55 + 0.45 * step(0.45, hash3(vec3(floor(cell), floor(uTime * 7.0))));
+    float again = 0.8 + 0.5 * exp(-fract(uTime * 0.5 + which * 0.31) * 6.0);
+    glow += wave(p.z) * 0.16 + atNode * fading * again * (0.12 + 0.95 * speckle(cell) * flicker);
   }
   // The cell membrane on the way in reads like a micrograph: grey, lumpy, its edges bright.
   if (kind == 6.0) structure += 0.05;
+  // The cell body is a lit chamber rather than a void, its nucleus and organelles rimmed with light.
+  float soma = 1.0 - smoothstep(-0.5, AXON, p.z);
+  structure += soma * albedo * (0.05 + 0.06 * tilt) * nearby;
   if (kind == 3.0 && p.z > uShape.y) glow += uRelease * (0.25 + 0.8 * hash3(floor(vec3(q, p.z) / 0.42)));
   if (kind == 5.0) glow += uRelease * 0.45 * exp(-length(q) * 1.2);
 
@@ -274,7 +315,7 @@ const FINISH = `#version 300 es
 precision highp float;
 out vec4 fragColor;
 uniform sampler2D uScene;
-uniform vec2 uSize, uVanish;
+uniform vec2 uSize, uVanish, uTexel;
 uniform float uBlur, uTime, uDeep;
 uniform vec3 uHole; // where the far end opens, in pixels, and how wide
 
@@ -288,13 +329,18 @@ void main() {
   float spread = uBlur * 0.13 * (1.0 - here.b * 0.7);
   float structure = 0.0;
   float glow = 0.0;
+  // Each tap is itself four, a texel apart on a turned grid, so the march's few pixels never show as steps, even
+  // with the camera at rest and nothing to blur.
+  vec2 a = uTexel * vec2(0.6, 0.25);
+  vec2 b = uTexel * vec2(-0.25, 0.6);
   for (int i = 0; i < 10; i++) {
-    vec3 s = texture(uScene, uv + toward * spread * (float(i) + jitter) / 10.0).rgb;
+    vec2 at = uv + toward * spread * (float(i) + jitter) / 10.0;
+    vec2 s = texture(uScene, at + a).rg + texture(uScene, at - a).rg + texture(uScene, at + b).rg + texture(uScene, at - b).rg;
     structure += s.r;
     glow += s.g;
   }
-  structure /= 10.0;
-  glow /= 10.0;
+  structure /= 40.0;
+  glow /= 40.0;
   // Only what glows blooms, from the scene's own smaller copies.
   float bloom = textureLod(uScene, uv, 2.5).g * 0.3 + textureLod(uScene, uv, 4.5).g * 0.35;
   float lum = structure + glow + bloom;
@@ -325,7 +371,10 @@ export type NeuronGl = {
   calibrate: (film: Film, shot: Shot) => boolean;
   /** Whether this device can march the neuron fast enough at all. If not, the dive draws its lines instead. */
   capable: () => boolean;
-  render: (film: Film, shot: Shot, hole: { x: number; y: number; r: number }, time: number) => void;
+  /** Times it all again, for a device that was busy with something else the first time. */
+  retry: () => void;
+  /** Draws a frame. A frame drawn late on purpose, while the camera rests, says so, so it isn't taken for slowness. */
+  render: (film: Film, shot: Shot, hole: { x: number; y: number; r: number }, time: number, paced?: boolean) => void;
   resize: () => void;
   destroy: () => void;
 };
@@ -476,6 +525,10 @@ export function createNeuronGl(canvas: HTMLCanvasElement, quality: "full" | "lig
     ready: settle,
     resize,
     capable: () => able,
+    retry() {
+      timings.length = 0;
+      able = true;
+    },
     calibrate(film, shot) {
       if (!settle() || !programs || timings.length >= 8) return timings.length >= 8;
       resize();
@@ -489,11 +542,11 @@ export function createNeuronGl(canvas: HTMLCanvasElement, quality: "full" | "lig
       finish(shot, { x: 0, y: 0, r: 0 }, 0, 0.5);
       gl!.readPixels(0, 0, 1, 1, gl!.RGBA, gl!.UNSIGNED_BYTE, probe);
       timings.push(scene, (performance.now() - start) * 4);
-      // The first frame pays for any compiling the driver left until first use, so it isn't counted.
+      // The first frame pays for any compiling the driver left until first use, so it isn't counted, and of the rest
+      // the quickest is taken: anything else drawing at the same moment only ever makes a frame slower.
       if (timings.length === 8) {
-        const middle = (values: number[]) => [...values].sort((a, b) => a - b)[1];
-        const marched = middle([timings[2], timings[4], timings[6]]);
-        const finished = middle([timings[3], timings[5], timings[7]]);
+        const marched = Math.min(timings[2], timings[4], timings[6]);
+        const finished = Math.min(timings[3], timings[5], timings[7]);
         const room = Math.max(1, 10 - finished);
         detail = Math.max(lowest, Math.min(highest, detail * Math.sqrt(room / Math.max(0.5, marched))));
         // A device that can't draw a frame in time even at the coarsest size gets the lines instead.
@@ -502,10 +555,11 @@ export function createNeuronGl(canvas: HTMLCanvasElement, quality: "full" | "lig
       }
       return timings.length >= 8;
     },
-    render(film, shot, hole, time) {
+    render(film, shot, hole, time, paced = true) {
       if (!settle() || !programs) return;
       if (canvas.clientWidth !== width || canvas.clientHeight !== height) resize();
-      adapt(performance.now());
+      if (paced) adapt(performance.now());
+      else lastFrame = 0;
       march(film, shot, time);
       finish(shot, hole, time);
     },
@@ -528,6 +582,7 @@ export function createNeuronGl(canvas: HTMLCanvasElement, quality: "full" | "lig
     gl!.uniform1i(where(pass, "uScene"), 0);
     gl!.uniform2f(where(pass, "uSize"), canvas.width, canvas.height);
     gl!.uniform2f(where(pass, "uVanish"), shot.centerX / width, 1 - shot.centerY / height);
+    gl!.uniform2f(where(pass, "uTexel"), 1 / sceneWidth, 1 / sceneHeight);
     gl!.uniform1f(where(pass, "uBlur"), shot.rush);
     gl!.uniform1f(where(pass, "uTime"), time);
     gl!.uniform1f(where(pass, "uDeep"), 0.015);

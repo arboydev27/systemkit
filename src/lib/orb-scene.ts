@@ -1,12 +1,14 @@
+import { arborsFor, BEADS_PER_LINK, somaPath, stainedAtFirst, strokeOf, STUB_INK, STUB_REACH, type Arbors } from "./orb-arbor";
 import type { OrbGraph } from "./orb-layout";
 import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, rimNameFades, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
 import {
   arcControl, CAMERA, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
 
-// The live orb on a 2D canvas: 158 dots and a few hundred line segments don't need a 3D engine, and this
+// The live orb on a 2D canvas: 158 neurons and a few thousand short segments don't need a 3D engine, and this
 // loads in a few kilobytes where three.js costs about 253. It draws only while on screen, and everything the
-// orb does in motion can be grabbed and redirected partway.
+// orb does in motion can be grabbed and redirected partway. It lands on the poster's dots, then each lesson grows
+// into a neuron: see orb-arbor.ts.
 
 const ARC_STEPS = 8;
 const FOLD_STEPS = 5;
@@ -25,6 +27,12 @@ const SIGNAL_HOP = 0.075;
 const SIGNAL_WIDTH = 0.14;
 const PULSE_EVERY = 1.3;
 const PULSE_LENGTH = 1.7;
+const GROW = 1.7; // Seconds for the neurons to grow out of the poster's dots, a chapter at a time.
+const STAIN_EASE = 0.4;
+const FLASH_DECAY = 0.45; // A cell lighting up fades like a calcium indicator: quick to rise, about half a second to fade.
+const FLASHES = 0.8; // Cells that light up on their own each second, across the whole orb.
+const NODES = 6; // The nodes a signal jumps between on its way through the orb.
+const WIDTHS = [0.45, 0.65, 0.9, 1.25, 1.75, 2.5];
 
 export type OrbSceneEvents = {
   onHover: (lesson: number | null) => void;
@@ -65,11 +73,13 @@ export type OrbScene = {
   view: () => { yaw: number; pitch: number };
   /** Turns to a lesson and sends a signal out from it, then goes back to drifting. */
   announce: (lesson: number) => void;
+  /** How far each neuron has grown and how deeply it's stained right now, for the dive to take over from. */
+  stains: () => { reach: Float32Array; ink: Float32Array };
   destroy: () => void;
 };
 
 type Theme = { ink: string; muted: string; canvas: string; dark: boolean; halo: HTMLCanvasElement | null };
-type Pulse = { link: number; age: number; forward: boolean };
+type Pulse = { link: number; age: number; forward: boolean; landed: boolean };
 
 const cssColor = (styles: CSSStyleDeclaration, name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
 
@@ -155,6 +165,34 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   const folded: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
   const strong: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
   const pulses: Pulse[] = [];
+
+  // The neurons: dendrites to grow and stain, cell bodies that point outward, beads on the axons. The first frame is
+  // the poster's dots and needs none of it, so it's worked out in a quiet moment after that.
+  let arbors: Arbors | null = null;
+  let arborX = new Float32Array(0);
+  let arborY = new Float32Array(0);
+  let arborDepth = new Float32Array(0);
+  const apexEnds = new Float32Array(count * 3);
+  const apexX = new Float32Array(count);
+  const apexY = new Float32Array(count);
+  const apexDepth = new Float32Array(count);
+  const firstStain = graph.titles.map((_, lesson) => stainedAtFirst(lesson));
+  const reach = new Float32Array(count);
+  const ink = new Float32Array(count);
+  const flash = new Float32Array(count);
+  const growDelay = graph.titles.map((_, lesson) => (chapterOf[lesson] / Math.max(1, chapterCount - 1)) * 0.55);
+  const arborStore: number[][] = Array.from({ length: WIDTHS.length * (ALPHA_STEPS + 1) }, () => []);
+  const beadStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+  const glowStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+  const sparkStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+  let grown = 0;
+  let staining = false;
+  let lean = false;
+  let slowness = 16;
+  let slowFrames = 0;
+  let heavyFrames = 0;
+  const born = performance.now();
+  let flashClock = 0;
 
   let width = 0;
   let height = 0;
@@ -272,6 +310,10 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     }
     for (let index = 0; index < arcX.length; index++) place(arcs, index, arcX, arcY, arcDepth);
     for (let index = 0; index < foldX.length; index++) place(folds, index, foldX, foldY, foldDepth);
+    if (arbors) {
+      for (let index = 0; index < arborX.length; index++) place(arbors.ends, index, arborX, arborY, arborDepth);
+      for (let lesson = 0; lesson < count; lesson++) place(apexEnds, lesson, apexX, apexY, apexDepth);
+    }
     if (threadPoints) for (let index = 0; index < threadX.length; index++) place(threadPoints, index, threadX, threadY, threadDepth);
   }
 
@@ -357,6 +399,30 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     }
     for (let lesson = 0; lesson < count; lesson++) glow[lesson] *= still ? 0 : Math.exp(-dt / 0.3);
 
+    // The neurons grow out of the poster's dots once, a chapter at a time. A cell stains in full when its lesson is
+    // finished or looked at, and about one in five is stained from the start, the way Golgi's stain takes.
+    if ((introduced || still) && arbors) grown = still ? 1 : Math.min(1, grown + dt / GROW);
+    const stainEase = still ? 1 : 1 - Math.exp(-dt / STAIN_EASE);
+    const flashFade = still ? 0 : Math.exp(-dt / FLASH_DECAY);
+    staining = false;
+    for (let lesson = 0; lesson < count; lesson++) {
+      const looked = lesson === hovered || lesson === active || (focusChapter !== null && chapterOf[lesson] === focusChapter);
+      const done = finished[lesson];
+      const wantReach = done || looked || firstStain[lesson] ? 1 : 0;
+      const wantInk = done ? 1 : looked ? 0.92 : firstStain[lesson] ? 0.6 : 0;
+      reach[lesson] += (wantReach - reach[lesson]) * stainEase;
+      ink[lesson] += (wantInk - ink[lesson]) * stainEase;
+      if (Math.abs(wantReach - reach[lesson]) > 0.01 || Math.abs(wantInk - ink[lesson]) > 0.01) staining = true;
+      flash[lesson] *= flashFade;
+    }
+    // Now and then a cell lights up on its own, the way a few always are in living tissue.
+    if (!still && Math.random() < FLASHES * dt) {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const lesson = Math.floor(Math.random() * count);
+        if (depths[lesson] > 0.5) { flash[lesson] = 1; break; }
+      }
+    }
+
     if (signalStart >= 0) {
       const elapsed = clock - signalStart;
       for (let lesson = 0; lesson < count; lesson++) {
@@ -373,8 +439,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     if (!still) threadGlint = (threadGlint + dt / 26) % 1;
 
     for (let index = pulses.length - 1; index >= 0; index--) {
-      pulses[index].age += dt / PULSE_LENGTH;
-      if (pulses[index].age >= 1) pulses.splice(index, 1);
+      const pulse = pulses[index];
+      pulse.age += dt / PULSE_LENGTH;
+      // The cell it reaches lights up, and the signal's tail runs on into it before it's gone.
+      if (pulse.age >= 1 && !pulse.landed) {
+        pulse.landed = true;
+        flash[graph.links[pulse.link * 2 + (pulse.forward ? 1 : 0)]] = 1;
+      }
+      if (pulse.age >= 1.3) pulses.splice(index, 1);
     }
     if (!still && linkCount > 0 && signalStart < 0) {
       pulseClock += dt;
@@ -382,7 +454,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
         pulseClock = 0;
         const link = Math.floor(Math.random() * linkCount);
         const fromLit = next !== null && (graph.links[link * 2] === next || finished[graph.links[link * 2]]);
-        pulses.push({ link, age: 0, forward: fromLit || Math.random() < 0.5 });
+        pulses.push({ link, age: 0, forward: fromLit || Math.random() < 0.5, landed: false });
       }
     }
   }
@@ -489,23 +561,161 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     }
   }
 
-  function drawPulses() {
-    ctx.fillStyle = theme.ink;
-    const size = Math.max(1.2, radius * 0.0065);
-    for (const pulse of pulses) {
-      const along = (pulse.forward ? pulse.age : 1 - pulse.age) * ARC_STEPS;
-      const step = Math.min(ARC_STEPS - 1, Math.floor(along));
-      const mix = along - step;
-      const a = pulse.link * (ARC_STEPS + 1) + step;
-      const x = arcX[a] + (arcX[a + 1] - arcX[a]) * mix;
-      const y = arcY[a] + (arcY[a + 1] - arcY[a]) * mix;
-      const depth = arcDepth[a] + (arcDepth[a + 1] - arcDepth[a]) * mix;
-      ctx.globalAlpha = Math.sin(pulse.age * Math.PI) * (0.25 + 0.75 * depth);
-      ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.fill();
+  /** How far a neuron has grown out of its dot, 0 to 1. */
+  const growthOf = (lesson: number) => Math.min(1, Math.max(0, grown * 1.55 - growDelay[lesson]));
+
+  function strokeStore(store: number[][], widths: number[], color: string, lift: number) {
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    for (let size = 0; size < widths.length; size++) {
+      ctx.lineWidth = widths[size];
+      for (let step = 1; step <= ALPHA_STEPS; step++) {
+        const segments = store[size * (ALPHA_STEPS + 1) + step];
+        if (!segments.length) continue;
+        ctx.globalAlpha = Math.min(1, (step / ALPHA_STEPS) * lift);
+        ctx.beginPath();
+        for (let index = 0; index < segments.length; index += 4) {
+          ctx.moveTo(segments[index], segments[index + 1]);
+          ctx.lineTo(segments[index + 2], segments[index + 3]);
+        }
+        ctx.stroke();
+        segments.length = 0;
+      }
     }
+  }
+
+  /** The dendrites, grown as far as each cell has, and as deeply stained. Behind, they're wider and fainter. */
+  function drawArbors() {
+    if (!arbors || lean) return;
+    const hair = Math.max(0.7, radius / 300) * zoom;
+    for (let lesson = 0; lesson < count; lesson++) {
+      const grownNow = growthOf(lesson);
+      if (grownNow <= 0) continue;
+      const stained = reach[lesson];
+      const mood = Math.min(1.2, emphasis[chapterOf[lesson]]);
+      const lit = Math.max(flash[lesson], signal[lesson], glow[lesson]);
+      for (let index = arbors.starts[lesson]; index < arbors.starts[lesson + 1]; index++) {
+        const stub = arbors.stub[index] === 1;
+        const out = Math.min(grownNow, Math.max(stained, stub ? arbors.to[index] * STUB_REACH : 0));
+        const start = arbors.from[index];
+        if (out <= start + 1e-4) continue;
+        const share = Math.min(1, (out - start) / Math.max(1e-4, arbors.to[index] - start));
+        const strength = Math.max(ink[lesson], stub ? STUB_INK : 0) * mood + lit * 0.45 * Math.max(stained, 0.3);
+        const a = index * 2;
+        const { alpha, width } = strokeOf((arborDepth[a] + arborDepth[a + 1]) / 2, arbors.rank[index], strength, hair);
+        const step = Math.round(Math.min(1, alpha) * ALPHA_STEPS);
+        if (!step) continue;
+        let size = 0;
+        while (size < WIDTHS.length - 1 && WIDTHS[size] < width * 0.92) size++;
+        arborStore[size * (ALPHA_STEPS + 1) + step].push(arborX[a], arborY[a], arborX[a] + (arborX[a + 1] - arborX[a]) * share, arborY[a] + (arborY[a + 1] - arborY[a]) * share);
+      }
+    }
+    strokeStore(arborStore, WIDTHS, theme.ink, (theme.dark ? 1.15 : 1) * (moreContrast.matches ? 1.5 : 1));
+  }
+
+  /** The beads on the axons, where they make contact, on the near side only. */
+  function drawBeads() {
+    if (!arbors || lean) return;
+    const hair = Math.max(0.7, radius / 300);
+    const threadActive = threadPoints !== null;
+    for (let link = 0; link < linkCount; link++) {
+      const from = graph.links[link * 2];
+      const to = graph.links[link * 2 + 1];
+      const mood = Math.max(emphasis[chapterOf[from]], emphasis[chapterOf[to]]) * (threadActive ? 0.55 : 1);
+      const strength = RELATED_LINE * 2.2 * Math.min(1, mood) + linkBoost[link] * 0.8;
+      for (let bead = 0; bead < BEADS_PER_LINK; bead++) {
+        const along = arbors.beads[link * BEADS_PER_LINK + bead] * ARC_STEPS;
+        const step = Math.min(ARC_STEPS - 1, Math.floor(along));
+        const mix = along - step;
+        const a = link * (ARC_STEPS + 1) + step;
+        const depth = arcDepth[a] + (arcDepth[a + 1] - arcDepth[a]) * mix;
+        if (depth < 0.45) continue;
+        const alpha = Math.round(Math.min(1, lineAlpha(depth, strength)) * ALPHA_STEPS);
+        if (!alpha) continue;
+        const size = hair * (1.1 + 0.9 * depth) * zoom;
+        beadStore[alpha].push(arcX[a] + (arcX[a + 1] - arcX[a]) * mix, arcY[a] + (arcY[a + 1] - arcY[a]) * mix, size);
+      }
+    }
+    ctx.fillStyle = theme.ink;
+    for (let step = 1; step <= ALPHA_STEPS; step++) {
+      const beads = beadStore[step];
+      if (!beads.length) continue;
+      ctx.globalAlpha = step / ALPHA_STEPS;
+      ctx.beginPath();
+      for (let index = 0; index < beads.length; index += 3) {
+        ctx.moveTo(beads[index] + beads[index + 2] / 2, beads[index + 1]);
+        ctx.arc(beads[index], beads[index + 1], beads[index + 2] / 2, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      beads.length = 0;
+    }
+  }
+
+  /**
+   * Signals light the axon itself rather than sliding a dot along it: a short bright front with a tail, jumping
+   * between nodes on the way the way a myelinated axon carries it, and the cell it reaches lights up.
+   */
+  function drawSignals() {
+    const hair = Math.max(0.7, radius / 300) * zoom;
+    for (const pulse of pulses) {
+      const head = pulse.age;
+      const start = pulse.link * (ARC_STEPS + 1);
+      for (let step = 0; step < ARC_STEPS; step++) {
+        const along = pulse.forward ? (step + 0.5) / ARC_STEPS : 1 - (step + 0.5) / ARC_STEPS;
+        const behind = head - along;
+        if (behind < -0.05 || behind > 0.45) continue;
+        const strength = behind < 0 ? (1 + behind / 0.05) * 0.25 : Math.exp(-behind / 0.12);
+        const a = start + step;
+        const level = Math.round(Math.min(1, strength * (0.2 + 0.8 * (arcDepth[a] + arcDepth[a + 1]) / 2)) * ALPHA_STEPS);
+        if (level) glowStore[level].push(arcX[a], arcY[a], arcX[a + 1], arcY[a + 1]);
+      }
+      for (let node = 0; node < NODES; node++) {
+        const along = (node + 0.5) / NODES;
+        const gap = (head - along) / 0.05;
+        const lit = gap < -1 ? 0 : gap < 0 ? 1 + gap : Math.exp(-gap * 0.5);
+        if (lit < 0.04) continue;
+        const place = (pulse.forward ? along : 1 - along) * ARC_STEPS;
+        const step = Math.min(ARC_STEPS - 1, Math.floor(place));
+        const mix = place - step;
+        const a = start + step;
+        const depth = arcDepth[a] + (arcDepth[a + 1] - arcDepth[a]) * mix;
+        const level = Math.round(Math.min(1, lit * (0.25 + 0.75 * depth)) * ALPHA_STEPS);
+        if (level) sparkStore[level].push(arcX[a] + (arcX[a + 1] - arcX[a]) * mix, arcY[a] + (arcY[a + 1] - arcY[a]) * mix, hair * (1.3 + depth));
+      }
+    }
+    // In the dark the signal is light, and adds up where it crosses; on paper it's ink.
+    if (theme.dark) ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = theme.ink;
+    ctx.lineCap = "round";
+    ctx.lineWidth = hair * 1.7;
+    for (let step = 1; step <= ALPHA_STEPS; step++) {
+      const segments = glowStore[step];
+      if (!segments.length) continue;
+      ctx.globalAlpha = step / ALPHA_STEPS;
+      ctx.beginPath();
+      for (let index = 0; index < segments.length; index += 4) {
+        ctx.moveTo(segments[index], segments[index + 1]);
+        ctx.lineTo(segments[index + 2], segments[index + 3]);
+      }
+      ctx.stroke();
+      segments.length = 0;
+    }
+    ctx.fillStyle = theme.ink;
+    for (let step = 1; step <= ALPHA_STEPS; step++) {
+      const sparks = sparkStore[step];
+      if (!sparks.length) continue;
+      ctx.globalAlpha = step / ALPHA_STEPS;
+      ctx.beginPath();
+      for (let index = 0; index < sparks.length; index += 3) {
+        ctx.moveTo(sparks[index] + sparks[index + 2], sparks[index + 1]);
+        ctx.arc(sparks[index], sparks[index + 1], sparks[index + 2], 0, Math.PI * 2);
+      }
+      ctx.fill();
+      sparks.length = 0;
+    }
+    ctx.globalCompositeOperation = "source-over";
     if (threadPoints && threadDrawn >= 1 && !still) {
+      const size = Math.max(1.2, radius * 0.0065);
       const last = threadX.length - 1;
       const along = threadGlint * last;
       const step = Math.min(last - 1, Math.floor(along));
@@ -528,21 +738,29 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       drawOrder[place + 1] = lesson;
     }
     ctx.fillStyle = theme.ink;
+    const unit = FIT * radius * zoom;
     for (const lesson of drawOrder) {
       const depth = depths[lesson];
       const done = finished[lesson];
       const mood = emphasis[chapterOf[lesson]];
-      const fired = Math.max(signal[lesson], glow[lesson]);
+      const fired = Math.max(signal[lesson], glow[lesson], flash[lesson] * 0.8);
       const size = dotRadius(depth, degrees[lesson], done, radius) * zoom * (0.82 + 0.18 * mood) * (1 + fired * 0.7);
       const alpha = Math.min(1, dotAlpha(depth, done) * (mood > 1 ? 1 + (mood - 1) * 1.6 : mood) * (moreContrast.matches ? 1.5 : 1) + fired * 0.8);
-      if (done && theme.halo) {
-        ctx.globalAlpha = alpha * 0.8;
-        const span = size * 6;
+      if (theme.halo && (done || fired > 0.05)) {
+        ctx.globalAlpha = Math.min(1, alpha * (done ? 0.8 : 0) + fired * 0.9);
+        const span = size * (6 + fired * 4);
         ctx.drawImage(theme.halo, screenX[lesson] - span / 2, screenY[lesson] - span / 2, span, span);
       }
+      // A cell body points along its apical dendrite, as far as it shows from here and as far as it has grown.
+      const ux = apexX[lesson] - screenX[lesson];
+      const uy = apexY[lesson] - screenY[lesson];
+      const length = Math.hypot(ux, uy);
+      const turned = depth * 2 - 1;
+      const side = Math.min(1, length / (0.05 * unit * (CAMERA / (CAMERA - turned))));
+      const tip = arbors ? size * growthOf(lesson) * (lean ? 0.45 : 0.45 + 0.75 * reach[lesson]) * side : 0;
       ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(screenX[lesson], screenY[lesson], size, 0, Math.PI * 2);
+      somaPath(ctx, screenX[lesson], screenY[lesson], size, length ? ux / length : 0, length ? uy / length : -1, tip);
       ctx.fill();
     }
   }
@@ -690,7 +908,9 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     turn();
     drawBody();
     drawLines();
-    drawPulses();
+    drawBeads();
+    drawArbors();
+    drawSignals();
     drawDots();
     drawMarkers();
     drawPartNames();
@@ -716,19 +936,29 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   function tick(now: number) {
     frame = 0;
     if (destroyed || !onScreen || resting || frozen || document.visibilityState === "hidden") return;
-    const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001;
+    const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001
+      || (introduced && arbors !== null && grown < 1) || staining;
     if (!busy && !still && now - lastActivity > IDLE_LIMIT) return;
     if (!busy && !still && now - lastDraw < idleFrame) {
       frame = requestAnimationFrame(tick);
       return;
     }
-    const dt = Math.min(0.05, lastTick ? (now - lastTick) / 1000 : 1 / 60);
+    const gap = lastTick ? now - lastTick : 0;
+    const dt = Math.min(0.05, gap ? gap / 1000 : 1 / 60);
+    // A device that can't keep up with the neurons, drawing them on the processor or on a slow graphics chip, goes
+    // back to the plain cell bodies rather than stutter: judged from frames that should come every 16 ms, after load.
+    if (busy && gap && !lean && now - born > 3000) {
+      slowness += (gap - slowness) * 0.15;
+      if (slowness > 55 && ++slowFrames > 12) lean = true;
+    }
     lastTick = now;
     lastDraw = now;
     try {
+      const started = performance.now();
       advance(dt);
       updateHover();
       draw();
+      if (!lean && performance.now() - started > 14 && ++heavyFrames > 8) lean = true;
     } catch {
       destroyed = true;
       events.onFail();
@@ -886,6 +1116,21 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   turn();
   draw();
 
+  function makeArbors() {
+    pending = 0;
+    if (destroyed) return;
+    arbors = arborsFor(graph.positions, degrees, graph.links);
+    arborX = new Float32Array(arbors.owner.length * 2);
+    arborY = new Float32Array(arbors.owner.length * 2);
+    arborDepth = new Float32Array(arbors.owner.length * 2);
+    for (let lesson = 0; lesson < count; lesson++) {
+      for (let axis = 0; axis < 3; axis++) apexEnds[lesson * 3 + axis] = base[lesson * 3 + axis] + arbors.apex[lesson * 3 + axis] * 0.05;
+    }
+    wake();
+  }
+  const idles = "requestIdleCallback" in window;
+  let pending = idles ? window.requestIdleCallback(makeArbors, { timeout: 1500 }) : window.setTimeout(makeArbors, 200);
+
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
@@ -950,6 +1195,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       wake();
     },
     view: () => ({ yaw, pitch }),
+    stains: () => ({ reach: lean ? new Float32Array(count) : Float32Array.from(reach, (value, lesson) => Math.min(value, growthOf(lesson))), ink: lean ? new Float32Array(count) : Float32Array.from(ink) }),
     announce(lesson) {
       faceTo(position(lesson), true);
       startSignal(lesson);
@@ -958,6 +1204,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     destroy() {
       destroyed = true;
       cancelAnimationFrame(frame);
+      if (idles) window.cancelIdleCallback(pending);
+      else window.clearTimeout(pending);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);

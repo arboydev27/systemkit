@@ -1,9 +1,10 @@
+import { arborsFor, BEADS_PER_LINK, somaPath, strokeOf, STUB_INK, STUB_REACH, type Arbors } from "./orb-arbor";
 import type { OrbGraph } from "./orb-layout";
 import { arcPoint, foldPoint } from "./orb-motion";
 import {
   arcControl, CAMERA, CHAPTER_LINE, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
-import { axisAt, FILM, onFilm, type Film, type Shot } from "./neuron-film";
+import type { Film, Shot } from "./neuron-film";
 import {
   buildFlightPath, chooseEntry, FLIGHT, flightDistance, pathIndex, pathPoint, ramp, routeFrom, routesTo, turnPoints, type FlightPath, type Routes, type Vec,
 } from "./neuron-route";
@@ -19,7 +20,7 @@ const FOLD_STEPS = 5;
 const NEAR = 0.03;
 const LOOK = 0.42;
 const ALPHA_STEPS = 10;
-const WIDTHS = [1, 1.7, 2.8, 4.6, 7.5, 12];
+const WIDTHS = [0.5, 0.7, 1, 1.7, 2.8, 4.6, 7.5, 12];
 const STRANDS = 9;
 const STRAND_REACH = 2.6;
 const STRAND_STEPS = 26;
@@ -51,7 +52,7 @@ export type Filmed = { film: Film; shot: Shot };
 export type NeuronScene = {
   resize: () => void;
   /** Picks the dot and the route from the angle the orb is showing. Returns the dot's offset from the orb's center, in pixels. */
-  launch: (view: { yaw: number; pitch: number }, place: NeuronPlace, finished: boolean[], hint: { x: number; y: number } | null, lens: number) => { x: number; y: number };
+  launch: (view: { yaw: number; pitch: number }, place: NeuronPlace, finished: boolean[], hint: { x: number; y: number } | null, lens: number, stains?: { reach: Float32Array; ink: Float32Array } | null) => { x: number; y: number };
   /** Draws a frame and says where the dot being dived into is on screen. With a film, the inside is left to the WebGL canvas. */
   draw: (progress: number, place: NeuronPlace, filmed?: Filmed | null) => { x: number; y: number };
   route: () => number[];
@@ -91,8 +92,13 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
   // Every point the dive draws, in one array so one loop places them all: the dots, then each link's arc, then each chapter's thread.
   const ARC = count;
   const FOLD = ARC + linkCount * (ARC_STEPS + 1);
-  const total = FOLD + count * (FOLD_STEPS + 1);
-  const world = new Float32Array(total * 3);
+  // The neurons the orb has grown are added at the first dive, so its first frame has them too: their dendrites, and
+  // the point each cell body makes toward its apical dendrite.
+  let arbors: Arbors | null = null;
+  const ARBOR = FOLD + count * (FOLD_STEPS + 1);
+  let APEX = ARBOR;
+  let total = ARBOR;
+  let world = new Float32Array(total * 3);
   world.set(graph.positions.slice(0, count * 3));
   for (let link = 0; link < linkCount; link++) {
     const a = at(graph.links[link * 2]);
@@ -112,10 +118,28 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     }
   }
 
-  const view = new Float32Array(world.length);
-  const camX = new Float32Array(total);
-  const camY = new Float32Array(total);
-  const camZ = new Float32Array(total);
+  let view = new Float32Array(world.length);
+  let camX = new Float32Array(total);
+  let camY = new Float32Array(total);
+  let camZ = new Float32Array(total);
+
+  function withArbors() {
+    if (arbors) return;
+    arbors = arborsFor(graph.positions, degrees, graph.links);
+    APEX = ARBOR + arbors.owner.length * 2;
+    total = APEX + count;
+    const grown = new Float32Array(total * 3);
+    grown.set(world.subarray(0, ARBOR * 3));
+    grown.set(arbors.ends, ARBOR * 3);
+    for (let lesson = 0; lesson < count; lesson++) {
+      for (let axis = 0; axis < 3; axis++) grown[(APEX + lesson) * 3 + axis] = graph.positions[lesson * 3 + axis] + arbors.apex[lesson * 3 + axis] * 0.05;
+    }
+    world = grown;
+    view = new Float32Array(world.length);
+    camX = new Float32Array(total);
+    camY = new Float32Array(total);
+    camZ = new Float32Array(total);
+  }
   const order = Array.from({ length: count }, (_, lesson) => lesson);
   const prevX = new Float32Array(count);
   const prevY = new Float32Array(count);
@@ -126,6 +150,8 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
   const glow = makeGlow();
 
   let path: FlightPath | null = null;
+  let reach: Float32Array<ArrayBufferLike> = new Float32Array(count);
+  let ink: Float32Array<ArrayBufferLike> = new Float32Array(count);
   let labelSide = 0; // Which side of the dot its name goes, chosen once so it doesn't jump as the orb swings.
   let finished: boolean[] = [];
   let routeLinks = new Uint8Array(linkCount);
@@ -298,6 +324,59 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     }
   }
 
+  /** The orb's neurons, as the orb was drawing them when the dive began. They give way as the camera goes in. */
+  function collectArbors(mix: number) {
+    if (!arbors) return;
+    const keep = 1 - ramp(0, 0.45, mix);
+    if (keep <= 0) return;
+    for (let lesson = 0; lesson < count; lesson++) {
+      const stained = reach[lesson];
+      for (let index = arbors.starts[lesson]; index < arbors.starts[lesson + 1]; index++) {
+        const stub = arbors.stub[index] === 1;
+        const out = Math.max(stained, stub ? arbors.to[index] * STUB_REACH : 0);
+        const start = arbors.from[index];
+        if (out <= start + 1e-4) continue;
+        const share = Math.min(1, (out - start) / Math.max(1e-4, arbors.to[index] - start));
+        const i = ARBOR + index * 2;
+        const j = i + 1;
+        const depth = nearness((view[i * 3 + 2] + view[j * 3 + 2]) / 2);
+        const { alpha, width } = strokeOf(depth, arbors.rank[index], Math.max(ink[lesson], stub ? STUB_INK : 0), hair);
+        const z2 = camZ[i] + (camZ[j] - camZ[i]) * share;
+        // Widths are on the orb's scale; up close they grow with it.
+        const near = (CAMERA - (view[i * 3 + 2] + view[j * 3 + 2]) / 2) / Math.max(NEAR, (camZ[i] + z2) / 2) * (focal / startFocal);
+        segment(camX[i], camY[i], camZ[i], camX[i] + (camX[j] - camX[i]) * share, camY[i] + (camY[j] - camY[i]) * share, z2, alpha * keep, width * Math.max(1, near));
+      }
+    }
+  }
+
+  /** The beads on the axons, as the orb draws them. */
+  function drawBeads(color: string, mix: number, fade: number) {
+    if (!arbors) return;
+    const keep = (1 - ramp(0, 0.3, mix)) * fade;
+    if (keep <= 0.02) return;
+    ctx.fillStyle = color;
+    for (let link = 0; link < linkCount; link++) {
+      for (let bead = 0; bead < BEADS_PER_LINK; bead++) {
+        const along = arbors.beads[link * BEADS_PER_LINK + bead] * ARC_STEPS;
+        const step = Math.min(ARC_STEPS - 1, Math.floor(along));
+        const t = along - step;
+        const i = ARC + link * (ARC_STEPS + 1) + step;
+        const z = camZ[i] + (camZ[i + 1] - camZ[i]) * t;
+        if (z < NEAR) continue;
+        const depth = nearness(view[i * 3 + 2] + (view[(i + 1) * 3 + 2] - view[i * 3 + 2]) * t);
+        if (depth < 0.45) continue;
+        a.x = originX + ((camX[i] + (camX[i + 1] - camX[i]) * t) * focal) / z;
+        a.y = originY - ((camY[i] + (camY[i + 1] - camY[i]) * t) * focal) / z;
+        pull(a);
+        const size = (hair * (1.1 + 0.9 * depth) * (focal / startFocal)) / 2;
+        ctx.globalAlpha = Math.min(1, lineAlpha(depth, RELATED_LINE * 2.2) * keep * theme.contrast);
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
   const dotX = new Float32Array(count);
   const dotY = new Float32Array(count);
   const dotSize = new Float32Array(count);
@@ -354,7 +433,25 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       if (alpha <= 0.02) continue;
       ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(dotX[lesson], dotY[lesson], dotSize[lesson], 0, Math.PI * 2);
+      // Pointed toward its apical dendrite, as on the orb, until the camera is inside.
+      const apex = APEX + lesson;
+      const z = camZ[apex];
+      let tip = 0;
+      let ux = 0;
+      let uy = -1;
+      if (arbors && z > NEAR && mix < 1) {
+        b.x = originX + (camX[apex] * focal) / z;
+        b.y = originY - (camY[apex] * focal) / z;
+        pull(b);
+        ux = b.x - dotX[lesson];
+        uy = b.y - dotY[lesson];
+        const length = Math.hypot(ux, uy) || 1;
+        const side = Math.min(1, length / ((0.05 * focal) / Math.max(NEAR, camZ[lesson])));
+        ux /= length;
+        uy /= length;
+        tip = dotSize[lesson] * (0.45 + 0.75 * reach[lesson]) * side * (1 - mix);
+      }
+      somaPath(ctx, dotX[lesson], dotY[lesson], dotSize[lesson], ux, uy, tip);
       ctx.fill();
     }
   }
@@ -439,35 +536,6 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     }
   }
 
-  /** Each lesson's name going by as the camera passes through it. */
-  function drawNames() {
-    if (!path) return;
-    ctx.fillStyle = theme.spark;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    for (let stop = 1; stop < path.stops.length; stop++) {
-      const index = pathIndex(path, path.stops[stop]);
-      const center = project(path.x[index], path.y[index], path.z[index]);
-      const z = center.z;
-      const presence = ramp(2.2, 1.2, z) * ramp(0.14, 0.42, z);
-      if (presence <= 0.01) continue;
-      const size = Math.min(30, 10 + 4 / z);
-      ctx.globalAlpha = presence;
-      ctx.font = `640 ${size.toFixed(1)}px ${theme.font}`;
-      const title = graph.titles[path.route[stop]];
-      const wide = ctx.measureText(title).width;
-      const ring = (GATE * focal) / z;
-      // Beside the ring where there's room, otherwise under it, so a name never covers the signal.
-      if (center.x + ring + 12 + wide < width - 12) {
-        ctx.textAlign = "left";
-        ctx.fillText(title, center.x + ring + 12, center.y);
-      } else {
-        ctx.textAlign = "center";
-        ctx.fillText(title, Math.max(12 + wide / 2, Math.min(width - 12 - wide / 2, center.x)), center.y + ring + size);
-      }
-    }
-  }
-
   /** The signal the camera chases down the fibre. */
   function drawPulse(along: number, progress: number) {
     if (!path || !glow) return;
@@ -535,33 +603,6 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     return along;
   }
 
-  /** The names of the lessons on the route, each on its node of the neuron as the camera passes through. */
-  function drawFilmNames({ film, shot }: Filmed, progress: number) {
-    ctx.fillStyle = theme.spark;
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgb(0 0 0 / 70%)";
-    ctx.shadowBlur = 10;
-    const points = film.nodes.map((z, index) => ({ name: film.names[index], z, lift: 0.5 }));
-    points.push({ name: film.names[film.names.length - 1], z: film.end - 0.9, lift: 1.1 });
-    // One name at a time: the next lesson ahead.
-    const next = points.find(({ name, z }) => name && z > shot.depth + 0.7);
-    for (const { name, z, lift } of next ? [next] : []) {
-      const [x, y] = axisAt(film, z);
-      const spot = onFilm(shot, [x + lift * 0.9, y + lift * 0.8, z]);
-      if (!spot) continue;
-      const presence = ramp(9, 4.5, spot.z) * ramp(0.7, 1.6, spot.z) * (1 - ramp(FILM.open, FILM.open + 0.05, progress));
-      if (presence <= 0.01) continue;
-      const size = Math.min(26, Math.max(12, spot.scale * 0.055));
-      ctx.font = `620 ${size.toFixed(1)}px ${theme.font}`;
-      const wide = ctx.measureText(name).width;
-      ctx.globalAlpha = presence;
-      ctx.textAlign = "left";
-      ctx.fillText(name, Math.max(16, Math.min(width - wide - 16, spot.x)), Math.max(24, Math.min(height - 24, spot.y)));
-    }
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = "transparent";
-  }
-
   function draw(progress: number, place: NeuronPlace, filmed: Filmed | null = null) {
     // The canvas has no size while it's hidden between dives.
     if (canvas.clientWidth !== width || canvas.clientHeight !== height) resize();
@@ -606,6 +647,9 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       lift = (theme.dark ? 1.22 : 1) * theme.contrast;
       const fade = ramp(0, 0.012, progress);
       collectLines(mix);
+      strokeBatches(theme.ink, lift * fade);
+      drawBeads(theme.ink, mix, fade);
+      collectArbors(mix);
       strokeBatches(theme.ink, lift * fade);
       drawDots(theme.ink, mix, fade, false);
       // The dot takes the strain before it gives: it swells, and a ring closes in on it.
@@ -664,9 +708,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
         ctx.stroke();
       }
-    } else if (filmed) {
-      drawFilmNames(filmed, progress);
-    } else {
+    } else if (!filmed) {
       drawInside(progress, along, 1, false);
     }
     const entryX = a.x;
@@ -718,7 +760,6 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     collectGates();
     strokeBatches(theme.spark, lift);
     drawDots(theme.spark, mix, 1, !clipped);
-    drawNames();
     drawPulse(along, progress);
     suck = savedSuck;
   }
@@ -731,9 +772,12 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
 
   return {
     resize,
-    launch(angle, place, done, hint, lens) {
+    launch(angle, place, done, hint, lens, stains) {
+      withArbors();
       readTheme();
       finished = done;
+      reach = stains?.reach ?? new Float32Array(count);
+      ink = stains?.ink ?? new Float32Array(count);
       turnPoints(world, angle.yaw, angle.pitch, view);
       const entry = chooseEntry(graph, view, routes, { hint, lens });
       const route = routeFrom(routes, entry < 0 ? exits[0] : entry);

@@ -32,7 +32,7 @@ export function lineAlpha(depth: number, strength: number) {
   return strength * (0.1 + 0.9 * depth * depth);
 }
 
-export const CHAPTER_LINE = 0.5;
+export const CHAPTER_LINE = 0.42;
 export const RELATED_LINE = 0.2;
 
 /** Bezier handles that carry a chapter's thread smoothly through a lesson, so it winds like a fold in the cortex. */

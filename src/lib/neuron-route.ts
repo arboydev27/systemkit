@@ -10,19 +10,28 @@ import { arcControl, CAMERA, foldHandles, foldNeighbors, linkDegrees } from "./o
 export const FLIGHT = {
   /** The orb takes the strain: the dot swells, everything leans toward it, and the camera draws back. */
   pull: 0.08,
-  /** The camera has gone through the dot. */
-  through: 0.28,
   /** The inside of the dot fills the screen, so the page beneath can move freely. */
   covered: 0.26,
-  /** The last lesson on the route has been reached and the far end opens. */
-  open: 0.84,
+  /** The camera has gone through the dot. */
+  through: 0.28,
+  /** The first stop: inside the cell the camera dived into. */
+  cell: 0.3,
+  /** The last stop before the game: the node of the last lesson on the way. */
+  terminal: 0.8,
+  /** The camera has reached the terminal and its vesicles release. */
+  release: 0.88,
+  /** The far end opens on the game. */
+  open: 0.93,
   /** The opening has passed the corners of the screen. */
-  clear: 0.985,
+  clear: 0.995,
 };
+
+/** At most this many lessons between the dot and the lesson on scaling get a stop of their own. */
+export const MOST_PASSED = 2;
 
 const PULL_BACK = 0.16; // Orb radii the camera draws back before it lunges.
 const PAST = 0.8; // How far the camera keeps going through the last dot while it opens.
-const BRAKE = 0.72; // How hard the camera slows at each lesson: the signal jumps from node to node.
+const INTO = 0.05; // How far inside the first dot the camera stops.
 const SPACING = 0.035;
 const SMOOTHING = 6;
 const ARC_STEPS = 12;
@@ -144,7 +153,7 @@ export function chooseEntry(graph: Pick<OrbGraph, "titles" | "links">, turned: A
       const place = onScreen(turned[lesson * 3], turned[lesson * 3 + 1], z);
       // With a pointer over the orb, the dot nearest it wins outright. Otherwise a big, near dot with deep dives does.
       let score = options.hint ? -Math.hypot(place.x - options.hint.x, place.y + options.hint.y)
-        : z + 0.18 * Math.sqrt(degrees[lesson]) + (0.5 * routes.dives[lesson]) / hops - 0.12 * Math.abs(hops - 3);
+        : z + 0.18 * Math.sqrt(degrees[lesson]) + (0.5 * routes.dives[lesson]) / hops - 0.22 * (hops - 2);
       if (Math.hypot(place.x, place.y) < lens) score -= 4;
       if (score > bestScore) { bestScore = score; best = lesson; }
     }
@@ -218,6 +227,10 @@ export function buildFlightPath(graph: Pick<OrbGraph, "chapterStarts">, turned: 
     zs[sample] = a[2] + (b[2] - a[2]) * t;
   }
   const stops = marks.map((mark) => Math.round(lengths[mark] / spacing));
+  // The first dot falls between two samples, so the nearer one is moved onto it: the camera goes through it exactly.
+  xs[stops[0]] = points[1][0];
+  ys[stops[0]] = points[1][1];
+  zs[stops[0]] = points[1][2];
 
   // Round off the corners at each lesson so the camera swings rather than snapping, keeping the first dot exact.
   const pinned = new Set([0, stops[0], count - 1]);
@@ -274,36 +287,88 @@ export function hermite(t: number, leave: number, arrive: number) {
 }
 
 /**
- * How far along the path the camera is at a point in the flight. It draws back, lunges into the dot faster and faster
- * and carries that speed through it, then jumps lesson to lesson, quick between them and braking at each, and
- * punches on through the last one.
+ * The stops a dive makes, as points on the flight: the orb, inside the cell it dives into, the node of each lesson it
+ * passes on the way, and the game. A gesture moves at most one stop, and the camera holds at each until the next.
  */
-export function flightDistance(path: Pick<FlightPath, "stops">, progress: number) {
-  const { stops } = path;
-  const first = stops[0];
-  const last = stops[stops.length - 1];
-  if (progress <= FLIGHT.pull) return -PULL_BACK * Math.sin((Math.max(0, progress) / FLIGHT.pull) * Math.PI / 2);
-  if (progress < FLIGHT.through) {
-    const t = (progress - FLIGHT.pull) / (FLIGHT.through - FLIGHT.pull);
-    return -PULL_BACK + (first + PULL_BACK) * t * t;
-  }
-  const end = FLIGHT.open + 0.02;
-  if (progress < end) {
-    const hops = Math.max(1, stops.length - 1);
-    const place = ((progress - FLIGHT.through) / (end - FLIGHT.through)) * hops;
-    const hop = Math.min(hops - 1, Math.floor(place));
-    const from = stops[Math.min(hop, stops.length - 1)];
-    const to = stops[Math.min(hop + 1, stops.length - 1)];
-    return from + (to - from) * hermite(place - hop, hop === 0 ? 3 : 1 - BRAKE, 1 - BRAKE);
-  }
-  return last + PAST * Math.sin(((Math.min(1, progress) - end) / (1 - end)) * Math.PI / 2);
+export function stopsFor(passed: number) {
+  // Even a route with no lesson between its ends gets one stop on the way, at a node of its own.
+  const nodes = Math.max(1, Math.min(MOST_PASSED, passed));
+  return [0, FLIGHT.cell, ...Array.from({ length: nodes }, (_, index) => FLIGHT.cell + ((FLIGHT.terminal - FLIGHT.cell) * (index + 1)) / nodes), 1];
 }
 
-/** Where to settle once scrolling stops partway: on through with the smallest push, back with the smallest pull. */
-export function settleTo(progress: number, direction: number, nudge = 0.05) {
-  if (direction > 0) return progress >= nudge ? 1 : 0;
-  if (direction < 0) return progress <= 1 - nudge ? 0 : 1;
-  return progress < 0.5 ? 0 : 1;
+/** Where in the flight a share of the way through the scroll lands, with the stops spread evenly along the scroll. */
+export function flightAt(stops: number[], share: number) {
+  const hops = stops.length - 1;
+  const place = Math.min(hops, Math.max(0, share * hops));
+  const hop = Math.min(hops - 1, Math.floor(place));
+  return stops[hop] + (stops[hop + 1] - stops[hop]) * (place - hop);
+}
+
+/** How long the camera takes to get from one stop to the next: longest into the dot and out onto the game. */
+export function hopSeconds(stops: number[], hop: number) {
+  const from = stops[hop];
+  const to = stops[hop + 1];
+  if (from <= 0) return 2.1;
+  if (to >= 1) return 2.2;
+  return 1.7;
+}
+
+/**
+ * Where to settle once scrolling stops between two stops, in stops along the scroll: on to the next with the smallest
+ * push, back with the smallest pull, and to the nearer when there's no telling which way it was going.
+ */
+export function settleStop(place: number, direction: number, nudge = 0.05) {
+  const below = Math.floor(place + 1e-6);
+  const share = place - below;
+  if (share < 1e-6) return below;
+  if (direction > 0) return share >= nudge ? below + 1 : below;
+  if (direction < 0) return share <= 1 - nudge ? below : below + 1;
+  return share < 0.5 ? below : below + 1;
+}
+
+/**
+ * How far one gesture may carry the page, in stops along the scroll: to the next stop the way it's going and no further,
+ * so a flick can't skip the game. From the game or below, going back up, it stops at the last lesson. Null means free.
+ */
+export function gateFor(from: number, direction: number, last: number) {
+  if (direction > 0) return from >= last - 1e-3 ? null : Math.max(1, Math.floor(from + 1e-3) + 1);
+  if (direction < 0) {
+    if (from > last + 1e-3) return last - 1;
+    const gate = Math.ceil(from - 1e-3) - 1;
+    return gate < 0 ? null : gate;
+  }
+  return null;
+}
+
+/**
+ * How far along the path the camera is at a point in the flight, where it draws the lines instead of the neuron. It
+ * draws back, lunges into the dot and stops just inside it, then goes lesson to lesson, holding at each stop, and
+ * punches on through the last one as the far end opens.
+ */
+export function flightDistance(path: Pick<FlightPath, "stops">, progress: number, stops = stopsFor(path.stops.length - 2)) {
+  const marks = path.stops;
+  const first = marks[0];
+  const last = marks[marks.length - 1];
+  const held = stops.length - 3;
+  if (progress <= FLIGHT.pull) return -PULL_BACK * Math.sin((Math.max(0, progress) / FLIGHT.pull) * Math.PI / 2);
+  if (progress <= FLIGHT.cell) {
+    const t = (progress - FLIGHT.pull) / (FLIGHT.cell - FLIGHT.pull);
+    return -PULL_BACK + (first + INTO + PULL_BACK) * hermite(t, 0, 0);
+  }
+  for (let stop = 1; stop <= held; stop++) {
+    if (progress > stops[stop + 1]) continue;
+    const t = (progress - stops[stop]) / (stops[stop + 1] - stops[stop]);
+    const from = stop === 1 ? first + INTO : marks[stop - 1];
+    const to = stop < marks.length - 1 ? marks[stop] : (from + last) / 2;
+    return from + (to - from) * hermite(t, 0, 0);
+  }
+  const from = held < marks.length - 1 ? marks[held] : (first + INTO + last) / 2;
+  const end = FLIGHT.open + 0.02;
+  if (progress < end) {
+    const t = (progress - stops[stops.length - 2]) / (end - stops[stops.length - 2]);
+    return from + (last - from) * hermite(t, 0, 1);
+  }
+  return last + PAST * Math.sin(((Math.min(1, progress) - end) / (1 - end)) * Math.PI / 2);
 }
 
 function normalize(v: Vec): Vec {
