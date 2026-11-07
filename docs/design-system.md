@@ -33,7 +33,15 @@ Use one recognizable pictogram per system role, always with a visible label and 
 
 The home, chapter, labs, and practice pages share these tokens. List chapters and lessons as ruled rows rather than grids of cards. Headings stand alone, with no small label above them. Show the product working instead of describing it.
 
-The home page keeps words on the left and the working thing on the right, all the way down. The orb and the lesson panel open it, because they serve a new visitor and a returning learner alike; a lab follows, because being asked to answer is the point; then one real question from each other part of the course. Only the primary button is solid in the opening screen, so the eye has one place to land.
+## The home page
+
+The orb is the home page's navigation, so the page opens on a single pinned stage rather than a stack of sections. The glass lens in the middle of the orb starts the next lesson, and it is the one main action. The names on the rim, and any dot, open the course where they point. The site's four sections sit on an orbit to its right and dock in a row at the top once the page scrolls past; on a phone they are a dock at the bottom. Browsing happens in one glass panel that replaces the words beside the orb: a part, then its chapters, then a chapter's lessons, with the orb turning to match. There is no separate list view, though the list stays in the page for search engines and screen readers, and shows whenever the orb can't run.
+
+Below the stage, a lab rises over the orb as it falls back, followed by one real question from each other part of the course.
+
+### Glass
+
+Glass only appears on the home page, in the same neutrals as everything else. Its tokens are on `.pageHome` in `Site.module.css`. Reach for it where something floats over the orb or the field of soft light behind the page, because that gives the blur something to bend; a glass card on a plain background is just a grey card. Touch screens drop the blur on panels that scroll, leaving it on the lens, the dock, and the sheet. Glass goes solid under `prefers-reduced-transparency` and `prefers-contrast: more`, and blur never carries meaning on its own.
 
 ## Labs and charts
 
@@ -41,6 +49,6 @@ Charts use blue for successful work and orange for offered load, with validated 
 
 ## The course orb
 
-The learning path opens as an orb, because the course is a connected structure rather than a table of contents. It is drawn in ink on the page, with no panel behind it: pale stippling in the light theme, starlight in the dark. Every dot is a lesson and every line is real: a chapter's thread winds through its lessons in order, and links from a lesson's `related` field dive through the middle. A dot's size says how many links it has, and its brightness says how far back it sits and whether the lesson is finished, so progress lights the orb up. The only mark that isn't course data is the faint rim that makes it read as a sphere. It turns slowly when left alone, at 15 frames a second on touch screens, and comes to rest after 45 seconds without interaction.
+The learning path is an orb, because the course is a connected structure rather than a table of contents. It is drawn in ink on the page: pale stippling in the light theme, starlight in the dark. Every dot is a lesson and every line is real: a chapter's thread winds through its lessons in order, and links from a lesson's `related` field dive through the middle. A dot's size says how many links it has, and its brightness says how far back it sits and whether the lesson is finished, so progress lights the orb up. The only marks that aren't course data are the faint rim and, on the home page, the highlight that makes it read as a glass sphere. It turns slowly when left alone, at 15 frames a second on touch screens, and comes to rest after 45 seconds without interaction.
 
-The chapter list stays in the page in either view, and it shows instead whenever the orb can't run. Anything that can be done on the orb can also be done in the panel beside it, in ruled rows.
+The chapter list stays in the page for search engines and screen readers, and it shows instead whenever the orb can't run. Anything that can be done on the orb can also be done in the panel beside it, in ruled rows.

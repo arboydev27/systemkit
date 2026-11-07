@@ -239,11 +239,19 @@ test('a part name fades out rather than overlapping a nearer one on the rim', ()
   assert.deepEqual(view.rimNameFades([near, { angle: 1.2, half: 0.3, depth: 0.2 }], 0.1), [1, 1], 'above and below the orb never meet');
 });
 
-test('the events that compare the orb with the list reach analytics with their names intact', () => {
+test('the events the orb and its navigation send reach analytics with their names intact', () => {
   const { eventName } = require('../src/lib/analytics.ts');
-  const source = ['CourseOrb', 'CourseMap'].map((name) => fs.readFileSync(`src/components/site/${name}.tsx`, 'utf8')).join('');
+  const source = ['CourseOrb', 'CourseMap', 'OrbHome'].map((name) => fs.readFileSync(`src/components/site/${name}.tsx`, 'utf8')).join('');
   const names = [...source.matchAll(/trackEvent\("([^"]+)"\)/g)].map((match) => match[1]);
-  for (const name of ['orb_open_dot', 'orb_open_row', 'path_open_list_chapter']) assert.ok(names.includes(name), name);
-  assert.ok(source.includes('"path_switch_list"'));
-  for (const name of [...names, 'path_switch_list', 'path_switch_orb']) assert.equal(eventName(name), name);
+  for (const name of ['orb_open_dot', 'orb_open_row', 'path_open_list_chapter', 'orb_open_part', 'home_start_button']) assert.ok(names.includes(name), name);
+  for (const name of names) assert.equal(eventName(name), name);
+});
+
+test('every goal has a short name on the home page, and the course has no view switch left', () => {
+  const home = fs.readFileSync('src/components/site/OrbHome.tsx', 'utf8');
+  const chapters = fs.readFileSync('src/content/chapters.ts', 'utf8');
+  const named = home.match(/GOAL_NAMES[^{]*\{([^}]*)\}/)[1];
+  const goals = chapters.match(/goalPaths:[^=]*"interview" \| "work" \| "foundations"/)[0];
+  for (const goal of goals.match(/"([a-z]+)"/g)) assert.ok(named.includes(goal.slice(1, -1)), goal);
+  for (const name of ['CourseMap', 'CourseOrb', 'OrbHome']) assert.ok(!fs.readFileSync(`src/components/site/${name}.tsx`, 'utf8').includes('aria-pressed'), name);
 });

@@ -1,6 +1,5 @@
 export const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 export const GOAL_KEY = "systemkit:goal:v1";
-export const COURSE_VIEW_KEY = "systemkit:course-view:v1";
 export const MIN_REASONING_LENGTH = 20;
 
 export type Progress = {

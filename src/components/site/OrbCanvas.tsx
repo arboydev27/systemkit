@@ -17,13 +17,16 @@ export type OrbCanvasProps = OrbSceneEvents & {
   announcement: { lesson: number; id: number } | null;
   tooltip: RefObject<HTMLDivElement | null>;
   onReady: () => void;
+  /** The orb is the page's navigation, so its rim can be clicked. */
+  navigation?: boolean;
+  resting?: boolean;
 };
 
-export default function OrbCanvas({ graph, finished, next, nextLabel, order, focus, hold, announcement, tooltip, onHover, onTap, onOpen, onReady, onFail }: OrbCanvasProps) {
+export default function OrbCanvas({ graph, finished, next, nextLabel, order, focus, hold, announcement, tooltip, onHover, onTap, onOpen, onPart, onReady, onFail, navigation = false, resting = false }: OrbCanvasProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<OrbScene | null>(null);
-  const handlers = useRef({ onHover, onTap, onOpen, onReady, onFail });
-  useEffect(() => { handlers.current = { onHover, onTap, onOpen, onReady, onFail }; });
+  const handlers = useRef({ onHover, onTap, onOpen, onPart, onReady, onFail });
+  useEffect(() => { handlers.current = { onHover, onTap, onOpen, onPart, onReady, onFail }; });
 
   useEffect(() => {
     if (!canvas.current) return;
@@ -34,7 +37,8 @@ export default function OrbCanvas({ graph, finished, next, nextLabel, order, foc
         onTap: (lesson) => handlers.current.onTap(lesson),
         onOpen: (lesson, inNewTab) => handlers.current.onOpen(lesson, inNewTab),
         onFail: () => handlers.current.onFail(),
-      });
+        onPart: (part) => handlers.current.onPart?.(part),
+      }, { navigation });
     } catch { /* Reported below, and the list takes over. */ }
     if (!created) {
       handlers.current.onFail();
@@ -46,12 +50,13 @@ export default function OrbCanvas({ graph, finished, next, nextLabel, order, foc
       created.destroy();
       scene.current = null;
     };
-  }, [graph, tooltip]);
+  }, [graph, tooltip, navigation]);
 
   useEffect(() => scene.current?.setProgress(finished, next, nextLabel), [finished, next, nextLabel]);
   useEffect(() => scene.current?.setOrder(order), [order]);
   useEffect(() => scene.current?.setFocus(focus), [focus]);
   useEffect(() => scene.current?.setHold(hold), [hold]);
+  useEffect(() => scene.current?.setResting(resting), [resting]);
   useEffect(() => { if (announcement) scene.current?.announce(announcement.lesson); }, [announcement]);
 
   return <canvas ref={canvas} className={styles.canvas} aria-hidden="true" />;

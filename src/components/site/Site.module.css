@@ -8,22 +8,46 @@
 .due { padding: 1px 6px; border-radius: 5px; color: var(--on-accent); background: var(--accent); font-size: 11px; font-weight: 720; font-variant-numeric: tabular-nums; }
 
 .main { flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
-.mainWide { max-width: 1240px; }
+.mainHome { max-width: none; padding: 0; }
 
-.lead { display: grid; grid-template-columns: minmax(0, 1fr); padding: clamp(24px, 5vw, 44px) 0 clamp(32px, 6vw, 56px); }
-.leadIntro h1 { margin: 0; font-size: clamp(2.5rem, 7vw, 4rem); line-height: 1.02; letter-spacing: -.04em; font-weight: 780; text-wrap: balance; }
-.leadIntro .lede { margin-top: 16px; }
-.leadIntro .heroActions { margin-top: 22px; }
-.leadIntro .scope { margin-top: 14px; }
-.pathHead { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; margin-top: 24px; scroll-margin-top: 80px; }
-.pathHead h2 { margin: 0; font-size: 1.25rem; line-height: 1.2; letter-spacing: -.025em; font-weight: 740; }
-.pathHead .viewSwitch button[aria-pressed="true"] { background: var(--accent-tint); color: var(--ink); box-shadow: inset 0 0 0 1px var(--control-border); }
-.leadOrb { display: contents; }
-.leadGoal { margin-top: 14px; }
-.leadGoal .goalDetail { min-height: 0; margin-top: 10px; }
-.leadList { margin-top: 8px; }
-.lead > [data-course-list] > .part:first-child { margin-top: 0; }
+/* Glass, in the same neutrals as everything else. It only appears on the home page, over the fluid field behind it. */
+.pageHome {
+  --glass: rgb(255 255 255 / 46%);
+  --glass-strong: rgb(255 255 255 / 66%);
+  --glass-line: rgb(0 0 0 / 9%);
+  --glass-sheen: rgb(255 255 255 / 90%);
+  --glass-drop: 0 18px 50px rgb(0 0 0 / 8%);
+  --glass-blur: 22px;
+  --field-a: rgb(0 0 0 / 10%);
+  --field-b: rgb(0 0 0 / 6%);
+  --field-light: rgb(255 255 255 / 70%);
+  --sphere-high: rgb(255 255 255 / 75%);
+  --sphere-low: rgb(0 0 0 / 5%);
+  --sphere-drop: rgb(0 0 0 / 12%);
+}
 
+@media (prefers-color-scheme: dark) {
+  .pageHome {
+    --glass: rgb(255 255 255 / 7%);
+    --glass-strong: rgb(38 38 38 / 58%);
+    --glass-line: rgb(255 255 255 / 14%);
+    --glass-sheen: rgb(255 255 255 / 16%);
+    --glass-drop: 0 22px 60px rgb(0 0 0 / 42%);
+    --field-a: rgb(255 255 255 / 20%);
+    --field-b: rgb(255 255 255 / 10%);
+    --field-light: rgb(255 255 255 / 7%);
+    --sphere-high: rgb(255 255 255 / 9%);
+    --sphere-low: rgb(255 255 255 / 3%);
+    --sphere-drop: rgb(0 0 0 / 55%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .pageHome { --glass: var(--surface); --glass-strong: var(--surface); --glass-line: var(--control-border); --glass-blur: 0px; }
+}
+
+.headerHome { position: absolute; top: 16px; left: clamp(12px, 2vw, 28px); z-index: 40; }
+.headerHome .brand { min-height: 44px; padding: 6px 14px 6px 7px; border: 1px solid var(--glass-line); border-radius: 12px; background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-sheen); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
 .lede { max-width: 58ch; margin: 24px 0 0; color: var(--ink-soft); font-size: clamp(1.05rem, 1.7vw, 1.25rem); line-height: 1.55; text-wrap: pretty; }
 .heroActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 30px; }
 .primaryLink, .secondaryLink { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 11px 20px; border-radius: 9px; font-size: 14px; font-weight: 720; text-decoration: none; transition: background .14s ease, transform .14s ease; }
@@ -39,35 +63,8 @@
 .section { padding: clamp(36px, 6vw, 64px) 0; border-top: 1px solid var(--line); scroll-margin-top: 56px; }
 .section h2, .sectionTitle { margin: 0 0 10px; font-size: clamp(1.5rem, 3.4vw, 2.2rem); line-height: 1.12; letter-spacing: -.035em; font-weight: 750; text-wrap: balance; }
 .sectionIntro { max-width: 62ch; margin: 0 0 26px; color: var(--ink-soft); font-size: 15px; line-height: 1.65; text-wrap: pretty; }
-.moreLabs { margin: -27px 0 0; }
 .inlineLink { color: var(--ink); font-weight: 650; text-underline-offset: 3px; }
 
-/* Words on the left, the working thing on the right, down the whole home page. */
-.spine { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.spineWords h2 { margin: 0 0 10px; }
-.spineWords h3 { margin: 0 0 6px; color: var(--ink); font-size: 1.125rem; line-height: 1.25; letter-spacing: -.02em; font-weight: 720; text-wrap: balance; }
-.spineWords p { max-width: 62ch; margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.6; text-wrap: pretty; }
-
-.practice { padding: clamp(20px, 3vw, 28px) 0; border-top: 1px solid var(--line); }
-.practice:first-of-type { margin-top: 18px; }
-.practice:last-child { padding-bottom: 0; }
-.specimen { padding: 18px 20px 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.specimenAsk { max-width: 58ch; margin: 0; color: var(--ink); font-size: 16px; font-weight: 640; line-height: 1.45; letter-spacing: -.01em; text-wrap: pretty; }
-.specimenBody { max-width: 58ch; margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
-.specimenAnswer { max-width: 58ch; margin-top: 8px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
-.specimenAnswer summary { width: fit-content; padding: 12px 0; color: var(--ink); font-size: 13px; font-weight: 650; line-height: 20px; cursor: pointer; }
-.specimenAnswer summary:hover { text-decoration: underline; text-underline-offset: 3px; }
-.specimenAnswer summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-.specimenAnswer p { margin: 0 0 4px; text-wrap: pretty; }
-.specimenFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 16px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.45; }
-.specimenFoot a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--ink); font-weight: 680; text-underline-offset: 3px; }
-.specimenFoot a:hover { text-decoration-thickness: 2px; }
-
-.pathControls { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
-.viewSwitch { display: inline-flex; padding: 3px; border: 1px solid var(--control-border); border-radius: 10px; }
-.viewSwitch button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 640; transition: background .14s ease, color .14s ease; }
-.viewSwitch button:hover { background: var(--surface-soft); }
-.viewSwitch button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .goal { margin: 0 0 8px; padding: 0; border: 0; }
 .goal legend { padding: 0; color: var(--ink); font-size: 14px; font-weight: 680; }
 .goalOptions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -134,26 +131,19 @@
   .heroActions .primaryLink { flex: 1 1 auto; padding-inline: 16px; }
   .heroActions .secondaryLink { flex: 0 1 auto; padding-inline: 16px; }
   .footerInner { grid-template-columns: 1fr; }
-  .moreLabs { margin-top: -27px; }
 }
 
 @media (max-width: 400px) {
-  .brand { font-size: 0; gap: 0; }
+  .header .brand { font-size: 0; gap: 0; }
 }
 
-@media (min-width: 960px) {
-  .lead { grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: clamp(28px, 4vw, 48px); align-items: start; }
-  .leadIntro h1 { font-size: clamp(2.5rem, 3.6vw, 3.25rem); }
-  .leadRail, .leadGoal { grid-column: 1; }
-  .lead > [data-course-list] { grid-column: 2; grid-row: 1 / -1; }
-  .leadList { margin-top: 0; }
-  .spine { grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); column-gap: clamp(28px, 4vw, 48px); align-items: start; }
-  .section.spine > .spineWords { position: sticky; top: 88px; }
-  .section.spine h2 { font-size: clamp(1.5rem, 2.6vw, 2rem); }
+@media (min-width: 960px) and (min-height: 600px) {
+  .headerHome { position: fixed; }
 }
 
-@media (min-width: 960px) and (min-height: 760px) {
-  .leadRailStuck { position: sticky; top: 80px; }
+/* Clear of the dock that the home page's navigation becomes on a phone. */
+@media (max-width: 959px), (max-height: 599px) {
+  .pageHome .footer { padding-bottom: 84px; }
 }
 
 @media (prefers-reduced-transparency: reduce) {
