@@ -1,5 +1,5 @@
-// The home page's small game: one app, three surges of traffic, and a call to make at each. The numbers are
-// a deliberately simple capacity model, not a benchmark, but the reasons a fix does or doesn't help are real.
+// The home page's small game: one app, four kinds of trouble as it grows, and a call to make at each. The numbers
+// are a deliberately simple capacity model, not a benchmark, but the reasons a fix does or doesn't help are real.
 
 export type ScaleSystem = {
   servers: number;
@@ -12,6 +12,10 @@ export type ScaleSystem = {
   /** Read copies beside the primary database. */
   replicas: number;
   shards: number;
+  /** How many posts one read of the feed returns. */
+  feedPosts: number;
+  /** The feed's API call, once the call itself has become the trouble. */
+  call: string | null;
 };
 
 export type ScaleFix = { id: string; label: string; change: Partial<ScaleSystem>; note: string };
@@ -21,17 +25,21 @@ const SERVER_CAPACITY = 1_000;
 const DATABASE_CAPACITY = 5_000;
 const WRITE_SHARE = 0.1;
 
-export const SCALE_START: ScaleSystem = { servers: 1, serverPower: 1, balancer: false, databasePower: 1, cacheHit: 0, replicas: 0, shards: 1 };
+export const SCALE_START: ScaleSystem = { servers: 1, serverPower: 1, balancer: false, databasePower: 1, cacheHit: 0, replicas: 0, shards: 1, feedPosts: 160, call: null };
 /** The quiet moment before the surge. */
 export const SCALE_CALM = { users: 10_000, requests: 140 };
 
+/** The work in one read of the feed: a fixed cost for the query and a little for each post, where the feed at launch is 1. */
+export const readWork = (posts: number) => 0.2 + posts / 200;
+
 /** How hard each tier is working, where 1 is full, and the share of requests lost to the tightest one. */
 export function systemLoad(system: ScaleSystem, requests: number) {
-  const server = requests / (system.servers * system.serverPower * SERVER_CAPACITY);
   const writes = requests * WRITE_SHARE;
-  const reads = (requests - writes) * (1 - system.cacheHit);
+  const reads = (requests - writes) * readWork(system.feedPosts);
+  // A cache spares the database, but a server still has to send everything it's asked for.
+  const server = (writes + reads) / (system.servers * system.serverPower * SERVER_CAPACITY);
   // Writes reach every copy, so replicas only share out the reads. Shards split everything.
-  const database = (writes + reads / (1 + system.replicas)) / system.shards / (DATABASE_CAPACITY * system.databasePower);
+  const database = (writes + (reads * (1 - system.cacheHit)) / (1 + system.replicas)) / system.shards / (DATABASE_CAPACITY * system.databasePower);
   return { server, database, failing: 1 - Math.min(1, 1 / Math.max(server, database)) };
 }
 
@@ -59,9 +67,21 @@ export const SCALE_ROUNDS: ScaleRound[] = [
     ],
   },
   {
+    users: 2_000_000,
+    requests: 28_000,
+    // Nothing ever limited the feed, and by now a read returns a thousand posts, so every tier runs hot at once.
+    system: { ...SCALE_START, servers: 40, balancer: true, cacheHit: 0.8, feedPosts: 1_000, call: "GET /feed" },
+    answer: "paginate",
+    fixes: [
+      { id: "more-servers", label: "More servers", change: { servers: 160 }, note: "The servers recover. The database still reads every post." },
+      { id: "graphql", label: "Switch to GraphQL", change: { call: "POST /graphql" }, note: "New syntax. Same 1,000 posts." },
+      { id: "paginate", label: "Paginate the feed", change: { feedPosts: 20, call: "GET /feed?limit=20" }, note: "Twenty posts at a time. One query parameter." },
+    ],
+  },
+  {
     users: 10_000_000,
     requests: 140_000,
-    system: { ...SCALE_START, servers: 160, balancer: true, cacheHit: 0.8 },
+    system: { ...SCALE_START, servers: 160, balancer: true, cacheHit: 0.8, feedPosts: 20, call: "GET /feed?limit=20" },
     answer: "shard",
     fixes: [
       { id: "replicas", label: "Read replicas", change: { replicas: 3 }, note: "Every copy still takes every write." },
@@ -134,9 +154,17 @@ export function scaleFlow(system: ScaleSystem, requests: number, nodes: ScaleNod
   const absorb: Record<string, number> = {};
   for (const node of nodes) {
     if (node.kind === "server") drop[node.id] = lost(load.server);
-    if (node.kind === "database") drop[node.id] = lost(load.database);
+    // What the servers drop never reaches the database, so the two losses multiply out to the failing share.
+    if (node.kind === "database") drop[node.id] = lost(load.database / Math.max(1, load.server));
     if (node.kind === "cache") absorb[node.id] = system.cacheHit * (1 - WRITE_SHARE);
   }
-  // A slow trickle of dots can still show a quiet system and a flood can show a busy one, without one dot per request.
-  return { routes: scaleRoutes(nodes), rate: 8 + 8 * Math.log10(Math.max(1, requests / 100)), drop, absorb };
+  return {
+    routes: scaleRoutes(nodes),
+    // A slow trickle of dots can still show a quiet system and a flood can show a busy one, without one dot per request.
+    rate: 8 + 8 * Math.log10(Math.max(1, requests / 100)),
+    drop,
+    absorb,
+    // A dot's area stands for the work in its request, down to a size that can still be seen.
+    heft: Math.max(0.8, Math.sqrt(readWork(system.feedPosts))),
+  };
 }

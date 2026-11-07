@@ -3,7 +3,7 @@
 // while on screen, and it stands still for anyone who prefers reduced motion.
 
 export type ScalePlace = { x: number; y: number; r: number };
-export type ScaleSceneFlow = { routes: string[][]; rate: number; drop: Record<string, number>; absorb: Record<string, number> };
+export type ScaleSceneFlow = { routes: string[][]; rate: number; drop: Record<string, number>; absorb: Record<string, number>; heft: number };
 export type ScaleScene = { update: (flow: ScaleSceneFlow) => void; destroy: () => void };
 
 type Dot = { path: string[]; segment: number; along: number; state: "moving" | "lost" | "answered"; x: number; y: number; vx: number; vy: number; age: number };
@@ -16,6 +16,7 @@ const IDLE_LIMIT = 60_000;
 const TOUCH_FRAME = 30;
 const MAX_DOTS = 140;
 const SPARKS_PER_SECOND = 34;
+const HEFT_EASE = 3.5; // Dots swell and shrink in flight when the work in a request changes.
 
 function wirePoint(a: ScalePlace, b: ScalePlace, t: number) {
   const x0 = a.x + a.r;
@@ -37,7 +38,8 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
   const scheme = window.matchMedia("(prefers-color-scheme: dark)");
   const frameGap = window.matchMedia("(pointer: coarse)").matches ? TOUCH_FRAME : 0;
 
-  let flow: ScaleSceneFlow = { routes: [], rate: 0, drop: {}, absorb: {} };
+  let flow: ScaleSceneFlow = { routes: [], rate: 0, drop: {}, absorb: {}, heft: 1 };
+  let heft = 1;
   let places = new Map<string, ScalePlace>();
   let wires: [string, string][] = [];
   let dots: Dot[] = [];
@@ -78,6 +80,7 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
   }
 
   function advance(dt: number) {
+    heft += (flow.heft - heft) * Math.min(1, dt * HEFT_EASE);
     owed += flow.rate * (width < 560 ? 0.7 : 1) * dt;
     while (owed >= 1 && flow.routes.length) {
       owed -= 1;
@@ -141,7 +144,10 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
     }
     ctx.stroke();
 
-    const size = width < 560 ? 1.8 : 2.6;
+    const narrow = width < 560;
+    const base = narrow ? 1.8 : 2.6;
+    // The wires are short on a phone, so heavy dots swell by less there or they'd merge into a bar.
+    const size = base * (narrow ? 1 + (heft - 1) / 2 : heft);
     ctx.fillStyle = ink;
     ctx.globalAlpha = 0.9;
     ctx.beginPath();
@@ -162,7 +168,7 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
       ctx.globalAlpha = Math.sqrt(Math.max(0, left));
       ctx.fillStyle = dot.state === "lost" ? hot : ink;
       ctx.beginPath();
-      ctx.arc(dot.x, dot.y, dot.state === "lost" ? size * 1.35 : size * (1 + (1 - left) * 2.5), 0, Math.PI * 2);
+      ctx.arc(dot.x, dot.y, dot.state === "lost" ? base * 1.35 * Math.sqrt(heft) : size * (1 + (1 - left) * 2.5), 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
