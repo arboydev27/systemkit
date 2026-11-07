@@ -4,7 +4,7 @@ import { arcPoint, foldPoint } from "./orb-motion";
 import {
   arcControl, CAMERA, CHAPTER_LINE, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
-import type { Film, Shot } from "./neuron-film";
+import { axisAt, FILM, onFilm, type Film, type Shot } from "./neuron-film";
 import {
   buildFlightPath, chooseEntry, FLIGHT, flightDistance, pathIndex, pathPoint, ramp, routeFrom, routesTo, turnPoints, type FlightPath, type Routes, type Vec,
 } from "./neuron-route";
@@ -536,6 +536,35 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     }
   }
 
+  /** Each lesson's name going by as the camera passes through it. */
+  function drawNames() {
+    if (!path) return;
+    ctx.fillStyle = theme.spark;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    for (let stop = 1; stop < path.stops.length; stop++) {
+      const index = pathIndex(path, path.stops[stop]);
+      const center = project(path.x[index], path.y[index], path.z[index]);
+      const z = center.z;
+      const presence = ramp(2.2, 1.2, z) * ramp(0.14, 0.42, z);
+      if (presence <= 0.01) continue;
+      const size = Math.min(30, 10 + 4 / z);
+      ctx.globalAlpha = presence;
+      ctx.font = `640 ${size.toFixed(1)}px ${theme.font}`;
+      const title = graph.titles[path.route[stop]];
+      const wide = ctx.measureText(title).width;
+      const ring = (GATE * focal) / z;
+      // Beside the ring where there's room, otherwise under it, so a name never covers the signal.
+      if (center.x + ring + 12 + wide < width - 12) {
+        ctx.textAlign = "left";
+        ctx.fillText(title, center.x + ring + 12, center.y);
+      } else {
+        ctx.textAlign = "center";
+        ctx.fillText(title, Math.max(12 + wide / 2, Math.min(width - 12 - wide / 2, center.x)), center.y + ring + size);
+      }
+    }
+  }
+
   /** The signal the camera chases down the fibre. */
   function drawPulse(along: number, progress: number) {
     if (!path || !glow) return;
@@ -601,6 +630,33 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     originX += (place.holeX - originX) * toHole;
     originY += (place.holeY - originY) * toHole;
     return along;
+  }
+
+  /** The names of the lessons on the route, each on its node of the neuron as the camera passes through. */
+  function drawFilmNames({ film, shot }: Filmed, progress: number) {
+    ctx.fillStyle = theme.spark;
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgb(0 0 0 / 70%)";
+    ctx.shadowBlur = 10;
+    const points = film.nodes.map((z, index) => ({ name: film.names[index], z, lift: 0.5 }));
+    points.push({ name: film.names[film.names.length - 1], z: film.end - 0.9, lift: 1.1 });
+    // One name at a time: the next lesson ahead.
+    const next = points.find(({ name, z }) => name && z > shot.depth + 0.7);
+    for (const { name, z, lift } of next ? [next] : []) {
+      const [x, y] = axisAt(film, z);
+      const spot = onFilm(shot, [x + lift * 0.9, y + lift * 0.8, z]);
+      if (!spot) continue;
+      const presence = ramp(9, 4.5, spot.z) * ramp(0.7, 1.6, spot.z) * (1 - ramp(FILM.open, FILM.open + 0.05, progress));
+      if (presence <= 0.01) continue;
+      const size = Math.min(26, Math.max(12, spot.scale * 0.055));
+      ctx.font = `620 ${size.toFixed(1)}px ${theme.font}`;
+      const wide = ctx.measureText(name).width;
+      ctx.globalAlpha = presence;
+      ctx.textAlign = "left";
+      ctx.fillText(name, Math.max(16, Math.min(width - wide - 16, spot.x)), Math.max(24, Math.min(height - 24, spot.y)));
+    }
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
   }
 
   function draw(progress: number, place: NeuronPlace, filmed: Filmed | null = null) {
@@ -708,7 +764,9 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.arc(a.x, a.y, portal, 0, Math.PI * 2);
         ctx.stroke();
       }
-    } else if (!filmed) {
+    } else if (filmed) {
+      drawFilmNames(filmed, progress);
+    } else {
       drawInside(progress, along, 1, false);
     }
     const entryX = a.x;
@@ -760,6 +818,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     collectGates();
     strokeBatches(theme.spark, lift);
     drawDots(theme.spark, mix, 1, !clipped);
+    drawNames();
     drawPulse(along, progress);
     suck = savedSuck;
   }

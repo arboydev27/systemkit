@@ -81,14 +81,12 @@ test('the camera starts where the viewer stands, goes through the first dot exac
   }
 });
 
-test('the flight draws back, lunges into the dot and stops inside it, holds at each lesson, and passes the last as the far end opens', () => {
+test('the flight draws back, lunges through the dot, keeps moving forward, and reaches the last lesson as the far end opens', () => {
   const turned = dive.turnPoints(graph.positions, 2.3, 0.2);
   const path = dive.buildFlightPath(graph, turned, dive.routeFrom(routes, dive.chooseEntry(graph, turned, routes)), routes);
-  const stops = dive.stopsFor(path.stops.length - 2);
   assert.ok(Math.abs(dive.flightDistance(path, 0)) < 1e-12);
   assert.ok(dive.flightDistance(path, dive.FLIGHT.pull) < 0);
-  assert.ok(dive.flightDistance(path, dive.FLIGHT.cell) > path.stops[0], 'stops just inside the first dot');
-  for (let stop = 2; stop < stops.length - 1; stop++) assert.ok(Math.abs(dive.flightDistance(path, stops[stop]) - path.stops[stop - 1]) < 1e-6, `holds at lesson ${stop - 1}`);
+  assert.ok(Math.abs(dive.flightDistance(path, dive.FLIGHT.through) - path.stops[0]) < 1e-9);
   assert.ok(Math.abs(dive.flightDistance(path, dive.FLIGHT.open + 0.02) - path.stops[path.stops.length - 1]) < 1e-6);
   let last = dive.flightDistance(path, dive.FLIGHT.pull);
   for (let progress = dive.FLIGHT.pull; progress <= 1; progress += 0.001) {
@@ -96,47 +94,16 @@ test('the flight draws back, lunges into the dot and stops inside it, holds at e
     assert.ok(along >= last - 1e-9, `goes back at ${progress.toFixed(3)}`);
     last = along;
   }
-  const { FLIGHT } = dive;
-  assert.ok(FLIGHT.pull < FLIGHT.covered && FLIGHT.covered <= FLIGHT.through && FLIGHT.through < FLIGHT.cell && FLIGHT.cell < FLIGHT.terminal && FLIGHT.terminal < FLIGHT.release && FLIGHT.release < FLIGHT.open && FLIGHT.open < FLIGHT.clear && FLIGHT.clear < 1);
+  assert.ok(dive.FLIGHT.pull < dive.FLIGHT.covered && dive.FLIGHT.covered <= dive.FLIGHT.through && dive.FLIGHT.through < dive.FLIGHT.open && dive.FLIGHT.open < dive.FLIGHT.clear && dive.FLIGHT.clear < 1);
 });
 
-test('a dive stops in the cell, at one node for each lesson on the way, at most two, then at the game', () => {
-  assert.deepEqual(dive.stopsFor(0), [0, dive.FLIGHT.cell, dive.FLIGHT.terminal, 1]);
-  assert.deepEqual(dive.stopsFor(1), [0, dive.FLIGHT.cell, dive.FLIGHT.terminal, 1]);
-  assert.equal(dive.stopsFor(2).length, 5);
-  assert.equal(dive.stopsFor(7).length, 2 + 1 + dive.MOST_PASSED);
-  const stops = dive.stopsFor(2);
-  for (let index = 1; index < stops.length; index++) assert.ok(stops[index] > stops[index - 1]);
-  // Spread evenly along the scroll, each stop where its share says.
-  for (let index = 0; index < stops.length; index++) assert.ok(Math.abs(dive.flightAt(stops, index / (stops.length - 1)) - stops[index]) < 1e-12);
-  assert.ok(dive.flightAt(stops, 0.5 / (stops.length - 1)) > 0 && dive.flightAt(stops, 0.5 / (stops.length - 1)) < stops[1]);
-  // Every hop takes long enough to see, and none so long that it needs a pause button.
-  for (let hop = 0; hop < stops.length - 1; hop++) assert.ok(dive.hopSeconds(stops, hop) >= 1.2 && dive.hopSeconds(stops, hop) < 5);
-});
-
-test('scrolling that stops between stops settles on the next one the way it was going, after the smallest nudge', () => {
-  assert.equal(dive.settleStop(1.06, 1), 2);
-  assert.equal(dive.settleStop(1.03, 1), 1);
-  assert.equal(dive.settleStop(1.94, -1), 1);
-  assert.equal(dive.settleStop(1.97, -1), 2);
-  assert.equal(dive.settleStop(2.4, 0), 2);
-  assert.equal(dive.settleStop(2.6, 0), 3);
-  assert.equal(dive.settleStop(2, 1), 2);
-});
-
-test('one gesture carries the page one stop at most, so a flick from the orb can never skip the game', () => {
-  const last = 4;
-  assert.equal(dive.gateFor(0, 1, last), 1);
-  assert.equal(dive.gateFor(-0.4, 1, last), 1, 'from above the dive on a phone');
-  assert.equal(dive.gateFor(1, 1, last), 2);
-  assert.equal(dive.gateFor(1.5, 1, last), 2);
-  assert.equal(dive.gateFor(3, 1, last), 4, 'the game is the last stop');
-  assert.equal(dive.gateFor(4, 1, last), null, 'from the game on, the page is free');
-  assert.equal(dive.gateFor(4, -1, last), 3);
-  assert.equal(dive.gateFor(6, -1, last), 3, 'back up from below the game stops at the last lesson');
-  assert.equal(dive.gateFor(2, -1, last), 1);
-  assert.equal(dive.gateFor(0.5, -1, last), 0);
-  assert.equal(dive.gateFor(0, -1, last), null);
+test('scrolling that stops partway settles the way it was going, after the smallest nudge', () => {
+  assert.equal(dive.settleTo(0.06, 1), 1);
+  assert.equal(dive.settleTo(0.03, 1), 0);
+  assert.equal(dive.settleTo(0.94, -1), 0);
+  assert.equal(dive.settleTo(0.97, -1), 1);
+  assert.equal(dive.settleTo(0.4, 0), 0);
+  assert.equal(dive.settleTo(0.6, 0), 1);
 });
 
 test('the easings never go backwards', () => {
@@ -153,49 +120,40 @@ test('the easings never go backwards', () => {
 
 const film = require('../src/lib/neuron-film.ts');
 
-test('the neuron has a node of Ranvier for each lesson the route stops at, and its names land in order', () => {
+test('the neuron has a node of Ranvier for each lesson the route passes, and its names land in order', () => {
   const titles = graph.titles;
   const degrees = require('../src/lib/orb-view.ts').linkDegrees(graph);
   const route = dive.routeFrom(routes, dive.chooseEntry(graph, dive.turnPoints(graph.positions, 0.7, 0.2), routes));
   const made = film.makeFilm(route, titles, degrees);
-  const passed = route.slice(1, -1).slice(0, dive.MOST_PASSED);
-  assert.equal(made.nodes.length, Math.max(1, passed.length));
-  assert.deepEqual(made.names, [...passed.map((lesson) => titles[lesson]), titles[route[route.length - 1]]]);
+  assert.equal(made.nodes.length, Math.max(1, Math.min(4, route.length - 2)));
+  assert.deepEqual(made.names, [...route.slice(1, -1).slice(0, 4).map((lesson) => titles[lesson]), titles[route[route.length - 1]]]);
   for (let index = 1; index < made.nodes.length; index++) assert.ok(made.nodes[index] > made.nodes[index - 1]);
   assert.ok(made.swell > made.nodes[made.nodes.length - 1] && made.end > made.swell && made.membrane < film.FILM.axon);
   for (const count of made.branches) assert.ok(count >= 0 && count <= 3);
-  assert.equal(made.stops.length, made.nodes.length + 3);
-  assert.equal(made.holds.length, made.stops.length);
   // A route of a single hop still passes one node, left unnamed.
   const short = film.makeFilm([route[route.length - 2], route[route.length - 1]], titles, degrees);
   assert.equal(short.nodes.length, 1);
   assert.equal(short.names[0], '');
 });
 
-test('the camera only moves forward, rests at each stop with the node ahead lit, and ends at the terminal', () => {
+test('the camera only moves forward through the neuron, the signal stays ahead of it, and it ends at the terminal', () => {
   const made = film.makeFilm([0, 1, 2, 3, 4], graph.titles, require('../src/lib/orb-view.ts').linkDegrees(graph));
   let last = -Infinity;
   for (let progress = 0; progress <= 1.0001; progress += 0.002) {
     const depth = film.filmDepth(made, Math.min(1, progress));
     assert.ok(depth >= last - 1e-9, `goes back at ${progress.toFixed(3)}`);
     last = depth;
-    if (progress > made.stops[1]) assert.ok(film.signalDepth(made, progress) >= depth - 1e-9, `signal behind at ${progress.toFixed(3)}`);
+    if (progress > film.FILM.inside && progress < film.FILM.terminal) assert.ok(film.signalDepth(made, progress) >= depth - 1e-9, `signal behind at ${progress.toFixed(3)}`);
   }
-  for (let stop = 1; stop < made.stops.length; stop++) assert.ok(Math.abs(film.filmDepth(made, made.stops[stop]) - made.holds[stop]) < 1e-9, `holds at stop ${stop}`);
-  assert.ok(Math.abs(film.filmDepth(made, film.FILM.soma)) >= 0);
-  assert.ok(made.holds[1] > made.membrane, 'the first stop is inside the cell');
-  assert.ok(film.filmDepth(made, 0.12) < made.membrane && film.filmDepth(made, 0.27) > made.membrane, 'the camera goes through the cell membrane while the dot opens');
-  // At each node's stop the signal has reached that node, short of the camera's next.
-  for (let node = 0; node < made.nodes.length; node++) assert.ok(Math.abs(film.signalDepth(made, made.stops[node + 2]) - made.nodes[node]) < 1e-9);
-  // Still at the stops, moving between them.
-  for (let stop = 1; stop < made.stops.length - 1; stop++) assert.ok(film.restAt(made, made.stops[stop]) > 0.99);
-  assert.ok(film.restAt(made, (made.stops[2] + made.stops[3]) / 2) < 0.01);
+  assert.ok(Math.abs(film.filmDepth(made, film.FILM.inside) - film.FILM.axon) < 1e-9);
+  assert.ok(Math.abs(film.filmDepth(made, 1) - (made.end - 1.25)) < 1e-9);
+  assert.ok(film.filmDepth(made, 0.12) < made.membrane && film.filmDepth(made, 0.2) > made.membrane, 'the camera goes through the cell membrane while the dot opens');
 });
 
 test('the camera looks straight down the axon, square and level, and what is dead ahead lands where the screen says', () => {
   const made = film.makeFilm([0, 1, 2], graph.titles, require('../src/lib/orb-view.ts').linkDegrees(graph));
   for (const progress of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-    const shot = film.shoot(made, progress, 1440, 900, 700, 450, 3.7, 0.4);
+    const shot = film.shoot(made, progress, 1440, 900, 700, 450);
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     for (const v of [shot.right, shot.up, shot.forward]) assert.ok(Math.abs(dot(v, v) - 1) < 1e-6);
     assert.ok(Math.abs(dot(shot.right, shot.up)) < 1e-6 && Math.abs(dot(shot.right, shot.forward)) < 1e-6 && Math.abs(dot(shot.up, shot.forward)) < 1e-6);
@@ -205,7 +163,6 @@ test('the camera looks straight down the axon, square and level, and what is dea
     assert.equal(film.onFilm(shot, shot.position.map((value, axis) => value - shot.forward[axis])), null);
   }
 });
-
 const arbor = require('../src/lib/orb-arbor.ts');
 
 test('every lesson grows into a neuron: dendrites from its cell body, in order, inside half the gap to its neighbours', () => {
@@ -251,19 +208,3 @@ test('dendrites behind the orb are wider and fainter by the same factor, and a c
   assert.deepEqual(calls[1].slice(1), [10, 20, 4, 0, Math.PI * 2]);
 });
 
-const notes = require('../src/lib/orb-notes.ts');
-
-test('each stop says why its lesson follows the last, where the course gives a reason, and its summary where it doesn\'t', () => {
-  const made = notes.orbNotes(chapters);
-  assert.equal(made.summaries.length, graph.titles.length);
-  assert.equal(made.reasons.length, graph.links.length / 2);
-  for (const [from, to, reason] of made.reasons) {
-    assert.ok(routes.related(from, to));
-    assert.ok(reason.length > 10);
-  }
-  const [from, to, reason] = made.reasons[0];
-  assert.equal(notes.noteFor(made, from, to), reason);
-  assert.equal(notes.noteFor(made, null, to), made.summaries[to]);
-  assert.equal(notes.noteFor(made, to + 1 === from ? to + 2 : to + 1, to), made.reasons.find(([a, b]) => a === (to + 1 === from ? to + 2 : to + 1) && b === to)?.[2] ?? made.summaries[to]);
-  assert.equal(notes.noteFor(null, from, to), '');
-});
