@@ -102,13 +102,13 @@ export function routeAhead(graph: Pick<OrbGraph, "chapterStarts">, order: number
 }
 
 /**
- * Two part names can turn onto the same stretch of rim. The one nearer the viewer keeps it, and the other fades out as they close.
- * Angles are around the rim, negative above the orb and positive below it, and `half` is half the name's length as an angle.
+ * Two part names can land on the same place as the brain turns. The one on the lobe nearer the viewer keeps it, and the
+ * other fades out as they close. Each name is a box around its middle, with half its width and half its height.
  */
-export function rimNameFades(names: { angle: number; half: number; depth: number }[], margin: number) {
+export function nameFades(names: { x: number; y: number; half: number; high: number; depth: number }[], margin: number) {
   return names.map((name) => names.reduce((fade, other) => {
-    if (other === name || other.depth <= name.depth || Math.sign(other.angle) !== Math.sign(name.angle)) return fade;
-    const gap = Math.abs(other.angle - name.angle) - other.half - name.half;
+    if (other === name || other.depth <= name.depth) return fade;
+    const gap = Math.max(Math.abs(other.x - name.x) - other.half - name.half, Math.abs(other.y - name.y) - other.high - name.high);
     return Math.min(fade, Math.max(0, Math.min(1, gap / margin)));
   }, 1));
 }

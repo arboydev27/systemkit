@@ -11,8 +11,11 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 };
 
 const { chapters } = require('../src/content/chapters.ts');
-const { buildOrbGraph } = require('../src/lib/orb-layout.ts');
+const { buildOrbGraph, regionsFor } = require('../src/lib/orb-layout.ts');
 const view = { ...require('../src/lib/orb-view.ts'), ...require('../src/lib/orb-motion.ts') };
+const shape = require('../src/lib/brain-shape.ts');
+const body = require('../src/lib/brain-body.ts');
+const brainFolds = require('../src/lib/brain-folds.ts');
 
 const graph = buildOrbGraph(chapters);
 const lessonCount = chapters.reduce((sum, chapter) => sum + chapter.steps.length, 0);
@@ -31,15 +34,38 @@ test('the layout is the same every time and small enough to pass from the server
   for (const value of graph.positions) assert.equal(value, Math.round(value * 1000) / 1000);
 });
 
-test('every lesson has one place, in course order, on the shell of the orb', () => {
+test('every lesson has one place, in course order, on the surface of the brain', () => {
   assert.equal(graph.positions.length, lessonCount * 3);
   assert.equal(graph.titles.length, lessonCount);
   assert.equal(graph.chapterStarts.length, chapters.length + 1);
   assert.equal(graph.titles[graph.chapterStarts[1]], chapters[1].steps[0].title);
   for (let lesson = 0; lesson < lessonCount; lesson++) {
-    const reach = Math.hypot(...at(lesson));
-    assert.ok(reach <= 1.001 && reach > 0.85, `lesson ${lesson} sits at ${reach}`);
+    const [x, y, z] = at(lesson);
+    assert.ok(Math.abs(shape.brainField(x, y, z)) < 0.006, `lesson ${lesson} is off the surface by ${shape.brainField(x, y, z)}`);
+    assert.ok(Math.hypot(x, y, z) < 1, `lesson ${lesson} is outside the view`);
+    assert.ok(shape.pieceField('stem', x, y, z) > 0.02, `lesson ${lesson} is on the brainstem`);
   }
+});
+
+test('the whole brain fits the view, which frames the unit sphere', () => {
+  for (const piece of shape.PIECES) {
+    const points = shape.pieceSamples(piece, 2000, 0);
+    for (let index = 0; index < points.length; index += 3) {
+      assert.ok(Math.hypot(points[index], points[index + 1], points[index + 2]) < 1, `${piece} reaches past the view`);
+    }
+  }
+});
+
+test('the brain has two hemispheres either side of a fissure, a cerebellum under the back, and a stem', () => {
+  const inside = (piece, point) => shape.pieceField(piece, ...shape.fromAnatomy(point)) < 0;
+  assert.ok(inside('right', [0.4, 0.1, 0]) && inside('left', [-0.4, 0.1, 0]));
+  assert.ok(!inside('right', [0, 0.5, 0]) && !inside('left', [0, 0.5, 0]), 'the fissure between them is open');
+  assert.ok(inside('cerebellum', [0.25, -0.62, -0.5]) && shape.cerebrumField(...shape.fromAnatomy([0.25, -0.62, -0.5])) > 0);
+  assert.ok(inside('stem', [0, -0.8, -0.28]) && !inside('right', [0, -0.8, -0.28]));
+  // A lateral profile: the frontal pole in front, the occipital pole behind, highest over the parietal lobe.
+  assert.ok(shape.lobePreference(shape.fromAnatomy([0.3, 0.1, 0.8]), 'frontal', ['parietal', 'occipital', 'temporal']) < 0);
+  assert.ok(shape.lobePreference(shape.fromAnatomy([0.3, 0.6, -0.4]), 'parietal', ['frontal', 'occipital', 'temporal']) < 0);
+  assert.ok(shape.lobePreference(shape.fromAnatomy([0.6, -0.4, 0]), 'temporal', ['frontal', 'parietal', 'occipital']) < 0);
 });
 
 test('no two lessons crowd each other, and no side of the orb is left empty', () => {
@@ -55,20 +81,52 @@ test('no two lessons crowd each other, and no side of the orb is left empty', ()
   }
 });
 
-test('lessons sit with their chapter, and chapters with their part', () => {
-  const chapterCenters = chapters.map((_, chapter) => mean(lessonsOf(chapter).map(at)));
-  chapters.forEach((_, chapter) => {
-    for (const lesson of lessonsOf(chapter)) {
-      const nearest = chapterCenters.reduce((best, center, index) => distance(at(lesson), center) < distance(at(lesson), chapterCenters[best]) ? index : best, 0);
-      assert.equal(nearest, chapter, `${graph.titles[lesson]} is nearer to ${chapters[nearest].id} than ${chapters[chapter].id}`);
+// Lessons that touch over the surface, as the grooves see them.
+const neighbours = (() => {
+  const triangles = brainFolds.surfaceTriangles(graph.positions);
+  const next = graph.titles.map(() => new Set());
+  for (let index = 0; index < triangles.length; index += 3) {
+    const [a, b, c] = triangles.slice(index, index + 3);
+    for (const [p, q] of [[a, b], [b, c], [a, c]]) { next[p].add(q); next[q].add(p); }
+  }
+  return next;
+})();
+const connected = (lessons) => {
+  const wanted = new Set(lessons);
+  const seen = new Set([lessons[0]]);
+  for (const queue = [lessons[0]]; queue.length;) for (const other of neighbours[queue.shift()]) if (wanted.has(other) && !seen.has(other)) { seen.add(other); queue.push(other); }
+  return seen.size === wanted.size;
+};
+const side = (lesson) => Math.sign(at(lesson)[0]);
+
+test('each chapter is one gyrus in one hemisphere, and each part a lobe in both', () => {
+  chapters.forEach((chapter, index) => {
+    const lessons = lessonsOf(index);
+    assert.ok(lessons.every((lesson) => side(lesson) === side(lessons[0])), `${chapter.id} crosses the fissure`);
+    assert.ok(connected(lessons), `${chapter.id} is in pieces`);
+  });
+  graph.partTitles.forEach((title, part) => {
+    for (const half of [-1, 1]) {
+      const lessons = chapters.flatMap((_, chapter) => graph.chapterParts[chapter] === part ? lessonsOf(chapter) : []).filter((lesson) => side(lesson) === half);
+      assert.ok(lessons.length > 0, `${title} has nothing in one hemisphere`);
+      assert.ok(connected(lessons), `${title} is in pieces in one hemisphere`);
     }
   });
-  const parts = graph.partTitles.map((_, part) => chapters.flatMap((__, chapter) => graph.chapterParts[chapter] === part ? lessonsOf(chapter).map(at) : []));
-  const partCenters = parts.map(mean);
-  parts.forEach((points, part) => {
-    const stray = points.filter((point) => partCenters.some((center, other) => other !== part && distance(point, center) < distance(point, partCenters[part]) * 0.8));
-    assert.ok(stray.length <= points.length * 0.1, `${graph.partTitles[part]} has ${stray.length} strays`);
-  });
+  const halves = [-1, 1].map((half) => graph.titles.filter((_, lesson) => side(lesson) === half).length);
+  assert.ok(Math.abs(halves[0] - halves[1]) <= 6, `the hemispheres hold ${halves}`);
+});
+
+test('each part sits on the lobe that does what it teaches', () => {
+  assert.deepEqual(regionsFor(4), ['parietal', 'temporal', 'cerebellum', 'frontal']);
+  const centerOf = (part) => mean(chapters.flatMap((_, chapter) => graph.chapterParts[chapter] === part ? lessonsOf(chapter).map(at) : []));
+  const [parietal, temporal, cerebellum, frontal] = graph.partTitles.map((_, part) => centerOf(part));
+  assert.ok(frontal[2] > parietal[2] + 0.3, 'designing products is in front, where planning happens');
+  assert.ok(parietal[1] > temporal[1] + 0.3, 'thinking like a designer is on the crown, over how data behaves');
+  assert.ok(cerebellum[1] < temporal[1] && cerebellum[2] < frontal[2], 'keeping systems healthy is under the back');
+  const healthy = graph.partTitles.indexOf('Keeping systems healthy');
+  for (const lesson of chapters.flatMap((_, chapter) => graph.chapterParts[chapter] === healthy ? lessonsOf(chapter) : [])) {
+    assert.ok(Math.abs(shape.pieceField('cerebellum', ...at(lesson))) < 0.006, `${graph.titles[lesson]} is not on the cerebellum`);
+  }
 });
 
 test('consecutive lessons are neighbors, so a chapter reads as one short thread', () => {
@@ -80,8 +138,10 @@ test('consecutive lessons are neighbors, so a chapter reads as one short thread'
   });
 });
 
-test('the course begins on the side facing the viewer', () => {
-  assert.ok(at(0)[2] > 0.4, `the first lesson faces away at z=${at(0)[2]}`);
+test('the course begins on the side facing the viewer, clear of the glass in the middle', () => {
+  const [x, y, z] = view.turned(...at(0), view.VIEW.yaw, view.VIEW.pitch);
+  assert.ok(z > 0.3, `the first lesson faces away at z=${z}`);
+  assert.ok(Math.hypot(x, y) > 0.35, 'the first lesson is under the lens');
 });
 
 test('every related link in the content is on the orb', () => {
@@ -116,7 +176,7 @@ test('turning to face a point brings it to the center of the view', () => {
     const flatZ = -x * Math.sin(yaw) + z * Math.cos(yaw);
     const turnedY = y * Math.cos(pitch) - flatZ * Math.sin(pitch);
     const turnedZ = y * Math.sin(pitch) + flatZ * Math.cos(pitch);
-    assert.ok(Math.abs(turnedX) < 1e-9 && Math.abs(turnedY) < 1e-9 && turnedZ > 0.8, `lesson ${lesson}`);
+    assert.ok(Math.abs(turnedX) < 1e-9 && Math.abs(turnedY) < 1e-9 && Math.abs(turnedZ - Math.hypot(x, y, z)) < 1e-9, `lesson ${lesson}`);
   }
 });
 
@@ -228,15 +288,54 @@ test('the first paint is identical on every run, with every lesson and link draw
   assert.equal(marks.lines.reduce((sum, line) => sum + (line.link.match(/M/g) ?? []).length, 0), graph.links.length / 2);
 });
 
-test('a part name fades out rather than overlapping a nearer one on the rim', () => {
-  const near = { angle: -1.2, half: 0.3, depth: 0.9 };
-  const clear = view.rimNameFades([near, { angle: -2.4, half: 0.3, depth: 0.2 }], 0.1);
-  assert.deepEqual(clear, [1, 1]);
-  const overlapping = view.rimNameFades([near, { angle: -1.6, half: 0.3, depth: 0.2 }], 0.1);
-  assert.deepEqual(overlapping, [1, 0]);
-  const closing = view.rimNameFades([near, { angle: -1.85, half: 0.3, depth: 0.2 }], 0.1);
+test('a part name fades out rather than overlapping the name of a nearer lobe', () => {
+  const near = { x: 100, y: 100, half: 60, high: 8, depth: 0.9 };
+  assert.deepEqual(view.nameFades([near, { x: 300, y: 100, half: 60, high: 8, depth: 0.2 }], 10), [1, 1]);
+  assert.deepEqual(view.nameFades([near, { x: 150, y: 104, half: 60, high: 8, depth: 0.2 }], 10), [1, 0]);
+  const closing = view.nameFades([near, { x: 225, y: 100, half: 60, high: 8, depth: 0.2 }], 10);
   assert.ok(closing[0] === 1 && closing[1] > 0 && closing[1] < 1);
-  assert.deepEqual(view.rimNameFades([near, { angle: 1.2, half: 0.3, depth: 0.2 }], 0.1), [1, 1], 'above and below the orb never meet');
+  assert.deepEqual(view.nameFades([near, { x: 100, y: 140, half: 60, high: 8, depth: 0.2 }], 10), [1, 1], 'one above the other');
+});
+
+test("the first paint's outline is the one the live brain traces at rest, and every lesson's dot sits on it", () => {
+  assert.deepEqual(graph.outline, body.restingOutline());
+  assert.equal(graph.outline.length, shape.PIECES.length);
+  assert.ok(JSON.stringify(graph.outline).length < 3_000, `${JSON.stringify(graph.outline).length} bytes`);
+  // Each path back to polygons on the first paint's square.
+  const polygons = graph.outline.flatMap((path) => path.split('z').filter(Boolean).map((loop) => {
+    const numbers = loop.match(/-?\d+/g).map(Number);
+    const points = [[numbers[0], numbers[1]]];
+    for (let index = 2; index < numbers.length; index += 2) points.push([points[points.length - 1][0] + numbers[index], points[points.length - 1][1] + numbers[index + 1]]);
+    return points;
+  }));
+  const within = ([x, y], polygon) => polygon.reduce((inside, [ax, ay], index) => {
+    const [bx, by] = polygon[(index + 1) % polygon.length];
+    return (ay > y) !== (by > y) && x < ax + ((y - ay) * (bx - ax)) / (by - ay) ? !inside : inside;
+  }, false);
+  const marks = view.posterMarks(graph, view.POSTER_SIZE);
+  const dots = marks.dots.flatMap((group) => [...group.path.matchAll(/M(-?\d+) (-?\d+)h0/g)].map((match) => [Number(match[1]), Number(match[2])]));
+  for (const dot of dots) assert.ok(polygons.some((polygon) => within(dot, polygon)), `a dot at ${dot} is off the brain`);
+  // At rest the live brain traces the same outline from the same points.
+  const traced = body.bodyOutlines(view.VIEW.yaw, view.VIEW.pitch).map(({ loops }) => body.outlinePath(loops, view.POSTER_SIZE));
+  assert.deepEqual(traced, graph.outline);
+});
+
+test('the grooves come from the chapters: deepest between parts and hemispheres, and gone where chapters merge', () => {
+  const folds = brainFolds.buildFolds(graph);
+  const depths = new Set(folds.depth);
+  for (const level of [1, 2, 3, 4]) assert.ok(depths.has(level), `no grooves of depth ${level}`);
+  for (let index = 0; index < folds.points.length; index += 3) {
+    // A groove where two pieces meet, as where the cerebellum tucks under the occipital lobe, runs along the crease between them.
+    assert.ok(Math.abs(shape.brainField(folds.points[index], folds.points[index + 1], folds.points[index + 2])) < 0.045, 'a groove leaves the surface');
+  }
+  // One chapter per part: the grooves between chapters go, and those between parts stay.
+  const parts = graph.partTitles.map((_, part) => chapters.flatMap((__, chapter) => graph.chapterParts[chapter] === part ? lessonsOf(chapter) : []));
+  const merged = brainFolds.buildFolds({ ...graph, chapterParts: graph.partTitles.map((_, part) => part), chapterStarts: [...parts.map((lessons) => lessons[0]), lessonCount] });
+  assert.ok(!merged.depth.includes(2));
+  assert.ok(merged.depth.includes(3));
+  assert.deepEqual(brainFolds.buildFolds(graph), folds);
+  const folia = brainFolds.folia();
+  assert.ok(folia.depth.length >= 6 && folia.depth.every((level) => level === brainFolds.FOLIA), 'the cerebellum has its folia');
 });
 
 test('the events the orb and its navigation send reach analytics with their names intact', () => {

@@ -1,3 +1,6 @@
+import { collectFolds, OUTLINE_CELL, paintBody } from "./brain-body";
+import { foldsFor, type Folds } from "./brain-folds";
+import { bodySamples, discOutline, PIECE_CENTERS, PIECES, SAMPLE_REACH } from "./brain-shape";
 import { arborsFor, BEADS_PER_LINK, somaPath, strokeOf, STUB_INK, STUB_REACH, type Arbors } from "./orb-arbor";
 import type { OrbGraph } from "./orb-layout";
 import { arcPoint, foldPoint } from "./orb-motion";
@@ -9,13 +12,14 @@ import {
   buildFlightPath, chooseEntry, FLIGHT, flightDistance, pathIndex, pathPoint, ramp, routeFrom, routesTo, turnPoints, type FlightPath, type Routes, type Vec,
 } from "./neuron-route";
 
-// The dive from the orb to the game, drawn on one canvas over the whole screen. It starts as an exact copy of the
-// orb, so it can take over without a seam, and everything it draws is the course: the dots are lessons, the lines
-// are their links, and the tube is the route itself. Inside, it uses the two neutrals the other way round, so
-// going through an ink dot in the light theme really is going into ink. A 2D canvas is enough for a few thousand
-// segments a frame, and it keeps the dive to a few kilobytes that load after the first screen.
+// The dive from the brain to the game, drawn on one canvas over the whole screen. It starts as an exact copy of the
+// brain, its body and grooves included, so it can take over without a seam, and apart from that body everything it
+// draws is the course: the dots are lessons, the lines are their links, and the tube is the route itself. Inside, it
+// uses the two neutrals the other way round, so going through an ink dot in the light theme really is going into ink.
+// A 2D canvas is enough for a few thousand segments a frame, and it keeps the dive to a few kilobytes that load after
+// the first screen.
 
-const ARC_STEPS = 8; // The same samples the orb draws, so the first frame lands on it exactly.
+const ARC_STEPS = 8; // The same samples the brain draws, so the first frame lands on it exactly.
 const FOLD_STEPS = 5;
 const NEAR = 0.03;
 const LOOK = 0.42;
@@ -140,6 +144,13 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     camY = new Float32Array(total);
     camZ = new Float32Array(total);
   }
+  // The brain's body and grooves, turned to the angle the brain was showing when the dive began.
+  const body = PIECES.map((piece) => ({ piece, points: new Float32Array(0), depth: 0 }));
+  let grooves: Folds | null = null;
+  let groovePoints = new Float32Array(0);
+  let grooveX = new Float32Array(0);
+  let grooveY = new Float32Array(0);
+  let grooveFacing = new Float32Array(0);
   const order = Array.from({ length: count }, (_, lesson) => lesson);
   const prevX = new Float32Array(count);
   const prevY = new Float32Array(count);
@@ -179,6 +190,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
   let radius = 1;
   let startFocal = 1;
   let lift = 1;
+  const place0 = { x: 0, y: 0 };
 
   function readTheme() {
     const styles = getComputedStyle(canvas);
@@ -375,6 +387,65 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.fill();
       }
     }
+  }
+
+  /** The brain's pieces as the brain was drawing them, farthest first, giving way as the camera goes in. */
+  function drawBody(strength: number) {
+    if (strength <= 0.01) return;
+    const [px, py, pz] = position;
+    const scaleUp = focal / startFocal;
+    const cell = OUTLINE_CELL * radius * Math.max(1, scaleUp);
+    const paths: Path2D[] = [];
+    for (const { points } of body) {
+      const total = points.length / 3;
+      const flat = new Float32Array(total * 2);
+      const radii = new Float32Array(total);
+      let kept = 0;
+      for (let index = 0; index < total; index++) {
+        const dx = points[index * 3] - px;
+        const dy = points[index * 3 + 1] - py;
+        const dz = points[index * 3 + 2] - pz;
+        const z = dx * forward[0] + dy * forward[1] + dz * forward[2];
+        if (z < NEAR * 4) continue;
+        const s = focal / z;
+        a.x = originX + (dx * right[0] + dy * right[1] + dz * right[2]) * s;
+        a.y = originY - (dx * up[0] + dy * up[1] + dz * up[2]) * s;
+        pull(a);
+        flat[kept * 2] = a.x;
+        flat[kept * 2 + 1] = a.y;
+        radii[kept] = SAMPLE_REACH * s;
+        kept++;
+      }
+      const loops = discOutline(flat.subarray(0, kept * 2), radii.subarray(0, kept), cell);
+      const path = new Path2D();
+      for (const loop of loops) {
+        path.moveTo(loop[0], loop[1]);
+        for (let index = 2; index < loop.length; index += 2) path.lineTo(loop[index], loop[index + 1]);
+        path.closePath();
+      }
+      paths.push(path);
+    }
+    const bodyRadius = radius;
+    paintBody(ctx, paths, theme, { x0: place0.x - bodyRadius, y0: place0.y - bodyRadius, x1: place0.x + bodyRadius, y1: place0.y + bodyRadius }, strength, 1);
+  }
+
+  /** The grooves, as the brain was drawing them. */
+  function collectGrooves(strength: number) {
+    if (!grooves || strength <= 0.01) return;
+    const [px, py, pz] = position;
+    const total = groovePoints.length / 3;
+    for (let index = 0; index < total; index++) {
+      const dx = groovePoints[index * 3] - px;
+      const dy = groovePoints[index * 3 + 1] - py;
+      const dz = groovePoints[index * 3 + 2] - pz;
+      const z = Math.max(NEAR, dx * forward[0] + dy * forward[1] + dz * forward[2]);
+      a.x = originX + ((dx * right[0] + dy * right[1] + dz * right[2]) * focal) / z;
+      a.y = originY - ((dx * up[0] + dy * up[1] + dz * up[2]) * focal) / z;
+      pull(a);
+      grooveX[index] = a.x;
+      grooveY[index] = a.y;
+    }
+    collectFolds(grooves, grooveX, grooveY, grooveFacing, strength, hair * Math.max(1, focal / startFocal), (alpha, lineWidth, x1, y1, x2, y2) => pushStreak(x1, y1, x2, y2, alpha, lineWidth));
   }
 
   const dotX = new Float32Array(count);
@@ -663,6 +734,8 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     // The canvas has no size while it's hidden between dives.
     if (canvas.clientWidth !== width || canvas.clientHeight !== height) resize();
     if (!path || !width || !height) return { x: width / 2, y: height / 2 };
+    place0.x = place.orbX;
+    place0.y = place.orbY;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, width, height);
@@ -702,6 +775,12 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       ctx.fillRect(0, 0, width, height);
       lift = (theme.dark ? 1.22 : 1) * theme.contrast;
       const fade = ramp(0, 0.012, progress);
+      // The brain's body and grooves take over from the brain's own as the rest does, then give way first as the
+      // camera goes for the dot.
+      const solid = (1 - ramp(0, 0.5, mix)) * fade;
+      drawBody(solid);
+      collectGrooves(solid);
+      strokeBatches(theme.ink, (theme.dark ? 1.12 : 1) * theme.contrast);
       collectLines(mix);
       strokeBatches(theme.ink, lift * fade);
       drawBeads(theme.ink, mix, fade);
@@ -838,6 +917,20 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       reach = stains?.reach ?? new Float32Array(count);
       ink = stains?.ink ?? new Float32Array(count);
       turnPoints(world, angle.yaw, angle.pitch, view);
+      const samples = bodySamples();
+      for (const piece of body) {
+        piece.points = turnPoints(samples[piece.piece], angle.yaw, angle.pitch);
+        piece.depth = turnPoints(PIECE_CENTERS[piece.piece], angle.yaw, angle.pitch)[2];
+      }
+      body.sort((p, q) => p.depth - q.depth);
+      grooves = foldsFor(graph);
+      groovePoints = turnPoints(grooves.points, angle.yaw, angle.pitch);
+      const turnedNormals = turnPoints(grooves.normals, angle.yaw, angle.pitch);
+      grooveX = new Float32Array(groovePoints.length / 3);
+      grooveY = new Float32Array(groovePoints.length / 3);
+      grooveFacing = new Float32Array(groovePoints.length / 3);
+      for (let index = 0; index < grooveFacing.length; index++) grooveFacing[index] = turnedNormals[index * 3 + 2];
+
       const entry = chooseEntry(graph, view, routes, { hint, lens });
       const route = routeFrom(routes, entry < 0 ? exits[0] : entry);
       if (route.length < 2) route.push(route[0] + 1 < count ? route[0] + 1 : route[0] - 1);

@@ -100,7 +100,7 @@ export function useCoursePath(chapters: CourseChapter[], goals: GoalOption[]) {
   return { goalId, goal, choose, goalChanges, walk, order, next, started, progress, courseState, groups, orbFailed, setOrbFailed, hydrated };
 }
 
-/** Search engines and screen readers read this list while the orb is showing. It only leaves the screen and the tab order, and it takes over whenever the orb can't run. */
+/** Search engines and screen readers read this list while the brain is showing. It only leaves the screen and the tab order, and it takes over whenever the brain can't run. */
 export function CourseList({ path }: { path: ReturnType<typeof useCoursePath> }) {
   return <div className={!path.orbFailed ? "sr-only" : undefined} data-course-list>
     {path.groups.map((group) => <div key={group.title} className={styles.part}>
@@ -110,7 +110,7 @@ export function CourseList({ path }: { path: ReturnType<typeof useCoursePath> })
   </div>;
 }
 
-/** The learning path page: the goal, then the orb with its lesson panel. */
+/** The learning path page: the goal, then the brain with its lesson panel. */
 export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[]; goals: GoalOption[]; orb: OrbGraph }) {
   const path = useCoursePath(chapters, goals);
   const { goal, goalId, choose, goalChanges, order, next, started, progress, orbFailed, setOrbFailed } = path;

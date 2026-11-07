@@ -1,10 +1,12 @@
-// Each lesson on the orb drawn as a neuron, the way Golgi's stain shows them: a pyramidal cell body with its apical
-// dendrite reaching out toward the surface and a skirt of basal dendrites tapering as they fork, and only some cells
-// stained in full. A lesson you finish stains in full, so the brain fills in as you learn. Related links are the
-// axons, which don't taper and carry small beads where they make contact. Pure arithmetic, shared by the live orb
+// Each lesson on the brain drawn as a neuron, the way Golgi's stain shows them: a pyramidal cell body with its apical
+// dendrite reaching out toward the brain's surface and a skirt of basal dendrites tapering as they fork, and only some
+// cells stained in full. A lesson you finish stains in full, so the brain fills in as you learn. Related links are the
+// axons, which don't taper and carry small beads where they make contact. Pure arithmetic, shared by the live brain
 // and by the dive's copy of it, so the dive takes over without a seam.
 
-/** One neuron's dendrites as straight segments in the orb's own space, with what's needed to grow and stain them. */
+import { brainField, normalOf } from "./brain-shape";
+
+/** One neuron's dendrites as straight segments in the brain's own space, with what's needed to grow and stain them. */
 export type Arbors = {
   /** Two points a segment, x, y, z each. */
   ends: Float32Array;
@@ -57,10 +59,10 @@ function bend(dir: V, toward: V, angle: number): V {
 }
 
 /**
- * Grows every lesson's dendrites. Sizes are in the orb's units, where it has a radius of 1 and lessons are about 0.28
- * apart, so a cell's field stays inside half the gap to its neighbours and the orb never turns to felt.
+ * Grows every lesson's dendrites. Sizes are in the brain's units, where it fits a radius of 1 and lessons are about 0.25
+ * apart, so a cell's field stays inside half the gap to its neighbours and the brain never turns to felt.
  */
-export function buildArbors(positions: ArrayLike<number>, degrees: number[], links: ArrayLike<number> = []): Arbors {
+export function buildArbors(positions: ArrayLike<number>, degrees: number[], links: ArrayLike<number> = [], outward: (soma: V) => V = norm): Arbors {
   const count = degrees.length;
   const ends: number[] = [];
   const owner: number[] = [];
@@ -75,7 +77,7 @@ export function buildArbors(positions: ArrayLike<number>, degrees: number[], lin
     starts[lesson] = owner.length;
     const rng = random(lesson * 9973 + 17);
     const soma: V = [positions[lesson * 3], positions[lesson * 3 + 1], positions[lesson * 3 + 2]];
-    const out = norm(soma);
+    const out = outward(soma);
     const t1 = norm(cross(out, Math.abs(out[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
     const t2 = cross(out, t1);
     const pieces: { a: V; b: V; rank: number; start: number; end: number; stub: boolean }[] = [];
@@ -171,17 +173,18 @@ export function buildArbors(positions: ArrayLike<number>, degrees: number[], lin
 
 const built = new WeakMap<object, Arbors>();
 
-/** The arbors for a course's orb, grown once and shared by the orb and the dive through it. */
+/** The arbors for a course's brain, grown once and shared by the brain and the dive through it. */
 export function arborsFor(positions: ArrayLike<number> & object, degrees: number[], links: ArrayLike<number> = []) {
   let arbors = built.get(positions);
   if (!arbors) {
-    arbors = buildArbors(positions, degrees, links);
+    // A pyramidal cell's apical dendrite points straight out of the cortex, along the surface's own outward direction.
+    arbors = buildArbors(positions, degrees, links, (soma) => normalOf(brainField, soma));
     built.set(positions, arbors);
   }
   return arbors;
 }
 
-/** The cells the stain takes before any are finished: about one in five, always the same ones, so the orb is sparse but alive. */
+/** The cells the stain takes before any are finished: about one in five, always the same ones, so the brain is sparse but alive. */
 export function stainedAtFirst(lesson: number) {
   return random(lesson * 31 + 5)() < 0.2;
 }

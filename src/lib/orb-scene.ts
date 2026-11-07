@@ -1,14 +1,17 @@
+import { bodyOutlines, collectFolds, loopsPath, paintBody } from "./brain-body";
+import { foldsFor, type Folds } from "./brain-folds";
+import { bodySamples } from "./brain-shape";
 import { arborsFor, BEADS_PER_LINK, somaPath, stainedAtFirst, strokeOf, STUB_INK, STUB_REACH, type Arbors } from "./orb-arbor";
 import type { OrbGraph } from "./orb-layout";
-import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, rimNameFades, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
+import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nameFades, nearestAngle, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
 import {
-  arcControl, CAMERA, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
+  arcControl, CAMERA, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, POSTER_SIZE, RELATED_LINE, VIEW,
 } from "./orb-view";
 
-// The live orb on a 2D canvas: 158 neurons and a few thousand short segments don't need a 3D engine, and this
-// loads in a few kilobytes where three.js costs about 253. It draws only while on screen, and everything the
-// orb does in motion can be grabbed and redirected partway. It lands on the poster's dots, then each lesson grows
-// into a neuron: see orb-arbor.ts.
+// The live brain on a 2D canvas: its body, 158 neurons and a few thousand short segments don't need a 3D engine,
+// and this loads in a few kilobytes where three.js costs about 253. It draws only while on screen, and everything
+// the brain does in motion can be grabbed and redirected partway. It lands on the poster, then the grooves etch in
+// and each lesson grows into a neuron: see brain-folds.ts and orb-arbor.ts.
 
 const ARC_STEPS = 8;
 const FOLD_STEPS = 5;
@@ -19,9 +22,9 @@ const PITCH_LIMIT = 1.2;
 const TURN_RESPONSE = 0.9;
 const ZOOM_RESPONSE = 0.7;
 const EMPHASIS_EASE = 0.16;
-const NAME_GAP = 0.12; // Radians of clear rim between two part names before the farther one starts to fade.
+const NAME_GAP = 10; // Pixels of clear space between two part names before the farther one starts to fade.
 const IDLE_FRAME = 30; // Slow rotation looks the same at 30 frames a second and costs half the battery.
-const TOUCH_IDLE_FRAME = 60; // On a phone, 15 frames a second: the rim still moves less than a pixel a frame.
+const TOUCH_IDLE_FRAME = 60; // On a phone, 15 frames a second: the outline still moves less than a pixel a frame.
 const IDLE_LIMIT = 45_000; // The orb opens the home page, so left alone it comes to rest rather than drawing for as long as the tab stays open.
 const SIGNAL_HOP = 0.075;
 const SIGNAL_WIDTH = 0.14;
@@ -33,6 +36,7 @@ const FLASH_DECAY = 0.45; // A cell lighting up fades like a calcium indicator: 
 const FLASHES = 0.8; // Cells that light up on their own each second, across the whole orb.
 const NODES = 6; // The nodes a signal jumps between on its way through the orb.
 const WIDTHS = [0.45, 0.65, 0.9, 1.25, 1.75, 2.5];
+const ETCH = 1.4; // Seconds for the grooves to etch in once they're worked out.
 
 export type OrbSceneEvents = {
   onHover: (lesson: number | null) => void;
@@ -41,7 +45,7 @@ export type OrbSceneEvents = {
   onOpen: (lesson: number, inNewTab: boolean) => void;
   /** The canvas stopped working, so the page should show the list instead. */
   onFail: () => void;
-  /** A part's name on the rim was clicked or tapped. Only asked for where the rim is navigation. */
+  /** A part's name on its lobe was clicked or tapped. Only asked for where the brain is navigation. */
   onPart?: (part: number) => void;
 };
 
@@ -49,7 +53,7 @@ export type OrbFocus = {
   chapter: number | null;
   lesson: number | null;
   faceLesson: boolean;
-  /** A part being browsed: the orb turns to its lobe and quietens the others. */
+  /** A part being browsed: the brain turns to its lobe and quietens the others. */
   part?: number | null;
   /** A chapter being pointed at in a list, which the orb turns to and lights without selecting it. */
   preview?: number | null;
@@ -78,12 +82,12 @@ export type OrbScene = {
   destroy: () => void;
 };
 
-type Theme = { ink: string; muted: string; canvas: string; dark: boolean; halo: HTMLCanvasElement | null };
+type Theme = { ink: string; muted: string; canvas: string; hot: string; dark: boolean; halo: HTMLCanvasElement | null; ember: HTMLCanvasElement | null };
 type Pulse = { link: number; age: number; forward: boolean; landed: boolean };
 
 const cssColor = (styles: CSSStyleDeclaration, name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
 
-function makeHalo() {
+function makeHalo(color = "rgb(255 255 255") {
   const size = 64;
   const halo = document.createElement("canvas");
   halo.width = size;
@@ -91,9 +95,9 @@ function makeHalo() {
   const context = halo.getContext("2d");
   if (!context) return null;
   const glow = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  glow.addColorStop(0, "rgb(255 255 255 / 55%)");
-  glow.addColorStop(0.35, "rgb(255 255 255 / 14%)");
-  glow.addColorStop(1, "rgb(255 255 255 / 0%)");
+  glow.addColorStop(0, `${color} / 55%)`);
+  glow.addColorStop(0.35, `${color} / 14%)`);
+  glow.addColorStop(1, `${color} / 0%)`);
   context.fillStyle = glow;
   context.fillRect(0, 0, size, size);
   return halo;
@@ -144,7 +148,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     for (let lesson = graph.chapterStarts[chapter]; lesson < graph.chapterStarts[chapter + 1]; lesson++) lessons.push(position(lesson));
     return direction(lessons);
   });
-  const partCenters = graph.partTitles.map((_, part) => direction(graph.titles.flatMap((__, lesson) => graph.chapterParts[chapterOf[lesson]] === part ? [position(lesson)] : [])));
+  // Each part is a lobe in both hemispheres, so it has a middle on each side, and the one nearer the viewer is used.
+  const lobeMiddles = graph.partTitles.map((_, part) => [-1, 1].flatMap((side) => {
+    const points = graph.titles.flatMap((__, lesson) => graph.chapterParts[chapterOf[lesson]] === part && Math.sign(position(lesson)[0]) === side ? [position(lesson)] : []);
+    if (!points.length) return [];
+    const sum = points.reduce((total, point) => [total[0] + point[0], total[1] + point[1], total[2] + point[2]], [0, 0, 0]);
+    return [[sum[0] / points.length, sum[1] / points.length, sum[2] / points.length]];
+  }));
+  const lobeMiddle = (part: number) => lobeMiddles[part].reduce((best, point) => turnedDirection(point).z > turnedDirection(best).z ? point : best);
 
   const screenX = new Float32Array(count);
   const screenY = new Float32Array(count);
@@ -185,6 +196,15 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   const beadStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
   const glowStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
   const sparkStore: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+  // The body traces its own outline once its surface points are worked out; until then it draws the first paint's.
+  const restingBody = graph.outline.map((path) => new Path2D(path));
+  let bodyReady = false;
+  let grooves: Folds | null = null;
+  let grooveX = new Float32Array(0);
+  let grooveY = new Float32Array(0);
+  let grooveFacing = new Float32Array(0);
+  let grooveShown = 0;
+  const grooveStore: number[][] = Array.from({ length: WIDTHS.length * (ALPHA_STEPS + 1) }, () => []);
   let grown = 0;
   let staining = false;
   let lean = false;
@@ -200,10 +220,10 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let radius = 0;
   let labelSize = 12;
   let fontFamily = "system-ui, sans-serif";
-  let theme: Theme = { ink: "#171717", muted: "#595959", canvas: "#fafafa", dark: false, halo: null };
+  let theme: Theme = { ink: "#171717", muted: "#595959", canvas: "#fafafa", hot: "#eb6834", dark: false, halo: null, ember: null };
 
-  let yaw = 0;
-  let pitch = 0;
+  let yaw = VIEW.yaw;
+  let pitch = VIEW.pitch;
   let yawVelocity = 0;
   let pitchVelocity = 0;
   let zoom = 1;
@@ -223,7 +243,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let hold = false;
   let resting = false;
   let frozen = false;
-  let rimNames: { part: number; radius: number; angle: number; half: number }[] = [];
+  let nameBoxes: { part: number; x: number; y: number; half: number; high: number }[] = [];
+  const nameFade = new Float32Array(graph.partTitles.length);
   let order: number[] | null = null;
   let threadPoints: Float32Array | null = null;
   let threadX = new Float32Array(0);
@@ -259,12 +280,16 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   function readTheme() {
     const styles = getComputedStyle(canvas);
     const dark = scheme.matches;
+    const hot = cssColor(styles, "--hot-line", dark ? "#f0733f" : "#eb6834");
+    const rgb = hot.startsWith("#") && hot.length === 7 ? [1, 3, 5].map((at) => parseInt(hot.slice(at, at + 2), 16)).join(" ") : dark ? "240 115 63" : "235 104 52";
     theme = {
       ink: cssColor(styles, "--ink", dark ? "#f5f5f5" : "#171717"),
       muted: cssColor(styles, "--muted", dark ? "#b5b5b5" : "#595959"),
       canvas: cssColor(styles, "--canvas", dark ? "#0b0b0b" : "#fafafa"),
+      hot,
       dark,
       halo: dark ? makeHalo() : null,
+      ember: makeHalo(`rgb(${rgb}`),
     };
     fontFamily = styles.fontFamily || fontFamily;
   }
@@ -315,6 +340,15 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       for (let lesson = 0; lesson < count; lesson++) place(apexEnds, lesson, apexX, apexY, apexDepth);
     }
     if (threadPoints) for (let index = 0; index < threadX.length; index++) place(threadPoints, index, threadX, threadY, threadDepth);
+    if (grooves) {
+      const normals = grooves.normals;
+      for (let index = 0; index < grooveX.length; index++) {
+        place(grooves.points, index, grooveX, grooveY, grooveFacing);
+        // How squarely the surface there faces the viewer, from its outward direction turned the same way.
+        const flat = -normals[index * 3] * sinYaw + normals[index * 3 + 2] * cosYaw;
+        grooveFacing[index] = normals[index * 3 + 1] * sinPitch + flat * cosPitch;
+      }
+    }
   }
 
   function turnedDirection(point: number[]) {
@@ -357,7 +391,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
           pitchVelocity = 0;
         }
       } else {
-        const wanted = still || hold || hovered !== null || selected !== null || active !== null || selectedPart !== null || preview !== null ? 0 : IDLE_SPIN;
+        const wanted = still || !bodyReady || hold || hovered !== null || selected !== null || active !== null || selectedPart !== null || preview !== null ? 0 : IDLE_SPIN;
         spin += (wanted - spin) * (1 - Math.exp(-dt / SPIN_EASE));
         const fade = Math.exp(-dt / SPIN_EASE);
         yawVelocity *= fade;
@@ -372,7 +406,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       }
     }
 
-    // Where the orb is navigation it sits inside a sphere drawn by the page, which has to stay the same size.
+    // Where the brain is navigation the page lays its lens and orbit out around it, so it has to stay the same size.
     const wantedZoom = selected !== null && !options.navigation ? (width < 640 ? 1.09 : 1.05) : 1;
     if (still) {
       zoom = wantedZoom;
@@ -402,6 +436,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     // The neurons grow out of the poster's dots once, a chapter at a time. A cell stains in full when its lesson is
     // finished or looked at, and about one in five is stained from the start, the way Golgi's stain takes.
     if ((introduced || still) && arbors) grown = still ? 1 : Math.min(1, grown + dt / GROW);
+    if ((introduced || still) && grooves) grooveShown = still ? 1 : Math.min(1, grooveShown + dt / ETCH);
     const stainEase = still ? 1 : 1 - Math.exp(-dt / STAIN_EASE);
     const flashFade = still ? 0 : Math.exp(-dt / FLASH_DECAY);
     staining = false;
@@ -700,7 +735,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       ctx.stroke();
       segments.length = 0;
     }
-    ctx.fillStyle = theme.ink;
+    ctx.fillStyle = theme.hot;
     for (let step = 1; step <= ALPHA_STEPS; step++) {
       const sparks = sparkStore[step];
       if (!sparks.length) continue;
@@ -714,6 +749,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       sparks.length = 0;
     }
     ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = theme.ink;
     if (threadPoints && threadDrawn >= 1 && !still) {
       const size = Math.max(1.2, radius * 0.0065);
       const last = threadX.length - 1;
@@ -746,9 +782,17 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       const fired = Math.max(signal[lesson], glow[lesson], flash[lesson] * 0.8);
       const size = dotRadius(depth, degrees[lesson], done, radius) * zoom * (0.82 + 0.18 * mood) * (1 + fired * 0.7);
       const alpha = Math.min(1, dotAlpha(depth, done) * (mood > 1 ? 1 + (mood - 1) * 1.6 : mood) * (moreContrast.matches ? 1.5 : 1) + fired * 0.8);
-      if (theme.halo && (done || fired > 0.05)) {
-        ctx.globalAlpha = Math.min(1, alpha * (done ? 0.8 : 0) + fired * 0.9);
-        const span = size * (6 + fired * 4);
+      // A cell firing glows the labs' orange, the one warm colour on the page, then cools back to ink. The wave that
+      // runs out from the next lesson touches every cell in turn, so it only warms them.
+      const heat = Math.max(flash[lesson], signal[lesson] * 0.28) * (0.35 + 0.65 * depth);
+      if (theme.ember && heat > 0.04) {
+        ctx.globalAlpha = Math.min(1, heat * (theme.dark ? 0.95 : 0.6));
+        const span = size * (5 + heat * 5);
+        ctx.drawImage(theme.ember, screenX[lesson] - span / 2, screenY[lesson] - span / 2, span, span);
+      }
+      if (theme.halo && done) {
+        ctx.globalAlpha = Math.min(1, alpha * 0.8);
+        const span = size * 6;
         ctx.drawImage(theme.halo, screenX[lesson] - span / 2, screenY[lesson] - span / 2, span, span);
       }
       // A cell body points along its apical dendrite, as far as it shows from here and as far as it has grown.
@@ -758,10 +802,17 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       const turned = depth * 2 - 1;
       const side = Math.min(1, length / (0.05 * unit * (CAMERA / (CAMERA - turned))));
       const tip = arbors ? size * growthOf(lesson) * (lean ? 0.45 : 0.45 + 0.75 * reach[lesson]) * side : 0;
-      ctx.globalAlpha = alpha;
       ctx.beginPath();
       somaPath(ctx, screenX[lesson], screenY[lesson], size, length ? ux / length : 0, length ? uy / length : -1, tip);
+      const warm = Math.min(1, heat * 1.3);
+      ctx.globalAlpha = alpha * (1 - warm);
       ctx.fill();
+      if (warm > 0.03) {
+        ctx.globalAlpha = Math.max(alpha, warm);
+        ctx.fillStyle = theme.hot;
+        ctx.fill();
+        ctx.fillStyle = theme.ink;
+      }
     }
   }
 
@@ -785,8 +836,11 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       ctx.fill();
       drawRing(next, 5, 1.25, presence);
       if (!still) {
+        // The ring that goes out from where you are in the course is a signal too.
         const phase = (clock * 0.42) % 1;
-        drawRing(next, 5 + phase * 22, 1, presence * (1 - phase) * 0.7);
+        ctx.strokeStyle = theme.hot;
+        drawRing(next, 5 + phase * 22, 1.1, presence * (1 - phase) * Math.min(1, phase * 6) * 0.85);
+        ctx.strokeStyle = theme.ink;
       }
     }
     if (active !== null && active !== next) drawRing(active, 4, 1.5, 0.5 + 0.5 * depths[active]);
@@ -813,58 +867,65 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     ctx.fillText(nextLabel, x, y);
   }
 
-  /** The part names run around the rim like the lettering on an engraved globe, only for lobes facing the viewer. */
+  /**
+   * Each part's name sits on its lobe, as the names sit on the structures in an anatomy plate, on whichever side of the
+   * brain faces the viewer. A name keeps clear of the glass in the middle, and where two would overlap the nearer
+   * lobe's keeps its place. Names fade in and out rather than jumping.
+   */
+  let fading = false;
   function drawPartNames() {
-    const rim = Math.min(radius * zoom * 1.035 + 7, Math.min(width, height) / 2 - labelSize - 2);
+    fading = false;
     ctx.font = `600 ${labelSize}px ${fontFamily}`;
     ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
+    ctx.textBaseline = "middle";
     const centerX = width / 2;
     const centerY = height / 2;
+    const unit = FIT * radius * zoom;
+    // The lens in the middle of the home page, and its ring.
+    const lens = options.navigation ? Math.min(86, Math.max(61, Math.min(width, height) * 0.11)) + 12 : 0;
     const litPart = hoveredPart ?? (selected !== null ? graph.chapterParts[selected] : selectedPart);
-    const shown = graph.partTitles.flatMap((title, part) => {
-      const turned = turnedDirection(partCenters[part]);
-      const facing = Math.min(1, Math.max(0, (turned.z + 0.25) / 0.4));
-      if (facing <= 0.01) return [];
-      // Lettering stays on the top or bottom of the rim, where it can be read, even for a lobe near the equator.
-      const below = turned.y < 0;
-      const steep = Math.PI / 7;
-      const across = Math.atan2(Math.abs(turned.y), turned.x);
-      const held = Math.min(Math.PI - steep, Math.max(steep, across));
-      const letters = [...title];
-      const gaps = letters.map((letter) => ctx.measureText(letter).width + 0.5);
-      const total = gaps.reduce((sum, gap) => sum + gap, 0);
-      const ring = below ? rim + labelSize * 0.8 : rim;
-      return [{ part, below, letters, gaps, total, ring, facing, angle: below ? held : -held, half: total / 2 / ring, depth: turned.z }];
+    const high = labelSize * 0.62;
+    const shown = graph.partTitles.map((title, part) => {
+      const middle = lobeMiddle(part);
+      const turned = turnedDirection(middle);
+      const facing = Math.min(1, Math.max(0, (turned.z + 0.3) / 0.3));
+      const scale = (CAMERA / (CAMERA - turned.z)) * unit;
+      let x = centerX + turned.x * scale;
+      let y = centerY - turned.y * scale;
+      const half = ctx.measureText(title).width / 2 + 3;
+      // A name that would sit under the glass moves to just above or below it, whichever side it was already on.
+      if (lens && Math.abs(y - centerY) < lens + high && Math.abs(x - centerX) < lens + half) y = centerY + (y >= centerY ? 1 : -1) * (lens + high + 4);
+      x = Math.min(width - half - 4, Math.max(half + 4, x));
+      y = Math.min(height - high - 4, Math.max(high + 4, y));
+      return { part, title, x, y, half, high, facing, depth: facing < 0.3 ? -Infinity : turned.z };
     });
-    const fades = rimNameFades(shown, NAME_GAP);
-    rimNames = shown.flatMap(({ part, below, ring, angle, half }, index) => (fades[index] * shown[index].facing > 0.5 ? [{ part, radius: below ? ring - labelSize * 0.4 : ring + labelSize * 0.4, angle, half }] : []));
-    shown.forEach(({ part, below, letters, gaps, total, ring, facing, angle }, index) => {
-      if (fades[index] <= 0.01) return;
-      ctx.globalAlpha = facing * fades[index];
-      ctx.fillStyle = litPart === part ? theme.ink : theme.muted;
-      let travel = -total / 2;
-      letters.forEach((letter, letterIndex) => {
-        const middle = travel + gaps[letterIndex] / 2;
-        const theta = below ? angle - middle / ring : angle + middle / ring;
-        ctx.save();
-        ctx.translate(centerX + Math.cos(theta) * ring, centerY + Math.sin(theta) * ring);
-        ctx.rotate(below ? theta - Math.PI / 2 : theta + Math.PI / 2);
-        ctx.fillText(letter, 0, 0);
-        ctx.restore();
-        travel += gaps[letterIndex];
-      });
+    nameBoxes = [];
+    // A nearer name that overlaps this one keeps its place.
+    const fades = nameFades(shown, NAME_GAP);
+    shown.forEach((name, index) => {
+      const wanted = name.facing * fades[index];
+      // The first paint has no names, so on the first frame they're not there yet either.
+      nameFade[name.part] += (wanted - nameFade[name.part]) * (still ? 1 : clock > 0 ? 0.18 : 0);
+      if (Math.abs(wanted - nameFade[name.part]) > 0.01) fading = true;
+      const alpha = nameFade[name.part];
+      if (alpha <= 0.01) return;
+      if (alpha > 0.5) nameBoxes.push({ part: name.part, x: name.x, y: name.y, half: name.half, high });
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = theme.canvas;
+      ctx.strokeText(name.title, name.x, name.y);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = litPart === name.part ? theme.ink : theme.muted;
+      ctx.fillText(name.title, name.x, name.y);
     });
   }
 
-  /** The part whose name on the rim is under a point, or -1. */
+  /** The part whose name is under a point, or -1. */
   function partAt(x: number, y: number, reach: number) {
     if (!options.navigation) return -1;
-    const from = Math.hypot(x - width / 2, y - height / 2);
-    const at = Math.atan2(y - height / 2, x - width / 2);
-    for (const name of rimNames) {
-      const apart = Math.abs(Math.atan2(Math.sin(at - name.angle), Math.cos(at - name.angle)));
-      if (Math.abs(from - name.radius) <= reach && apart <= name.half + 0.03) return name.part;
+    for (const name of nameBoxes) {
+      if (Math.abs(x - name.x) <= name.half + reach * 0.5 && Math.abs(y - name.y) <= name.high + reach * 0.5) return name.part;
     }
     return -1;
   }
@@ -886,19 +947,40 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     tooltip.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
 
-  /** A faint rim of shade, the only thing drawn that isn't course data, so the dots read as lying on a sphere. */
+  /**
+   * The brain itself, the only thing drawn that isn't course data: each piece's outline and shade, farthest first.
+   * Until the map has traced its own outline, it draws the first paint's, so the two match exactly.
+   */
   function drawBody() {
-    const reach = radius * zoom * 1.015;
-    const shade = ctx.createRadialGradient(width / 2, height / 2, reach * 0.6, width / 2, height / 2, reach);
-    shade.addColorStop(0, "rgb(128 128 128 / 0%)");
-    shade.addColorStop(0.86, theme.dark ? "rgb(255 255 255 / 3.2%)" : "rgb(0 0 0 / 2.6%)");
-    shade.addColorStop(0.985, theme.dark ? "rgb(255 255 255 / 7%)" : "rgb(0 0 0 / 5.5%)");
-    shade.addColorStop(1, theme.dark ? "rgb(255 255 255 / 0%)" : "rgb(0 0 0 / 0%)");
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = shade;
-    ctx.beginPath();
-    ctx.arc(width / 2, height / 2, reach, 0, Math.PI * 2);
-    ctx.fill();
+    const hair = 1;
+    if (!bodyReady) {
+      const unit = Math.min(width, height) / POSTER_SIZE;
+      const middle = POSTER_SIZE / 2;
+      const reach = POSTER_SIZE * ORB_RADIUS;
+      ctx.save();
+      ctx.translate(width / 2 - middle * unit, height / 2 - middle * unit);
+      ctx.scale(unit, unit);
+      paintBody(ctx, restingBody, theme, { x0: middle - reach, y0: middle - reach, x1: middle + reach, y1: middle + reach }, 1, hair / unit);
+      ctx.restore();
+      return;
+    }
+    const pieces = bodyOutlines(yaw, pitch, zoom).map(({ loops }) => loopsPath(loops, width / 2, height / 2, radius));
+    paintBody(ctx, pieces, theme, { x0: width / 2 - radius, y0: height / 2 - radius, x1: width / 2 + radius, y1: height / 2 + radius }, 1, hair);
+  }
+
+  /** The grooves, etching in once they're worked out: they come from the chapters, so they're course data too. */
+  function drawGrooves() {
+    if (!grooves || grooveShown <= 0) return;
+    const hair = Math.max(0.7, radius / 300) * zoom;
+    const etched = grooveShown * grooveShown * (3 - 2 * grooveShown);
+    collectFolds(grooves, grooveX, grooveY, grooveFacing, etched, hair, (alpha, lineWidth, x1, y1, x2, y2) => {
+      const step = Math.round(Math.min(1, alpha) * ALPHA_STEPS);
+      if (!step) return;
+      let size = 0;
+      while (size < WIDTHS.length - 1 && WIDTHS[size] < lineWidth * 0.92) size++;
+      grooveStore[size * (ALPHA_STEPS + 1) + step].push(x1, y1, x2, y2);
+    });
+    strokeStore(grooveStore, WIDTHS, theme.ink, (theme.dark ? 1.12 : 1) * (moreContrast.matches ? 1.5 : 1));
   }
 
   function draw() {
@@ -907,6 +989,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     ctx.clearRect(0, 0, width, height);
     turn();
     drawBody();
+    drawGrooves();
     drawLines();
     drawBeads();
     drawArbors();
@@ -937,7 +1020,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     frame = 0;
     if (destroyed || !onScreen || resting || frozen || document.visibilityState === "hidden") return;
     const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001
-      || (introduced && arbors !== null && grown < 1) || staining;
+      || (introduced && arbors !== null && grown < 1) || (introduced && grooves !== null && grooveShown < 1) || staining || fading;
     if (!busy && !still && now - lastActivity > IDLE_LIMIT) return;
     if (!busy && !still && now - lastDraw < idleFrame) {
       frame = requestAnimationFrame(tick);
@@ -1116,20 +1199,38 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   turn();
   draw();
 
-  function makeArbors() {
-    pending = 0;
-    if (destroyed) return;
-    arbors = arborsFor(graph.positions, degrees, graph.links);
-    arborX = new Float32Array(arbors.owner.length * 2);
-    arborY = new Float32Array(arbors.owner.length * 2);
-    arborDepth = new Float32Array(arbors.owner.length * 2);
-    for (let lesson = 0; lesson < count; lesson++) {
-      for (let axis = 0; axis < 3; axis++) apexEnds[lesson * 3 + axis] = base[lesson * 3 + axis] + arbors.apex[lesson * 3 + axis] * 0.05;
-    }
-    wake();
-  }
+  // What isn't needed for the first frame is worked out in quiet moments after it, one piece of work at a time: the
+  // body's surface points, so it can trace its outline as it turns, then the neurons, then the grooves.
   const idles = "requestIdleCallback" in window;
-  let pending = idles ? window.requestIdleCallback(makeArbors, { timeout: 1500 }) : window.setTimeout(makeArbors, 200);
+  let pending = 0;
+  const later = (work: () => void) => {
+    const run = () => {
+      pending = 0;
+      if (destroyed) return;
+      work();
+      wake();
+    };
+    pending = idles ? window.requestIdleCallback(run, { timeout: 1500 }) : window.setTimeout(run, 120);
+  };
+  later(() => {
+    bodySamples();
+    bodyReady = true;
+    later(() => {
+      arbors = arborsFor(graph.positions, degrees, graph.links);
+      arborX = new Float32Array(arbors.owner.length * 2);
+      arborY = new Float32Array(arbors.owner.length * 2);
+      arborDepth = new Float32Array(arbors.owner.length * 2);
+      for (let lesson = 0; lesson < count; lesson++) {
+        for (let axis = 0; axis < 3; axis++) apexEnds[lesson * 3 + axis] = base[lesson * 3 + axis] + arbors.apex[lesson * 3 + axis] * 0.05;
+      }
+      later(() => {
+        grooves = foldsFor(graph);
+        grooveX = new Float32Array(grooves.points.length / 3);
+        grooveY = new Float32Array(grooves.points.length / 3);
+        grooveFacing = new Float32Array(grooves.points.length / 3);
+      });
+    });
+  });
 
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
@@ -1171,7 +1272,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       if (focus.lesson !== null && focus.faceLesson) faceTo(position(focus.lesson), false);
       else if (focus.chapter !== null && changedChapter) faceTo(chapterCenters[focus.chapter], false);
       else if (focus.chapter === null && preview !== null && changedPreview) faceTo(chapterCenters[preview], false);
-      else if (focus.chapter === null && selectedPart !== null && (changedPart || changedPreview)) faceTo(partCenters[selectedPart], false);
+      else if (focus.chapter === null && selectedPart !== null && (changedPart || changedPreview)) faceTo(lobeMiddle(selectedPart), false);
       else if (focus.chapter === null && focus.lesson === null && selectedPart === null && target && !target.passing) target = null;
       wake();
     },

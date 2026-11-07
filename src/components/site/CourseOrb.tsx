@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ import { trackEvent } from "@/lib/analytics";
 import { chapterHref, lessonHref } from "@/lib/links";
 import type { OrbGraph } from "@/lib/orb-layout";
 import type { OrbScene } from "@/lib/orb-scene";
-import { chapterOfLesson, lessonsInOrder, ORB_RADIUS, posterMarks } from "@/lib/orb-view";
+import { chapterOfLesson, lessonsInOrder, ORB_RADIUS, POSTER_SIZE, posterMarks } from "@/lib/orb-view";
 import { emptyProgress, type OutlineChapter, type Progress } from "@/lib/progress";
 import styles from "./CourseOrb.module.css";
 import type { OrbCanvasProps } from "./OrbCanvas";
@@ -25,19 +25,21 @@ function OrbUnavailable({ onFail }: Pick<OrbCanvasProps, "onFail">) {
   return null;
 }
 
-const POSTER_SIZE = 1000;
-
-/** The same orb the canvas draws first, so nothing shifts or pops in when it takes over. */
+/** The same brain the canvas draws first, so nothing shifts or pops in when it takes over. */
 function OrbPoster({ graph, hidden }: { graph: OrbGraph; hidden: boolean }) {
   const marks = useMemo(() => posterMarks(graph, POSTER_SIZE), [graph]);
+  const tone = `${useId()}tone`;
+  const reach = POSTER_SIZE * ORB_RADIUS;
+  const middle = POSTER_SIZE / 2;
   return <svg className={`${styles.poster} ${hidden ? styles.posterGone : ""}`} viewBox={`0 0 ${POSTER_SIZE} ${POSTER_SIZE}`} aria-hidden="true" focusable="false">
-    <radialGradient id="orb-rim">
-      <stop offset=".6" stopColor="currentColor" stopOpacity="0" />
-      <stop offset=".945" stopColor="currentColor" stopOpacity=".03" />
-      <stop offset=".99" stopColor="currentColor" stopOpacity=".065" />
-      <stop offset="1" stopColor="currentColor" stopOpacity="0" />
-    </radialGradient>
-    <circle cx={POSTER_SIZE / 2} cy={POSTER_SIZE / 2} r={POSTER_SIZE * ORB_RADIUS * 1.015} fill="url(#orb-rim)" />
+    <linearGradient id={tone} gradientUnits="userSpaceOnUse" x1={middle - reach} y1={middle - reach} x2={middle + reach} y2={middle + reach}>
+      <stop offset="0" stopColor="currentColor" className={styles.toneFrom} />
+      <stop offset="1" stopColor="currentColor" className={styles.toneTo} />
+    </linearGradient>
+    {graph.outline.map((path, index) => <g key={index}>
+      <path className={styles.veil} d={path} />
+      <path className={styles.body} d={path} fill={`url(#${tone})`} vectorEffect="non-scaling-stroke" />
+    </g>)}
     <g fill="none" stroke="currentColor" strokeLinecap="round">
       {marks.lines.map((line) => <g key={line.linkOpacity}>
         <path d={line.link} strokeWidth="1.5" opacity={line.linkOpacity} />

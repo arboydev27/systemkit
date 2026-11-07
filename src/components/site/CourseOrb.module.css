@@ -1,12 +1,24 @@
 .orb { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 12px 28px; margin-top: 8px; }
 
-.stage { position: relative; width: 100%; aspect-ratio: 1; color: var(--ink); border-radius: 18px; touch-action: pan-y; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+.stage { --hot-line: #eb6834; position: relative; width: 100%; aspect-ratio: 1; color: var(--ink); border-radius: 18px; touch-action: pan-y; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
 .stage:focus { outline: none; }
 .stage:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
 .canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
 .canvas:active { cursor: grabbing; }
 .poster { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .18s ease; }
 .posterGone { opacity: 0; }
+
+/* The brain's body on the first paint, shaded with the numbers the canvas uses (BODY in brain-body.ts): a veil of the
+   page's colour, a tone lightest toward the upper left, and a fine outline. */
+.veil { fill: var(--canvas); fill-opacity: .86; }
+.body { stroke: currentColor; stroke-width: 1px; stroke-opacity: .34; stroke-linejoin: round; }
+.toneFrom { stop-opacity: .02; }
+.toneTo { stop-opacity: .1; }
+@media (prefers-color-scheme: dark) {
+  .body { stroke-opacity: .3; }
+  .toneFrom { stop-opacity: .09; }
+  .toneTo { stop-opacity: .024; }
+}
 
 .tooltip { position: absolute; top: 0; left: 0; z-index: 2; display: grid; gap: 2px; width: max-content; max-width: min(280px, 80%); padding: 8px 11px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); box-shadow: var(--shadow); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .12s ease; }
 .tooltipOn { opacity: 1; visibility: visible; }
@@ -72,4 +84,8 @@
 
 @media (prefers-contrast: more) {
   .tooltip { border-color: var(--ink); }
+}
+
+@media (prefers-color-scheme: dark) {
+  .stage { --hot-line: #f0733f; }
 }

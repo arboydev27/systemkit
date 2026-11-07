@@ -1,4 +1,4 @@
-/* The home page. The orb is the navigation, everything around it is glass over a field of soft light, and it all stays in the site's neutrals. */
+/* The home page. The brain is the navigation, everything around it is glass over a field of soft light, and it all stays in the site's neutrals. */
 
 .world {
   --fluid: cubic-bezier(.22, 1, .36, 1);
@@ -29,7 +29,7 @@
   .blobLight { display: none; }
 }
 
-/* The stage, laid out for a phone first: words, then the orb, then the rest in the page. */
+/* The stage, laid out for a phone first: words, then the brain, then the rest in the page. */
 .stage {
   --s: min(100vw, 620px);
   position: relative;
@@ -46,12 +46,11 @@
 
 .orbWrap { position: relative; flex: none; width: var(--s); height: var(--s); margin: 2px calc((100% - var(--s)) / 2) 0; transition: transform .8s var(--fluid); }
 .orbArrive { position: absolute; inset: 0; }
-.sphere { position: absolute; inset: 5.34%; border-radius: 50%; background: radial-gradient(circle at 33% 22%, var(--sphere-high), transparent 46%), radial-gradient(circle at 66% 84%, var(--sphere-low), transparent 52%); box-shadow: 0 34px 110px var(--sphere-drop), inset 0 0 0 1px var(--glass-line); pointer-events: none; }
 .orbit { display: none; }
 .orbWrap .orbStage { position: absolute; inset: 0; width: 100%; max-width: none; margin: 0; border-radius: 50%; }
 .orbWrap .orbTooltip { border-color: var(--glass-line); border-radius: 12px; background: var(--glass-strong); box-shadow: var(--glass-drop); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
 
-/* The lens: the glass in the middle of the orb, and the page's one main action. */
+/* The lens: the glass in the middle of the brain, and the page's one main action. */
 .lens {
   position: absolute;
   top: 50%;
@@ -94,12 +93,12 @@
 
 .exploring .lens { opacity: 0; visibility: hidden; transform: translate(-50%, -50%) scale(.72); transition: transform .5s var(--fluid), opacity .2s ease, visibility 0s .2s; }
 
-/* The dive from the orb to the game, drawn over everything while it lasts. Once it has loaded it moves the stage
+/* The dive from the brain to the game, drawn over everything while it lasts. Once it has loaded it moves the stage
    itself, so the scroll-driven fade below steps aside. */
 .flight, .flightDeep { position: fixed; top: 0; left: 0; z-index: 45; display: none; width: 100%; height: 100vh; height: 100lvh; pointer-events: none; }
 .flightDeep { z-index: 44; }
 
-/* What sits under the orb on a phone, and in the corners on a wide screen */
+/* What sits under the brain on a phone, and in the corners on a wide screen */
 .foot { margin-top: 2px; }
 .lede { max-width: 58ch; margin: 0; color: var(--ink-soft); font-size: 16px; line-height: 1.5; text-wrap: pretty; }
 .foot > p:nth-child(2) { margin-top: 10px; }
@@ -166,7 +165,7 @@
 .asks { position: relative; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 88px) clamp(12px, 3vw, 32px) clamp(24px, 4vw, 48px); content-visibility: auto; contain-intrinsic-size: auto 1200px; }
 .asks > h2 { margin-bottom: 0; }
 
-/* A phone on its side: the words beside the orb, so the main action stays on the first screen. */
+/* A phone on its side: the words beside the brain, so the main action stays on the first screen. */
 @media (max-height: 599px) and (min-width: 640px) {
   .stage { --s: min(100vh - 8px, 50vw); --s: min(100svh - 8px, 50vw); display: grid; grid-template-columns: minmax(0, 1fr) var(--s); align-content: start; column-gap: 12px; padding: 66px 12px 12px 20px; }
   .words h1 { font-size: clamp(2rem, 5.6vw, 3rem); }
@@ -174,7 +173,7 @@
   .orbWrap { grid-column: 2; grid-row: 1 / span 3; margin: -62px 0 0; }
 }
 
-/* A wide screen: the orb in the middle of a pinned stage, with the rest around it and an orbit on its right. */
+/* A wide screen: the brain in the middle of a pinned stage, with the rest around it and an orbit on its right. */
 @media (min-width: 960px) and (min-height: 600px) {
   .world { --s: min(100vh - 40px, 62vw); --s: min(100svh - 40px, 62vw); --shift: 5vw; --orbit: 46px; }
   .stage { position: sticky; top: 0; display: block; height: 100vh; height: 100svh; min-height: 0; padding: 0; overflow: clip; --s: inherit; }
@@ -231,7 +230,7 @@
 
 }
 
-/* The orb arrives once, and falls back as the page scrolls over it. */
+/* The brain arrives once, and falls back as the page scrolls over it. */
 @media (prefers-reduced-motion: no-preference) {
   .orbArrive { animation: arrive 1.5s var(--fluid) both; }
 }
@@ -261,7 +260,7 @@
   .goalBlock { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
-/* Without motion there's no dive and no fade, so nothing pins the orb: it scrolls away like the rest of the page,
+/* Without motion there's no dive and no fade, so nothing pins the brain: it scrolls away like the rest of the page,
    with its moons, and the game comes up after it rather than over it. */
 @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: reduce) {
   .stage { position: relative; }
