@@ -141,7 +141,6 @@
 .nextUp { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; margin-bottom: 12px; padding: 9px 12px; border: 1px solid var(--glass-line); border-radius: 12px; color: var(--ink); font-size: 13px; font-weight: 680; line-height: 1.3; text-decoration: none; transition: background .16s ease; }
 .nextUp:hover { background: var(--glass); }
 .panelLink { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; color: var(--ink); font-size: 13px; font-weight: 650; text-underline-offset: 3px; }
-.panelNote { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-wrap: pretty; }
 
 .chapterRows { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--glass-line); }
 .chapterRows li { border-bottom: 1px solid var(--glass-line); }
@@ -155,33 +154,12 @@
 .exploring .orbWrap { transform: translateY(-14svh); }
 
 /* Under the stage */
-.try { position: relative; z-index: 1; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 96px) clamp(12px, 3vw, 32px) clamp(28px, 4vw, 48px); scroll-margin-top: 0; }
-.tryHead { display: grid; gap: 14px; margin-bottom: clamp(20px, 3vw, 36px); padding-inline: 2px; }
-.tryHead h2, .asks > h2 { margin: 0; color: var(--ink); font-size: clamp(2rem, 5vw, 3.75rem); font-weight: 640; line-height: 1.03; letter-spacing: -.035em; text-wrap: balance; }
-.tryHead p { max-width: 58ch; margin: 0; color: var(--ink-soft); font-size: 16px; line-height: 1.6; text-wrap: pretty; }
+.try { position: relative; z-index: 1; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 96px) clamp(12px, 3vw, 32px) clamp(28px, 4vw, 48px); }
+.try h2, .asks > h2 { margin: 0 0 clamp(16px, 2.6vw, 32px); padding-inline: 2px; color: var(--ink); font-size: clamp(2.25rem, 6.4vw, 5rem); font-weight: 640; line-height: 1; letter-spacing: -.038em; text-wrap: balance; }
+.tryFallback a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--ink); font-size: 16px; font-weight: 660; }
 
-.try .labCard { margin: 0; padding: clamp(20px, 3.4vw, 40px); border-color: var(--glass-line); border-radius: 24px; background: var(--glass-strong); box-shadow: inset 0 1px 0 var(--glass-sheen), var(--glass-drop); -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)); backdrop-filter: blur(calc(var(--glass-blur) + 8px)); }
-
-.moreLabs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
-.moreLabs a { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 100%; min-height: 56px; padding: 12px 18px; border: 1px solid var(--glass-line); border-radius: 16px; background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-sheen); color: var(--ink); font-size: 14px; font-weight: 640; line-height: 1.32; letter-spacing: -.01em; text-decoration: none; transition: background .2s ease, transform .4s var(--fluid); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
-.moreLabs a:hover { background: var(--glass-strong); transform: translateY(-2px); }
-.moreLabs svg { flex: none; }
-
-.asks { position: relative; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 88px) clamp(12px, 3vw, 32px) clamp(24px, 4vw, 48px); }
-.asks > h2 { padding-inline: 2px; }
-.bento { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: clamp(20px, 3vw, 36px); }
-.ask { display: flex; flex-direction: column; min-width: 0; padding: clamp(20px, 2.6vw, 32px); border: 1px solid var(--glass-line); border-radius: 22px; background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-sheen); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
-.ask h3 { margin: 0 0 6px; color: var(--ink); font-size: 1.125rem; font-weight: 680; line-height: 1.25; letter-spacing: -.02em; text-wrap: balance; }
-.ask > p { max-width: 60ch; margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
-.ask > .askQuestion { flex: 1; margin-top: 22px; color: var(--ink); font-size: clamp(1.15rem, 1.8vw, 1.45rem); font-weight: 560; line-height: 1.32; letter-spacing: -.02em; }
-.askAnswer { max-width: 60ch; margin-top: 10px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
-.askAnswer summary { width: fit-content; padding: 12px 0; color: var(--ink); font-size: 13px; font-weight: 650; line-height: 20px; cursor: pointer; }
-.askAnswer summary:hover { text-decoration: underline; text-underline-offset: 3px; }
-.askAnswer summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-.askAnswer p { margin: 0 0 4px; text-wrap: pretty; }
-.askFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 16px; margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--glass-line); color: var(--muted); font-size: 13px; line-height: 1.45; }
-.askFoot a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--ink); font-weight: 680; text-underline-offset: 3px; }
-.askFoot a:hover { text-decoration-thickness: 2px; }
+.asks { position: relative; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 88px) clamp(12px, 3vw, 32px) clamp(24px, 4vw, 48px); content-visibility: auto; contain-intrinsic-size: auto 1200px; }
+.asks > h2 { margin-bottom: 0; }
 
 /* A phone on its side: the words beside the orb, so the main action stays on the first screen. */
 @media (max-height: 599px) and (min-width: 640px) {
@@ -246,11 +224,6 @@
   .panelBody { padding: 4px 22px 18px; }
   .panelTitle { font-size: clamp(1.6rem, 2.2vw, 2.2rem); }
 
-  .tryHead { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: end; column-gap: 48px; }
-  .moreLabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .bento { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-  .ask { grid-column: span 5; }
-  .askWide { grid-column: span 7; }
 }
 
 /* The orb arrives once, and falls back as the page scrolls over it. */
@@ -262,7 +235,7 @@
 
 @supports (animation-timeline: scroll()) {
   @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
-    .orbWrap { animation: recede linear both; animation-timeline: scroll(root); animation-range: 0 110vh; }
+    .orbWrap { animation: recede linear both; animation-timeline: scroll(root); animation-range: 0 95vh; }
     .words, .foot, .goalBlock { animation: fallAway linear both; animation-timeline: scroll(root); animation-range: 0 45vh; }
     .lens { animation: lensAway linear both; animation-timeline: scroll(root); animation-range: 0 32vh; }
   }
@@ -276,15 +249,15 @@
   .hintPointer { display: none; }
   .hintTouch { display: inline; }
   /* Blurring a moving page costs a phone too much for what it adds over soft light, so these go solid enough to read without it. */
-  .try .labCard, .ask, .moreLabs a, .goalBlock { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .goalBlock { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .words, .foot, .goalBlock, .orbWrap, .lens, .moon, .panel, .panelOn, .chapterRows button, .moreLabs a, .blobLight { transition: none; }
+  .words, .foot, .goalBlock, .orbWrap, .lens, .moon, .panel, .panelOn, .chapterRows button, .blobLight { transition: none; }
   .panelBody { animation: none; }
   .moon:hover { scale: none; }
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .lens, .moons, .moon, .panel, .goalBlock, .ask, .moreLabs a, .try .labCard, .orbWrap .orbTooltip { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .lens, .moons, .moon, .panel, .goalBlock, .orbWrap .orbTooltip { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

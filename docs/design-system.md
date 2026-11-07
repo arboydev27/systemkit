@@ -37,7 +37,9 @@ The home, chapter, labs, and practice pages share these tokens. List chapters an
 
 The orb is the home page's navigation, so the page opens on a single pinned stage rather than a stack of sections. The glass lens in the middle of the orb starts the next lesson, and it is the one main action. The names on the rim, and any dot, open the course where they point. The site's four sections sit on an orbit to its right and dock in a row at the top once the page scrolls past; on a phone they are a dock at the bottom. Browsing happens in one glass panel that replaces the words beside the orb: a part, then its chapters, then a chapter's lessons, with the orb turning to match. There is no separate list view, though the list stays in the page for search engines and screen readers, and shows whenever the orb can't run.
 
-Below the stage, a lab rises over the orb as it falls back, followed by one real question from each other part of the course.
+Below the stage, keep words to a minimum and let the working thing make the point. A small game rises over the orb as it falls back: an app goes viral, and each call changes a live map of the system, with requests moving through it and a big number for how many are failing. Then four tiles, each with a verb for a title and a chart that draws itself: Break it, Remember it, Estimate it, Design it. A lab's chart runs that lab's own model, so its shape is what the lab really shows. Pick a sample people already wonder about, such as scaling or caching, rather than one that takes explaining.
+
+On the home page, ink means working and the labs' orange means overloaded, with a darker orange for text so it stays readable. Charts sit finished for anyone who prefers reduced motion or has no JavaScript, and they only move while on screen.
 
 ### Glass
 

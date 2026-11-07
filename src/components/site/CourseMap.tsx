@@ -20,7 +20,7 @@ export const CourseState = createContext<CourseStateValue>({ action: null, finis
 export function CourseScope({ children }: { children: ReactNode }) {
   const { finished, total } = useContext(CourseState);
   return <p className={styles.scope}>{finished > 0
-    ? <><strong>You’ve finished {finished} of {total} lessons.</strong> They’re saved in this browser, so <Link href="/progress/">keep a backup</Link>.</>
+    ? <><strong>You’ve finished {finished} of {total} lessons.</strong> <Link href="/progress/">Keep a backup</Link>.</>
     : children}</p>;
 }
 

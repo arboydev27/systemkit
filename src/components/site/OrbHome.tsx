@@ -201,10 +201,11 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
       </div>
 
       <div className={styles.goalBlock} data-home-goal>
-        <p className={styles.goalNote} role="status">{path.goal?.detail ?? <>
+        <p className={styles.goalNote}>
           <span className={styles.hintPointer}>Drag to turn it. Every dot is a lesson.</span>
           <span className={styles.hintTouch}>Swipe to turn it. Tap a dot to see its chapter.</span>
-        </>}</p>
+        </p>
+        <p className="sr-only" role="status">{path.goal?.detail}</p>
         <fieldset className={styles.goal}>
           <legend>What are you here for?</legend>
           <div className={styles.goalOptions}>
@@ -277,7 +278,6 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
                   </li>;
                 })}
               </ol>
-              <p className={styles.panelNote}>Each dot is a lesson, and each thread is a chapter. Lines through the middle link lessons that build on each other.</p>
             </>}
           </div>
         </> : null}

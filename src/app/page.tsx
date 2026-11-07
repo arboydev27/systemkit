@@ -1,33 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
-import { chapters } from "@/content/chapters";
 import { designChallenges, findChallenge } from "@/content/challenges";
+import { chapters } from "@/content/chapters";
 import { labs } from "@/content/labs";
-import { reviewVariations } from "@/content/review";
 import { CourseScope } from "@/components/site/CourseMap";
+import { EstimateRoll, Live, ScaleGameSlot } from "@/components/site/HomeMotion";
+import { CacheChart, DesignChart, ForgettingChart, LimiterChart, QuorumChart, RetryChart } from "@/components/site/HomeVisuals";
+import visuals from "@/components/site/HomeVisuals.module.css";
 import { FluidField, OrbHome } from "@/components/site/OrbHome";
 import home from "@/components/site/OrbHome.module.css";
-import { DueReviewBadge, HomeLab } from "@/components/site/SiteClient";
+import { DueReviewBadge } from "@/components/site/SiteClient";
 import { SitePage } from "@/components/site/SiteChrome";
-import { courseChapters, courseGoals, courseOrb, lessonCount } from "@/lib/course";
-import { buildDrill } from "@/lib/estimation-drills";
+import { courseChapters, courseGoals, courseOrb } from "@/lib/course";
 import { lessonHref } from "@/lib/links";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-// Real questions from each part of the course, so this section shows what it's describing.
-const DRILL = "qps.7";
-const CHALLENGE = "pastebin";
-const RECALL = "framework/framework-estimates";
+const LAB_CHARTS = { "retry-storm": RetryChart, "rate-limiters": LimiterChart, quorum: QuorumChart, cache: CacheChart };
+const LAB_ORDER = ["cache", "retry-storm", "rate-limiters", "quorum"] as const;
 
 export default function Home() {
   const first = chapters[0];
-  const firstLesson = first.steps[0];
-  const firstHref = lessonHref(first.id, firstLesson.id);
-  const challenge = findChallenge(CHALLENGE)!;
-  const drill = buildDrill(DRILL)!;
-  const recall = reviewVariations[RECALL];
+  const challenge = findChallenge("pastebin")!;
 
   return <SitePage home>
     <FluidField />
@@ -36,76 +31,66 @@ export default function Home() {
         chapters={courseChapters}
         goals={courseGoals}
         graph={courseOrb}
-        start={{ href: firstHref, label: "Start lesson one" }}
+        start={{ href: lessonHref(first.id, first.steps[0].id), label: "Start lesson one" }}
         counts={{ labs: labs.length, challenges: designChallenges.length }}
         words={<h1>Learn system design by making the calls.</h1>}
         foot={<>
-          <p className={home.lede}>Predict what breaks. Run the numbers. Write a design of your own and compare it with worked approaches. Useful for interviews and for the design decisions at your job.</p>
-          <CourseScope><strong>Free, with no signup.</strong> {chapters.length} chapters, {lessonCount} lessons, {labs.length} labs, and {designChallenges.length} design challenges.</CourseScope>
-          <a className={home.tryLink} href="#try">Try a lab first <ArrowDown size={15} aria-hidden="true" /></a>
+          <p className={home.lede}>Predict what breaks. Run the numbers. Compare your design with worked approaches.</p>
+          <CourseScope><strong>Free, with no signup.</strong></CourseScope>
+          <a className={home.tryLink} href="#try">Make a call now <ArrowDown size={15} aria-hidden="true" /></a>
         </>}
       />
 
       <section id="try" className={home.try} aria-labelledby="try-heading">
-        <div className={home.tryHead}>
-          <h2 id="try-heading">You learn this by doing it, so that’s what you’ll do.</h2>
-          <p>Reading about system design makes it feel familiar. It doesn’t make you able to do it with someone watching. So every part of SystemKit asks you to commit to an answer first. Here’s one to try.</p>
-        </div>
-        <HomeLab className={home.labCard} />
-        <ul className={home.moreLabs} aria-label="More labs">
-          {labs.filter((lab) => lab.id !== "retry-storm").map((lab) => <li key={lab.id}>
-            <Link href={`/labs/${lab.id}/`}><span>{lab.question}</span> <ArrowRight size={15} aria-hidden="true" /></Link>
-          </li>)}
-        </ul>
+        <h2 id="try-heading">Your app just went viral.</h2>
+        <ScaleGameSlot />
+        <noscript><p className={home.tryFallback}><Link href="/learn/scaling/">Scale to a Million Users <ArrowRight size={15} aria-hidden="true" /></Link></p><style>{"[data-scale-slot]{display:none}"}</style></noscript>
       </section>
     </div>
 
-    <section className={home.asks} aria-labelledby="practice-heading">
-      <h2 id="practice-heading">The rest of SystemKit asks you first, too.</h2>
-      <div className={home.bento}>
-        <article className={`${home.ask} ${home.askWide}`}>
-          <h3>Reason through a lesson</h3>
-          <p>Every lesson puts you in a specific decision and asks for your reasoning in writing before it shows any guidance.</p>
-          <p className={home.askQuestion}>{firstLesson.scenario}</p>
-          <div className={home.askFoot}>
-            <span>Lesson one: {firstLesson.title}</span>
-            <Link href={firstHref}>Answer it in the lesson <ArrowRight size={15} aria-hidden="true" /></Link>
+    <section className={home.asks} aria-labelledby="ways-heading">
+      <h2 id="ways-heading">Four more ways to make the call.</h2>
+      <div className={visuals.bento}>
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileWide}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/labs/">Break it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>{labs.length} labs</span>
           </div>
-        </article>
+          <div className={visuals.labGrid}>
+            {LAB_ORDER.map((id) => {
+              const lab = labs.find((item) => item.id === id)!;
+              const Chart = LAB_CHARTS[id];
+              return <Link key={id} className={visuals.lab} href={`/labs/${id}/`}>
+                <Chart />
+                <span>{lab.title} <ArrowRight size={14} aria-hidden="true" /></span>
+              </Link>;
+            })}
+          </div>
+        </Live>
 
-        <article className={home.ask}>
-          <h3>Design against the clock</h3>
-          <p>Work through a full design with a requirement that changes partway through, then compare it against a checklist and two worked approaches.</p>
-          <p className={home.askQuestion}>{challenge.title}</p>
-          <div className={home.askFoot}>
-            <span>{challenge.minutes} minutes</span>
-            <Link href={`/practice/${challenge.id}/`}>Start this one <ArrowRight size={15} aria-hidden="true" /></Link>
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileLink} ${visuals.tileNarrow}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/review/">Remember it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>5 minutes <DueReviewBadge /></span>
           </div>
-        </article>
+          <div className={visuals.tileBody}><ForgettingChart /></div>
+        </Live>
 
-        <article className={home.ask}>
-          <h3>Estimate with fresh numbers</h3>
-          <p>New numbers each time, checked against the worked answer, because this is the one design skill a machine can honestly grade.</p>
-          <p className={home.askQuestion}>{drill.prompt}</p>
-          <div className={home.askFoot}>
-            <span>Answer in {drill.unit}</span>
-            <Link href={`/practice/estimation/?drill=${DRILL}`}>Check your estimate <ArrowRight size={15} aria-hidden="true" /></Link>
+        <div className={`${visuals.tile} ${visuals.tileLink} ${visuals.tileNarrow}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/practice/estimation/">Estimate it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>New numbers each time</span>
           </div>
-        </article>
+          <div className={visuals.tileBody}><EstimateRoll /></div>
+        </div>
 
-        <article className={`${home.ask} ${home.askWide}`}>
-          <h3>Recall it in five minutes</h3>
-          <p>Short spaced review brings back what you studied, just as you’re starting to forget it.</p>
-          <p className={home.askQuestion}>{recall.prompts[0]}</p>
-          <details className={home.askAnswer}>
-            <summary>Show the answer</summary>
-            <p>{recall.answer}</p>
-          </details>
-          <div className={home.askFoot}>
-            <span>Review questions come from lessons you’ve studied.</span>
-            <Link href="/review/">Open your review <DueReviewBadge /> <ArrowRight size={15} aria-hidden="true" /></Link>
+        <Live className={`${visuals.live} ${visuals.tile} ${visuals.tileLink} ${visuals.tileWide}`}>
+          <div className={visuals.tileHead}>
+            <h3><Link href="/practice/">Design it <ArrowRight size={24} aria-hidden="true" /></Link></h3>
+            <span className={visuals.tileFacts}>{designChallenges.length} challenges</span>
           </div>
-        </article>
+          <div className={visuals.tileBody}><DesignChart minutes={challenge.minutes} /></div>
+        </Live>
       </div>
     </section>
   </SitePage>;

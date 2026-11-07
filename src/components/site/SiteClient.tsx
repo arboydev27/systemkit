@@ -56,9 +56,3 @@ export function LabView({ id, standalone = true, headingLevel = 1 }: { id: keyof
   const Lab = labLoaders[id];
   return <Lab standalone={standalone} headingLevel={headingLevel} />;
 }
-
-/** The lab on the home page. Its title can't give the answer away, because this is where a new visitor first gets asked for one. */
-export function HomeLab({ className }: { className?: string }) {
-  const Lab = labLoaders["retry-storm"];
-  return <Lab standalone={false} headingLevel={3} title="The outage is over. Now what?" className={className} />;
-}
