@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { RETRY_DEFAULTS, simulateRetries, type Backoff, type RetryResult } from "@/lib/labs/retry-storm";
-import { Assumptions, LabHeader, Prediction, Segments, Slider, useContainerWidth, useLabLink, useLabReveal, Verdict } from "./lab-shared";
+import { type LabHeadingLevel, Assumptions, LabHeader, Prediction, Segments, Slider, useContainerWidth, useLabLink, useLabReveal, Verdict } from "./lab-shared";
 import styles from "./Lab.module.css";
 
 type Outcome = "quick" | "slow" | "stuck";
@@ -106,7 +106,7 @@ function RetryChart({ result }: { result: RetryResult }) {
   </div>;
 }
 
-export function RetryStormLab({ standalone = false, headingLevel = 2 }: { standalone?: boolean; headingLevel?: 1 | 2 }) {
+export function RetryStormLab({ standalone = false, headingLevel = 2, title = "When retries keep a service down" }: { standalone?: boolean; headingLevel?: LabHeadingLevel; title?: string }) {
   const id = useId();
   const [input, setInput] = useState(RETRY_DEFAULTS);
   const [prediction, setPrediction] = useState<Outcome | null>(null);
@@ -147,7 +147,7 @@ export function RetryStormLab({ standalone = false, headingLevel = 2 }: { standa
   );
 
   return <section className={styles.lab} aria-labelledby={`${id}-heading`}>
-    <LabHeader id={`${id}-heading`} headingLevel={headingLevel} title="When retries keep a service down" link={link}
+    <LabHeader id={`${id}-heading`} headingLevel={headingLevel} title={title} link={link} actions={standalone || revealed}
       intro={`A service handling ${input.arrivalRate} requests per second loses most of its capacity for ${input.outageSeconds} seconds, then the capacity comes back. Clients give up after 5 seconds and retry. Predict whether it recovers.`}
       onReset={() => { setInput(RETRY_DEFAULTS); setPrediction(null); setRevealed(false); setPredictedFor(""); }} />
 

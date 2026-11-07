@@ -1,5 +1,5 @@
 import type { OrbGraph } from "./orb-layout";
-import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
+import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, rimNameFades, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
 import {
   arcControl, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
@@ -19,7 +19,10 @@ const PITCH_LIMIT = 1.2;
 const TURN_RESPONSE = 0.9;
 const ZOOM_RESPONSE = 0.7;
 const EMPHASIS_EASE = 0.16;
+const NAME_GAP = 0.12; // Radians of clear rim between two part names before the farther one starts to fade.
 const IDLE_FRAME = 30; // Slow rotation looks the same at 30 frames a second and costs half the battery.
+const TOUCH_IDLE_FRAME = 60; // On a phone, 15 frames a second: the rim still moves less than a pixel a frame.
+const IDLE_LIMIT = 45_000; // The orb opens the home page, so left alone it comes to rest rather than drawing for as long as the tab stays open.
 const SIGNAL_HOP = 0.075;
 const SIGNAL_WIDTH = 0.14;
 const PULSE_EVERY = 1.3;
@@ -181,12 +184,14 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let frame = 0;
   let lastTick = 0;
   let lastDraw = 0;
+  let lastActivity = performance.now();
   let destroyed = false;
 
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const scheme = window.matchMedia("(prefers-color-scheme: dark)");
   const moreContrast = window.matchMedia("(prefers-contrast: more)");
   let still = motion.matches;
+  const idleFrame = window.matchMedia("(pointer: coarse)").matches ? TOUCH_IDLE_FRAME : IDLE_FRAME;
 
   function readTheme() {
     const styles = getComputedStyle(canvas);
@@ -571,33 +576,36 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     const centerX = width / 2;
     const centerY = height / 2;
     const selectedPart = selected !== null ? graph.chapterParts[selected] : null;
-    graph.partTitles.forEach((title, part) => {
+    const shown = graph.partTitles.flatMap((title, part) => {
       const turned = turnedDirection(partCenters[part]);
       const facing = Math.min(1, Math.max(0, (turned.z + 0.25) / 0.4));
-      if (facing <= 0.01) return;
+      if (facing <= 0.01) return [];
       // Lettering stays on the top or bottom of the rim, where it can be read, even for a lobe near the equator.
       const below = turned.y < 0;
       const steep = Math.PI / 7;
       const across = Math.atan2(Math.abs(turned.y), turned.x);
       const held = Math.min(Math.PI - steep, Math.max(steep, across));
-      const angle = below ? held : -held;
-      const alpha = facing;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = selectedPart === part ? theme.ink : theme.muted;
       const letters = [...title];
       const gaps = letters.map((letter) => ctx.measureText(letter).width + 0.5);
       const total = gaps.reduce((sum, gap) => sum + gap, 0);
       const ring = below ? rim + labelSize * 0.8 : rim;
+      return [{ part, below, letters, gaps, total, ring, facing, angle: below ? held : -held, half: total / 2 / ring, depth: turned.z }];
+    });
+    const fades = rimNameFades(shown, NAME_GAP);
+    shown.forEach(({ part, below, letters, gaps, total, ring, facing, angle }, index) => {
+      if (fades[index] <= 0.01) return;
+      ctx.globalAlpha = facing * fades[index];
+      ctx.fillStyle = selectedPart === part ? theme.ink : theme.muted;
       let travel = -total / 2;
-      letters.forEach((letter, index) => {
-        const middle = travel + gaps[index] / 2;
+      letters.forEach((letter, letterIndex) => {
+        const middle = travel + gaps[letterIndex] / 2;
         const theta = below ? angle - middle / ring : angle + middle / ring;
         ctx.save();
         ctx.translate(centerX + Math.cos(theta) * ring, centerY + Math.sin(theta) * ring);
         ctx.rotate(below ? theta - Math.PI / 2 : theta + Math.PI / 2);
         ctx.fillText(letter, 0, 0);
         ctx.restore();
-        travel += gaps[index];
+        travel += gaps[letterIndex];
       });
     });
   }
@@ -666,7 +674,8 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     frame = 0;
     if (destroyed || !onScreen || document.visibilityState === "hidden") return;
     const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001;
-    if (!busy && !still && now - lastDraw < IDLE_FRAME) {
+    if (!busy && !still && now - lastActivity > IDLE_LIMIT) return;
+    if (!busy && !still && now - lastDraw < idleFrame) {
       frame = requestAnimationFrame(tick);
       return;
     }
@@ -686,6 +695,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   }
 
   function wake() {
+    lastActivity = performance.now();
     if (!frame && !destroyed && onScreen && document.visibilityState !== "hidden") {
       lastTick = 0;
       frame = requestAnimationFrame(tick);
@@ -720,7 +730,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
     const place = pointerPlace(event);
     if (event.pointerType === "mouse") pointer = place;
     if (!drag || drag.id !== event.pointerId) {
-      if (still) wake();
+      wake();
       return;
     }
     if (!drag.moved && Math.hypot(place.x - drag.startX, place.y - drag.startY) > (drag.touch ? 10 : 5)) {

@@ -6,7 +6,8 @@ import { AnalyticsSettingsButton } from "./AnalyticsConsent";
 import { DueReviewBadge } from "./SiteClient";
 import styles from "./Site.module.css";
 
-export function SitePage({ children }: { children: ReactNode }) {
+/** `wide` makes room for the home page's two columns. */
+export function SitePage({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return <div className={styles.page}>
     <a className="skip-link" href="#site-content">Skip to content</a>
     <header className={styles.header}>
@@ -20,15 +21,15 @@ export function SitePage({ children }: { children: ReactNode }) {
         <Link href="/review/">Review <DueReviewBadge /></Link>
       </nav>
     </header>
-    <main id="site-content" className={styles.main} tabIndex={-1}>{children}</main>
+    <main id="site-content" className={`${styles.main} ${wide ? styles.mainWide : ""}`} tabIndex={-1}>{children}</main>
     <footer className={styles.footer}>
-      <div className={styles.footerInner}>
+      <div className={`${styles.footerInner} ${wide ? styles.footerWide : ""}`}>
         <div>
           <p>SystemKit is free and has no accounts. Your answers, notes, and designs stay in this browser. Vercel Analytics counts page visits. Google Analytics, with its advertising features off, shows which parts get used, and in Europe it runs only if you allow it.</p>
           <p>Lessons are original teaching material informed by Alex Xu’s <em>System Design Interview</em>, Martin Kleppmann’s <em>Designing Data-Intensive Applications</em>, and primary sources. Self-checks and labs teach reasoning; they don’t certify mastery.</p>
         </div>
         <div className={styles.footerLinks}>
-          <Link href="/#progress">Back up progress</Link>
+          <Link id="progress" href="/progress/">Back up progress</Link>
           <a href={REPO_URL} rel="noreferrer">Source on GitHub</a>
           <AnalyticsSettingsButton />
         </div>

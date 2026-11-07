@@ -228,6 +228,17 @@ test('the first paint is identical on every run, with every lesson and link draw
   assert.equal(marks.lines.reduce((sum, line) => sum + (line.link.match(/M/g) ?? []).length, 0), graph.links.length / 2);
 });
 
+test('a part name fades out rather than overlapping a nearer one on the rim', () => {
+  const near = { angle: -1.2, half: 0.3, depth: 0.9 };
+  const clear = view.rimNameFades([near, { angle: -2.4, half: 0.3, depth: 0.2 }], 0.1);
+  assert.deepEqual(clear, [1, 1]);
+  const overlapping = view.rimNameFades([near, { angle: -1.6, half: 0.3, depth: 0.2 }], 0.1);
+  assert.deepEqual(overlapping, [1, 0]);
+  const closing = view.rimNameFades([near, { angle: -1.85, half: 0.3, depth: 0.2 }], 0.1);
+  assert.ok(closing[0] === 1 && closing[1] > 0 && closing[1] < 1);
+  assert.deepEqual(view.rimNameFades([near, { angle: 1.2, half: 0.3, depth: 0.2 }], 0.1), [1, 1], 'above and below the orb never meet');
+});
+
 test('the events that compare the orb with the list reach analytics with their names intact', () => {
   const { eventName } = require('../src/lib/analytics.ts');
   const source = ['CourseOrb', 'CourseMap'].map((name) => fs.readFileSync(`src/components/site/${name}.tsx`, 'utf8')).join('');

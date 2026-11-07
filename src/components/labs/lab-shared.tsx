@@ -16,11 +16,13 @@ export function useLabLink(labId: string, standalone: boolean, query: string, ap
   return `/labs/${labId}/?${query}`;
 }
 
-export function LabHeader({ id, title, intro, link, onReset, headingLevel = 2 }: {
-  id: string; title: string; intro: string; link: string; onReset: () => void; headingLevel?: 1 | 2;
+export type LabHeadingLevel = 1 | 2 | 3;
+
+export function LabHeader({ id, title, intro, link, onReset, headingLevel = 2, actions = true }: {
+  id: string; title: string; intro: string; link: string; onReset: () => void; headingLevel?: LabHeadingLevel; actions?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const Heading = headingLevel === 1 ? "h1" : "h2";
+  const Heading = `h${headingLevel}` as const;
   async function copy() {
     try {
       await navigator.clipboard.writeText(new URL(link, window.location.origin).href);
@@ -32,10 +34,10 @@ export function LabHeader({ id, title, intro, link, onReset, headingLevel = 2 }:
   return <>
     <div className={styles.heading}>
       <Heading id={id}>{title}</Heading>
-      <div className={styles.headingActions}>
+      {actions ? <div className={styles.headingActions}>
         <button type="button" onClick={copy}>{copied ? <Check size={14} aria-hidden="true" /> : <LinkIcon size={14} aria-hidden="true" />} {copied ? "Link copied" : "Copy this setup"}</button>
         <button type="button" onClick={() => { setCopied(false); onReset(); }}><RotateCcw size={14} aria-hidden="true" /> Reset</button>
-      </div>
+      </div> : null}
     </div>
     <p className={styles.intro}>{intro}</p>
   </>;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyProgress, nextLessonInOrder, parseProgress, resumeLesson, resumeStepInChapter } from "../src/lib/progress.ts";
+import { emptyProgress, mainAction, nextLessonInOrder, parseProgress, resumeLesson, resumeStepInChapter } from "../src/lib/progress.ts";
 import { collectBackup, completedLessons, parseBackup, restoreBackup } from "../src/lib/backup.ts";
 import { analyticsAllowed, dueReturnEvents, eventName, needsConsent, parseUsage } from "../src/lib/analytics.ts";
 import { correctIsStrictlyLongest, longestOptionShare, optionOrder, quizIssues } from "../src/lib/quiz.ts";
@@ -16,6 +16,19 @@ function memoryStorage(initial = {}, { failOn } = {}) {
     dump: () => Object.fromEntries(map),
   };
 }
+
+test("the home page's main action starts a new visitor where their goal begins and returns anyone else to their place", () => {
+  const chapter = (id) => ({ id, number: id, title: `Chapter ${id}`, part: "Part", storageKey: id, stepIds: [`${id}1`, `${id}2`] });
+  const course = [chapter("a"), chapter("b")];
+  const none = () => emptyProgress;
+  assert.deepEqual(mainAction(course, null, none), { chapterId: "a", stepId: "a1", title: "Chapter a", resuming: false });
+  assert.deepEqual(mainAction([...course].reverse(), null, none), { chapterId: "b", stepId: "b1", title: "Chapter b", resuming: false });
+  assert.equal(mainAction(course, "removed-chapter", none).resuming, false);
+
+  const finishedA = (key) => key === "a" ? { ...emptyProgress, completed: ["a1", "a2"] } : emptyProgress;
+  assert.deepEqual(mainAction(course, "a", finishedA), { chapterId: "b", stepId: "b1", title: "Chapter b", resuming: true });
+  assert.equal(mainAction(course, "a", () => ({ ...emptyProgress, completed: ["a1", "a2", "b1", "b2"] })), null);
+});
 
 test("malformed progress falls back safely and keeps valid fields", () => {
   assert.deepEqual(parseProgress("nope"), emptyProgress);

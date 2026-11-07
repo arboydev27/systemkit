@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,9 +63,12 @@ type CourseOrbProps = {
   next: { chapterId: string; stepId: string } | null;
   started: boolean;
   onFail: () => void;
+  /** Lays the orb out in the home page's opening: the stage on the right and the rest down the left, with `between` above the lesson panel. */
+  lead?: boolean;
+  between?: ReactNode;
 };
 
-export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progress, next, started, onFail }: CourseOrbProps) {
+export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progress, next, started, onFail, lead = false, between }: CourseOrbProps) {
   const router = useRouter();
   const stage = useRef<HTMLDivElement>(null);
   const tooltip = useRef<HTMLDivElement>(null);
@@ -218,46 +221,61 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
   // Finished rows can push the next lesson off a phone screen, and another chapter hides it altogether.
   const nextIsOutOfSight = nextLesson !== null && (chapterOfLesson(graph, nextLesson) !== shownChapter || nextLesson - graph.chapterStarts[shownChapter] > 2);
 
+  const key = <div className={styles.key}>
+    <p>Each dot is a lesson, gathered by chapter into four parts. Lines link lessons that build on each other, and the larger dots have more links. <span className={styles.hintPointer}>Drag to turn it, and click a dot to open its lesson.</span><span className={styles.hintTouch}>Swipe sideways to turn it, and tap a region to see its lessons.</span></p>
+    <ul>
+      <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2" opacity=".65" /></svg> Not started</li>
+      <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg> Finished</li>
+      <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.6" /><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" /></svg> {nextLabel}</li>
+      {ordered ? <li><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 9c2-7 5 3 10-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg> Your order, fading as it goes</li> : null}
+    </ul>
+  </div>;
+
   return <>
-    <div className={styles.orb}>
-      <div
-        ref={stage}
-        className={`${styles.stage} ${ready ? styles.stageLive : ""}`}
-        role="application"
-        tabIndex={0}
-        aria-label={`Map of ${graph.titles.length} lessons. Left and right arrows move between lessons, up and down between chapters, and Enter opens a lesson.`}
-        onKeyDown={onKeyDown}
-        onFocus={(event) => { if (event.target === event.currentTarget && event.currentTarget.matches(":focus-visible")) setHold(true); }}
-        onBlur={() => setHold(false)}
-      >
-        <OrbPoster graph={graph} hidden={ready} />
-        {near ? <OrbCanvas
-          graph={graph}
-          finished={finished}
-          next={nextLesson}
-          nextLabel={nextLabel}
-          order={threadOrder}
-          focus={focus}
-          hold={hold}
-          announcement={announcement}
-          tooltip={tooltip}
-          onHover={onHover}
-          onTap={onTap}
-          onOpen={open}
-          onReady={() => setReady(true)}
-          onFail={onFail}
-        /> : null}
-        <div ref={tooltip} className={`${styles.tooltip} ${shownLesson !== null ? styles.tooltipOn : ""} ${tapped ? styles.tooltipTapped : ""}`} aria-hidden="true">
-          {shownLesson === null ? null : tapped ? <Link href={hrefOf(shownLesson)} tabIndex={-1} onClick={() => trackEvent("orb_open_dot")}>
-            <strong>{graph.titles[shownLesson]} <ArrowRight size={13} aria-hidden="true" /></strong>
-            <span>{tooltipFacts}</span>
-          </Link> : <>
-            <strong>{graph.titles[shownLesson]}</strong>
-            <span>{tooltipFacts}</span>
-          </>}
+    <div className={`${styles.orb} ${lead ? styles.orbLead : ""}`}>
+      <div className={styles.stageColumn}>
+        <div
+          ref={stage}
+          className={`${styles.stage} ${ready ? styles.stageLive : ""}`}
+          role="application"
+          tabIndex={0}
+          aria-label={`Map of ${graph.titles.length} lessons. Left and right arrows move between lessons, up and down between chapters, and Enter opens a lesson.`}
+          onKeyDown={onKeyDown}
+          onFocus={(event) => { if (event.target === event.currentTarget && event.currentTarget.matches(":focus-visible")) setHold(true); }}
+          onBlur={() => setHold(false)}
+        >
+          <OrbPoster graph={graph} hidden={ready} />
+          {near ? <OrbCanvas
+            graph={graph}
+            finished={finished}
+            next={nextLesson}
+            nextLabel={nextLabel}
+            order={threadOrder}
+            focus={focus}
+            hold={hold}
+            announcement={announcement}
+            tooltip={tooltip}
+            onHover={onHover}
+            onTap={onTap}
+            onOpen={open}
+            onReady={() => setReady(true)}
+            onFail={onFail}
+          /> : null}
+          <div ref={tooltip} className={`${styles.tooltip} ${shownLesson !== null ? styles.tooltipOn : ""} ${tapped ? styles.tooltipTapped : ""}`} aria-hidden="true">
+            {shownLesson === null ? null : tapped ? <Link href={hrefOf(shownLesson)} tabIndex={-1} onClick={() => trackEvent("orb_open_dot")}>
+              <strong>{graph.titles[shownLesson]} <ArrowRight size={13} aria-hidden="true" /></strong>
+              <span>{tooltipFacts}</span>
+            </Link> : <>
+              <strong>{graph.titles[shownLesson]}</strong>
+              <span>{tooltipFacts}</span>
+            </>}
+          </div>
+          <p className={styles.keyHint} aria-hidden="true">Arrow keys move through the lessons. Enter opens one.</p>
         </div>
-        <p className={styles.keyHint} aria-hidden="true">Arrow keys move through the lessons. Enter opens one.</p>
+        {lead ? key : null}
       </div>
+
+      {between}
 
       <div className={styles.panel}>
         <h3 className={styles.panelTitle}>{chapter.title}</h3>
@@ -275,11 +293,12 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
             return <li key={stepId}>
               <Link
                 href={lessonHref(chapter.id, stepId)}
+                prefetch={false}
                 className={`${styles.lesson} ${active === lesson ? styles.lessonActive : ""} ${isNext ? styles.lessonNext : ""}`}
                 onClick={() => trackEvent("orb_open_row")}
-                onPointerEnter={(event) => { if (event.pointerType === "mouse") { setTapped(false); setActive(lesson); setFaceActive(true); } }}
+                onPointerEnter={(event) => { if (event.pointerType === "mouse") { router.prefetch(hrefOf(lesson)); setTapped(false); setActive(lesson); setFaceActive(true); } }}
                 onPointerLeave={(event) => { if (event.pointerType === "mouse") setActive(null); }}
-                onFocus={() => { setTapped(false); setActive(lesson); setFaceActive(true); }}
+                onFocus={() => { router.prefetch(hrefOf(lesson)); setTapped(false); setActive(lesson); setFaceActive(true); }}
                 onBlur={() => setActive(null)}
               >
                 <span className={styles.lessonNumber}>{step + 1}</span>
@@ -301,15 +320,7 @@ export function CourseOrb({ graph, chapters, order, ordered, goalChanges, progre
       </div>
     </div>
 
-    <div className={styles.key}>
-      <p>Each dot is a lesson, gathered by chapter into four parts. Lines link lessons that build on each other, and the larger dots have more links. <span className={styles.hintPointer}>Drag to turn it, and click a dot to open its lesson.</span><span className={styles.hintTouch}>Swipe sideways to turn it, and tap a region to see its lessons.</span></p>
-      <ul>
-        <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2" opacity=".65" /></svg> Not started</li>
-        <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" /></svg> Finished</li>
-        <li><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.6" /><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" /></svg> {nextLabel}</li>
-        {ordered ? <li><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 9c2-7 5 3 10-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg> Your order, fading as it goes</li> : null}
-      </ul>
-    </div>
+    {lead ? null : key}
     <p className="sr-only" aria-live="polite">{spoken}</p>
   </>;
 }
