@@ -21,9 +21,6 @@
   --field-a: rgb(0 0 0 / 10%);
   --field-b: rgb(0 0 0 / 6%);
   --field-light: rgb(255 255 255 / 70%);
-  --sphere-high: rgb(255 255 255 / 75%);
-  --sphere-low: rgb(0 0 0 / 5%);
-  --sphere-drop: rgb(0 0 0 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,9 +33,6 @@
     --field-a: rgb(255 255 255 / 20%);
     --field-b: rgb(255 255 255 / 10%);
     --field-light: rgb(255 255 255 / 7%);
-    --sphere-high: rgb(255 255 255 / 9%);
-    --sphere-low: rgb(255 255 255 / 3%);
-    --sphere-drop: rgb(0 0 0 / 55%);
   }
 }
 

@@ -1,9 +1,9 @@
 import type { OrbGraph } from "./orb-layout";
 
-// How the orb looks from a given angle. Pure arithmetic, shared by the first paint and the live canvas so one
+// How the brain looks from a given angle. Pure arithmetic, shared by the first paint and the live canvas so one
 // lands exactly on the other. What only the live canvas needs is in orb-motion.ts, which loads with it.
 
-export const ORB_RADIUS = 0.44; // Of the stage's width, leaving a margin for the part names around the rim.
+export const ORB_RADIUS = 0.44; // Of the stage's width: the unit sphere the brain fits in, with a margin around it.
 /** How far the viewer stands from the orb's center, in orb radii, and how much of the stage the orb fills from there. */
 export const CAMERA = 3.1;
 export const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
@@ -11,6 +11,21 @@ export const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
 /** How near a depth of -1 to 1 is to the viewer, from 0 at the back to 1 at the front. */
 export const nearness = (z: number) => Math.min(1, Math.max(0, (z + 1) / 2));
 const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * The angle the brain rests at and is first drawn from: the right hemisphere toward the viewer with the frontal lobe
+ * on the left, as anatomy plates show it, seen a little from above so the fissure between the halves shows.
+ */
+export const VIEW = { yaw: -1.3, pitch: 0.22 };
+
+/** A point turned to an angle, in the brain's own view, where the viewer stands on +z. */
+export function turned(x: number, y: number, z: number, yaw: number, pitch: number): [number, number, number] {
+  const flat = -x * Math.sin(yaw) + z * Math.cos(yaw);
+  return [x * Math.cos(yaw) + z * Math.sin(yaw), y * Math.cos(pitch) - flat * Math.sin(pitch), y * Math.sin(pitch) + flat * Math.cos(pitch)];
+}
+
+/** The size the first paint draws on. */
+export const POSTER_SIZE = 1000;
 
 /** Screen position of a point already turned to face its angle. Screen y runs down. */
 export function projectPoint(x: number, y: number, z: number, center: number, radius: number, zoom = 1) {
@@ -32,8 +47,8 @@ export function lineAlpha(depth: number, strength: number) {
   return strength * (0.1 + 0.9 * depth * depth);
 }
 
-export const CHAPTER_LINE = 0.42;
-export const RELATED_LINE = 0.2;
+export const CHAPTER_LINE = 0.3;
+export const RELATED_LINE = 0.12;
 
 /** Bezier handles that carry a chapter's thread smoothly through a lesson, so it winds like a fold in the cortex. */
 export function foldHandles(before: number[], a: number[], b: number[], after: number[]): [number[], number[]] {
@@ -86,11 +101,11 @@ export function lessonsInOrder(graph: Pick<OrbGraph, "chapterStarts">, order: nu
 const whole = Math.round;
 const compact = (path: string) => path.replaceAll(" -", "-");
 
-/** The orb drawn from the front as static marks for the first paint, in as few bytes as the page can spare. */
+/** The brain drawn at rest as static marks for the first paint, in as few bytes as the page can spare. */
 export function posterMarks(graph: OrbGraph, size: number) {
   const center = size / 2;
   const radius = size * ORB_RADIUS;
-  const point = (lesson: number) => graph.positions.slice(lesson * 3, lesson * 3 + 3);
+  const point = (lesson: number) => turned(graph.positions[lesson * 3], graph.positions[lesson * 3 + 1], graph.positions[lesson * 3 + 2], VIEW.yaw, VIEW.pitch);
   const screen = (p: number[]) => projectPoint(p[0], p[1], p[2], center, radius);
   const degrees = linkDegrees(graph);
   const bands = [0.12, 0.32, 0.55, 0.85];
@@ -140,6 +155,6 @@ export function posterMarks(graph: OrbGraph, size: number) {
       link: linkPaths[index], linkOpacity: lineAlpha(depth, RELATED_LINE).toFixed(3),
     })),
     dots: [...dotGroups.values()].sort((a, b) => a.depth - b.depth),
-    start: { ...screen(point(0)), r: dotRadius(nearness(graph.positions[2]), degrees[0], true, radius) },
+    start: { ...screen(point(0)), r: dotRadius(nearness(point(0)[2]), degrees[0], true, radius) },
   };
 }

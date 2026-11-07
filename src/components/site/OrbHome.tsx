@@ -72,8 +72,8 @@ function useLast<T>(value: T | null) {
 }
 
 /**
- * The opening of the home page, where the orb is the navigation. The glass in its middle starts the next lesson.
- * The names on its rim, and any dot, open the course where they point. The site's four sections sit on an orbit
+ * The opening of the home page, where the brain is the navigation. The glass in its middle starts the next lesson.
+ * The part names on its lobes, and any dot, open the course where they point. The site's four sections sit on an orbit
  * around it, then dock in a row once the page has scrolled past.
  */
 export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: {
@@ -200,7 +200,6 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
 
       <div className={styles.orbWrap} data-home-orb>
         <div className={styles.orbArrive}>
-          <span className={styles.sphere} aria-hidden="true" />
           <svg className={`${styles.orbit} ${docked ? styles.orbitGone : ""}`} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
             <circle cx="50" cy="50" r="49.7" pathLength="360" strokeDasharray="110 360" transform="rotate(-72 50 50)" />
           </svg>
@@ -268,7 +267,7 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
                 <button type="button" onClick={() => orb.showPart((view.part + graph.partTitles.length - 1) % graph.partTitles.length)} aria-label="Previous part"><ChevronLeft size={17} aria-hidden="true" /></button>
                 <button type="button" onClick={() => orb.showPart((view.part + 1) % graph.partTitles.length)} aria-label="Next part"><ChevronRight size={17} aria-hidden="true" /></button>
               </>}
-              <button type="button" onClick={close} aria-label="Close and go back to the orb"><X size={17} aria-hidden="true" /></button>
+              <button type="button" onClick={close} aria-label="Close and go back to the brain"><X size={17} aria-hidden="true" /></button>
             </div>
           </div>
 

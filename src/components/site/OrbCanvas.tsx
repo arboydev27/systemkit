@@ -17,7 +17,7 @@ export type OrbCanvasProps = OrbSceneEvents & {
   announcement: { lesson: number; id: number } | null;
   tooltip: RefObject<HTMLDivElement | null>;
   onReady: () => void;
-  /** The orb is the page's navigation, so its rim can be clicked. */
+  /** The brain is the page's navigation, so its part names can be clicked. */
   navigation?: boolean;
   resting?: boolean;
   /** Lends the live orb to the page, which borrows its angle for the dive through it. */
