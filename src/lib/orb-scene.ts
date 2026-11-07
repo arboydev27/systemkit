@@ -1,15 +1,13 @@
 import type { OrbGraph } from "./orb-layout";
 import { arcPoint, faceAngles, foldPoint, hitLesson, hopsFrom, nearestAngle, rimNameFades, routeAhead, rubberBand, springStep, type HitPoint } from "./orb-motion";
 import {
-  arcControl, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
+  arcControl, CAMERA, CHAPTER_LINE, chapterOfLesson, dotAlpha, dotRadius, FIT, foldHandles, foldNeighbors, lineAlpha, linkDegrees, nearness, ORB_RADIUS, RELATED_LINE,
 } from "./orb-view";
 
 // The live orb on a 2D canvas: 158 dots and a few hundred line segments don't need a 3D engine, and this
 // loads in a few kilobytes where three.js costs about 253. It draws only while on screen, and everything the
 // orb does in motion can be grabbed and redirected partway.
 
-const CAMERA = 3.1;
-const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
 const ARC_STEPS = 8;
 const FOLD_STEPS = 5;
 const ALPHA_STEPS = 16;
@@ -61,6 +59,10 @@ export type OrbScene = {
   setHold: (hold: boolean) => void;
   /** Stops drawing while the page has covered the orb, leaving the last frame on screen. */
   setResting: (resting: boolean) => void;
+  /** Holds the orb exactly where it is, for as long as the dive through it borrows its angle. */
+  setFrozen: (frozen: boolean) => void;
+  /** The angle the orb is turned to right now. */
+  view: () => { yaw: number; pitch: number };
   /** Turns to a lesson and sends a signal out from it, then goes back to drifting. */
   announce: (lesson: number) => void;
   destroy: () => void;
@@ -182,6 +184,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
   let hoveredPart: number | null = null;
   let hold = false;
   let resting = false;
+  let frozen = false;
   let rimNames: { part: number; radius: number; angle: number; half: number }[] = [];
   let order: number[] | null = null;
   let threadPoints: Float32Array | null = null;
@@ -712,7 +715,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
 
   function tick(now: number) {
     frame = 0;
-    if (destroyed || !onScreen || resting || document.visibilityState === "hidden") return;
+    if (destroyed || !onScreen || resting || frozen || document.visibilityState === "hidden") return;
     const busy = Boolean(drag) || signalStart >= 0 || threadDrawn < 1 || Boolean(target) || Math.abs(yawVelocity) + Math.abs(pitchVelocity) > 0.01 || Math.abs(zoomVelocity) > 0.001;
     if (!busy && !still && now - lastActivity > IDLE_LIMIT) return;
     if (!busy && !still && now - lastDraw < idleFrame) {
@@ -736,7 +739,7 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
 
   function wake() {
     lastActivity = performance.now();
-    if (!frame && !destroyed && onScreen && !resting && document.visibilityState !== "hidden") {
+    if (!frame && !destroyed && onScreen && !resting && !frozen && document.visibilityState !== "hidden") {
       lastTick = 0;
       frame = requestAnimationFrame(tick);
     }
@@ -935,6 +938,18 @@ export function createOrbScene(canvas: HTMLCanvasElement, graph: OrbGraph, toolt
       resting = nextResting;
       wake();
     },
+    setFrozen(nextFrozen) {
+      frozen = nextFrozen;
+      if (frozen) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        yawVelocity = 0;
+        pitchVelocity = 0;
+        target = null;
+      }
+      wake();
+    },
+    view: () => ({ yaw, pitch }),
     announce(lesson) {
       faceTo(position(lesson), true);
       startSignal(lesson);

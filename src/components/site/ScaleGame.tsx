@@ -48,19 +48,31 @@ export default function ScaleGame() {
   const finished = solved && roundIndex === SCALE_ROUNDS.length - 1;
   const note = round?.fixes.find((fix) => fix.id === picked)?.note;
 
-  // The surge arrives once the game has been seen quiet for a moment.
+  // The surge arrives once the game has been seen quiet for a moment. While the dive from the orb still covers the
+  // screen the game isn't really seen yet, so it waits for the far end to open on it.
   useEffect(() => {
     if (!root.current) return;
     let timer = 0;
+    let waiting = false;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const begin = () => { timer = window.setTimeout(() => setRoundIndex(0), still ? 0 : 900); };
+    const onArrive = () => {
+      scene.current?.arrive();
+      if (!waiting) return;
+      waiting = false;
+      begin();
+    };
+    window.addEventListener("neuron:arrive", onArrive);
     const watcher = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
       watcher.disconnect();
-      timer = window.setTimeout(() => setRoundIndex(0), still ? 0 : 900);
+      if (document.documentElement.dataset.neuron === "covering") waiting = true;
+      else begin();
     }, { threshold: 0.4 });
     watcher.observe(root.current);
     return () => {
       watcher.disconnect();
+      window.removeEventListener("neuron:arrive", onArrive);
       window.clearTimeout(timer);
     };
   }, []);

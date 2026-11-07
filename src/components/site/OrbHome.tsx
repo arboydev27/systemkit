@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Play, X } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { chapterHref } from "@/lib/links";
 import type { OrbGraph } from "@/lib/orb-layout";
+import type { OrbScene } from "@/lib/orb-scene";
 import { chapterOfLesson } from "@/lib/orb-view";
 import { completedCount, emptyProgress } from "@/lib/progress";
 import { CourseList, CourseState, useCoursePath, type CourseChapter, type GoalOption } from "./CourseMap";
 import { ChapterLessons, nextIsOutOfSight, OrbStage, useCourseOrb } from "./CourseOrb";
+import type { NeuronFlightProps } from "./NeuronFlight";
 import { DueReviewBadge } from "./SiteClient";
 import styles from "./OrbHome.module.css";
 import siteStyles from "./Site.module.css";
+
+// The dive from the orb to the game loads after the first screen, on the first sign of a visitor or the first quiet moment.
+// Until then, and if it can't load, the page scrolls with the plain fade the stylesheet gives it.
+const NeuronFlight = dynamic<NeuronFlightProps>(() => import("./NeuronFlight").catch(() => ({ default: () => null })), { ssr: false });
 
 const GOAL_NAMES: Record<string, string> = { interview: "An interview", work: "Work", foundations: "Fundamentals" };
 const lessons = (count: number) => `${count} ${count === 1 ? "lesson" : "lessons"}`;
@@ -84,6 +91,8 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
     progress: path.progress, next: path.next, started: path.started, onFail: () => path.setOrbFailed(true),
   });
   const [docked, setDocked] = useState(false);
+  const [dive, setDive] = useState(false);
+  const orbScene = useRef<OrbScene | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -105,6 +114,28 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
   }, []);
 
   useEffect(() => { if (docked) clear(); }, [docked, clear]);
+
+  useEffect(() => {
+    if (dive || path.orbFailed || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const wake = ["wheel", "touchstart", "keydown", "scroll", "pointermove"] as const;
+    const go = () => setDive(true);
+    for (const name of wake) window.addEventListener(name, go, { passive: true, once: true });
+    const idle = "requestIdleCallback" in window ? window.requestIdleCallback(go, { timeout: 4000 }) : 0;
+    const timer = idle ? 0 : window.setTimeout(go, 2500);
+    return () => {
+      for (const name of wake) window.removeEventListener(name, go);
+      if (idle) window.cancelIdleCallback(idle);
+      window.clearTimeout(timer);
+    };
+  }, [dive, path.orbFailed]);
+
+  // The dive comes out at a lesson about scaling, since that's what the game is about.
+  const exits = useMemo(() => {
+    const index = Math.max(0, chapters.findIndex((chapter) => chapter.id === "scaling"));
+    const lessons: number[] = [];
+    for (let lesson = graph.chapterStarts[index]; lesson < graph.chapterStarts[index + 1]; lesson++) lessons.push(lesson);
+    return lessons;
+  }, [chapters, graph]);
 
   useEffect(() => {
     if (!focusHeading.current) return;
@@ -181,6 +212,7 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
             navigation
             resting={docked}
             onPart={browse}
+            sceneRef={orbScene}
             className={styles.orbStage}
             tooltipClassName={styles.orbTooltip}
           />}
@@ -283,6 +315,8 @@ export function OrbHome({ chapters, goals, graph, words, foot, start, counts }: 
         </> : null}
       </aside>
     </div>
+
+    {dive && !path.orbFailed ? <NeuronFlight graph={graph} exits={exits} orb={orbScene} finished={orb.finished} /> : null}
 
     <h2 className="sr-only">The learning path</h2>
     <CourseList path={path} />
