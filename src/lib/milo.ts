@@ -86,11 +86,90 @@ export function gaze(dx: number, dy: number, near = 0.9) {
   return { x: (dx / length) * pull * GAZE_REACH.x, y: (ry / length) * pull * GAZE_REACH.y };
 }
 
-/** The head leans toward what he looks at, a little: degrees of tilt and a shift in figure widths. */
-export function lean(eyes: { x: number; y: number }) {
-  const sideways = eyes.x / GAZE_REACH.x;
-  const down = eyes.y / GAZE_REACH.y;
-  return { tilt: sideways * 2.2, x: sideways * 0.006, y: down * 0.004 };
+/**
+ * Where he turns for a target his eyes are looking at (as `gaze` gives it): the head carries most of the turn, up to the
+ * last of its rendered frames, and the torso follows with a fraction of it. Degrees toward the image's right (yaw,
+ * twist) and down (nod).
+ */
+export function turnFor(eyes: { x: number; y: number }, frames: { yaws: readonly number[]; nods: readonly number[]; twists: readonly number[] }) {
+  const sideways = Math.max(-1, Math.min(1, eyes.x / GAZE_REACH.x));
+  // His eyes reach less far up and down than across, so a nod takes less of their reach.
+  const down = Math.max(-1, Math.min(1, (eyes.y / GAZE_REACH.y) * 1.4));
+  const yaw = sideways * frames.yaws[frames.yaws.length - 1];
+  const nod = down > 0 ? down * frames.nods[frames.nods.length - 1] : -down * frames.nods[0];
+  return { yaw, nod, twist: (yaw / frames.yaws[frames.yaws.length - 1]) * frames.twists[frames.twists.length - 1] * 0.9 };
+}
+
+/** How far the eyes come back toward the middle of his screen once the head has turned toward what they look at. */
+export const EYES_GIVE_BACK = 0.55;
+
+/**
+ * The rendered frame a turn should come to rest on: the nearest one, but it only moves on once the turn is well past
+ * the middle between two frames, so a target near that middle doesn't flick him back and forth.
+ */
+export function detent(values: readonly number[], resting: number, want: number, stick = 0.18) {
+  let nearest = values[0];
+  for (const value of values) if (Math.abs(value - want) < Math.abs(nearest - want)) nearest = value;
+  const index = values.indexOf(resting);
+  if (nearest === resting || index < 0) return nearest;
+  const neighbour = values[Math.max(0, Math.min(values.length - 1, index + (want > resting ? 1 : -1)))];
+  const gap = Math.abs(neighbour - resting);
+  return Math.abs(want - resting) > gap * (0.5 + stick) ? nearest : resting;
+}
+
+/**
+ * The two frames either side of a turn and how far it is from the first to the second, eased so most of the way the
+ * nearer frame shows, and two frames crossfade only around the middle, where they'd otherwise show doubled edges.
+ */
+export function between(values: readonly number[], at: number) {
+  const last = values.length - 1;
+  if (at <= values[0]) return { from: 0, to: 0, t: 0 };
+  if (at >= values[last]) return { from: last, to: last, t: 0 };
+  let from = 0;
+  while (from < last - 1 && values[from + 1] <= at) from++;
+  const t = (at - values[from]) / (values[from + 1] - values[from]);
+  const eased = t < 0.5 ? 0.5 * Math.pow(2 * t, 1.7) : 1 - 0.5 * Math.pow(2 * (1 - t), 1.7);
+  return { from, to: from + 1, t: eased };
+}
+
+/** The frames of a grid (rows of `nods` by columns of `yaws`, in row order) that show for a turn, and how much of each. */
+export function headWeights(yaws: readonly number[], nods: readonly number[], yaw: number, nod: number) {
+  const across = between(yaws, yaw);
+  const down = between(nods, nod);
+  const weights = new Map<number, number>();
+  const add = (row: number, column: number, weight: number) => {
+    if (weight < 0.004) return;
+    const cell = row * yaws.length + column;
+    weights.set(cell, (weights.get(cell) ?? 0) + weight);
+  };
+  add(down.from, across.from, (1 - across.t) * (1 - down.t));
+  add(down.from, across.to, across.t * (1 - down.t));
+  add(down.to, across.from, (1 - across.t) * down.t);
+  add(down.to, across.to, across.t * down.t);
+  return normalized(weights);
+}
+
+/** The frames of a row that show for a turn, and how much of each. */
+export function rowWeights(values: readonly number[], at: number) {
+  const { from, to, t } = between(values, at);
+  const weights = new Map<number, number>();
+  if (1 - t >= 0.004) weights.set(from, 1 - t);
+  if (t >= 0.004) weights.set(to, (weights.get(to) ?? 0) + t);
+  return normalized(weights);
+}
+
+function normalized(weights: Map<number, number>) {
+  let sum = 0;
+  for (const weight of weights.values()) sum += weight;
+  for (const [cell, weight] of weights) weights.set(cell, weight / sum);
+  return weights;
+}
+
+/** A mix of 2D affine maps (SVG matrices), weighted. */
+export function mixAffine(maps: readonly (readonly number[])[], weights: Map<number, number>) {
+  const out = [0, 0, 0, 0, 0, 0];
+  for (const [cell, weight] of weights) for (let i = 0; i < 6; i++) out[i] += maps[cell][i] * weight;
+  return out;
 }
 
 /** Milliseconds until the next blink: mostly every few seconds, now and then a quick second one. */
@@ -102,4 +181,19 @@ export function nextBlink(random: number, justBlinked: boolean) {
 /** The side of his head the speech bubble goes, toward the roomier side of the stage. */
 export function bubbleSide(seat: number, stage: { left: number; right: number }) {
   return seat - stage.left > stage.right - seat ? "left" : "right";
+}
+
+/** The 2D affine map (as an SVG matrix: a, b, c, d, e, f) that carries three points onto three others. */
+export function affineFrom(from: number[][], to: number[][]) {
+  const [[x1, y1], [x2, y2], [x3, y3]] = from;
+  const det = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2);
+  if (Math.abs(det) < 1e-9) return [1, 0, 0, 1, 0, 0];
+  const solve = (v1: number, v2: number, v3: number) => [
+    (v1 * (y2 - y3) + v2 * (y3 - y1) + v3 * (y1 - y2)) / det,
+    (v1 * (x3 - x2) + v2 * (x1 - x3) + v3 * (x2 - x1)) / det,
+    (v1 * (x2 * y3 - x3 * y2) + v2 * (x3 * y1 - x1 * y3) + v3 * (x1 * y2 - x2 * y1)) / det,
+  ];
+  const [a, c, e] = solve(to[0][0], to[1][0], to[2][0]);
+  const [b, d, f] = solve(to[0][1], to[1][1], to[2][1]);
+  return [a, b, c, d, e, f];
 }

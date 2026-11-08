@@ -37,28 +37,74 @@ function ownTransform(element: Element) {
   return new DOMMatrix().translate(x, y).multiply(new DOMMatrix(style.transform)).translate(-x, -y);
 }
 
+/** Where an element inside Milo's figure is drawn, from the figure's corner: under each wrapper's transform on the way down. */
+function placeIn(figure: HTMLElement, element: HTMLElement) {
+  const chain: Element[] = [];
+  for (let node = element.parentElement; node && node !== figure; node = node.parentElement) chain.unshift(node);
+  let matrix = new DOMMatrix();
+  for (const node of chain) matrix = matrix.multiply(ownTransform(node));
+  return matrix.translate(element.offsetLeft, element.offsetTop);
+}
+
+/** One of Milo's layers as it shows now: the turn frames' canvas while he's turned (copied, since it goes on moving), else its image. */
+function layerOf(figure: HTMLElement, at: DOMMatrix, name: "body" | "head") {
+  const turned = figure.dataset[name === "head" ? "turnHead" : "turnBody"] !== undefined;
+  const canvas = figure.querySelector<HTMLCanvasElement>(`canvas[data-milo-turns='${name}']`);
+  if (turned && canvas && canvas.width > 0) {
+    const copy = document.createElement("canvas");
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    copy.getContext("2d")?.drawImage(canvas, 0, 0);
+    return { image: copy, width: canvas.offsetWidth, height: canvas.offsetHeight, matrix: at.multiply(placeIn(figure, canvas)) };
+  }
+  const image = figure.querySelector<HTMLImageElement>(`img[data-milo-layer='${name}']`);
+  if (!image || !image.complete) return null;
+  return { image, width: image.offsetWidth, height: image.offsetHeight, matrix: at.multiply(placeIn(figure, image)) };
+}
+
 /** Milo as the page is showing him right now: his layers where they are on screen, and his eyes as they are. */
 function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): FigureCopy | null {
   const box = figure.getBoundingClientRect();
-  const body = figure.querySelector<HTMLImageElement>("img[data-milo-layer='body']");
-  const head = figure.querySelector<HTMLImageElement>("img[data-milo-layer='head']");
-  const headTurn = figure.querySelector<HTMLElement>("[data-milo-head]");
-  const breath = headTurn?.firstElementChild;
-  if (!box.width || !body || !head || !headTurn || !breath || !body.complete || !head.complete) return null;
+  if (!box.width) return null;
   const at = new DOMMatrix().translate(box.left, box.top);
-  const layers = [
-    { image: body, width: box.width, height: box.height, matrix: at },
-    { image: head, width: box.width, height: box.height, matrix: at.multiply(ownTransform(headTurn)).multiply(ownTransform(breath)) },
-  ];
-  const eyes = [...figure.querySelectorAll("[data-milo-eye]")].map((eye, index) => {
+  let layers: FigureCopy["layers"];
+  const model = figure.dataset.milo3d !== undefined ? figure.querySelector<HTMLCanvasElement>("canvas[data-milo-model]") : null;
+  const shadow = figure.querySelector<HTMLImageElement>("img[data-milo-shadow]");
+  if (model && model.width > 0) {
+    // Milo in 3D: his contact shadow, then the model as it's drawn now (copied, since it goes on moving).
+    const copy = document.createElement("canvas");
+    copy.width = model.width;
+    copy.height = model.height;
+    copy.getContext("2d")?.drawImage(model, 0, 0);
+    layers = [{ image: copy, width: model.offsetWidth, height: model.offsetHeight, matrix: at.multiply(placeIn(figure, model)) }];
+    if (shadow?.complete && shadow.naturalWidth) layers.unshift({ image: shadow, width: shadow.offsetWidth, height: shadow.offsetHeight, matrix: at.multiply(placeIn(figure, shadow)) });
+  } else {
+    const body = layerOf(figure, at, "body");
+    const head = layerOf(figure, at, "head");
+    if (!body || !head) return null;
+    layers = [body, head];
+  }
+  // His eyes sit on his screen as the head's frames have it turned (the screen's map), and the head rolls a little.
+  const screen = figure.querySelector("[data-milo-screen]")?.getAttribute("transform")?.match(/matrix\(([^)]+)\)/);
+  const map = screen ? screen[1].trim().split(/[\s,]+/).map(Number) : [1, 0, 0, 1, 0, 0];
+  const headTurn = figure.querySelector<HTMLElement>("[data-milo-head]");
+  const roll = headTurn ? ownTransform(headTurn) : new DOMMatrix();
+  const spin = Math.atan2(roll.b, roll.a);
+  const linear = new DOMMatrix([Math.cos(spin), Math.sin(spin), -Math.sin(spin), Math.cos(spin), 0, 0]).multiply(new DOMMatrix([map[0], map[1], map[2], map[3], 0, 0]));
+  const turn = [linear.a, linear.b, linear.c, linear.d];
+  const unit = box.width / MILO.width;
+  const eyes = [...figure.querySelectorAll<SVGGElement>("[data-milo-eye]")].map((eye, index) => {
     const shape = eye.lastElementChild!.getBoundingClientRect();
-    return { x: shape.left + shape.width / 2, y: shape.top + shape.height / 2, rx: shape.width / 2, ry: shape.height / 2, open: MILO.eyes[index].ry * box.height };
+    // How far a blink or a smile has closed it, from the eye's own transform.
+    const style = getComputedStyle(eye).transform;
+    const squeeze = style && style !== "none" ? new DOMMatrix(style).d : 1;
+    const open = MILO.eyes[index].ry * MILO.height * unit;
+    return { x: shape.left + shape.width / 2, y: shape.top + shape.height / 2, rx: MILO.eyes[index].rx * MILO.width * unit, ry: open * squeeze, open, turn };
   });
   if (eyes.length < 2) return null;
   // The eye nearer the pointer, and otherwise the one nearer the middle of the screen, where the dive is going.
   const toward = hint ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   const chosen = Math.hypot(eyes[0].x - toward.x, eyes[0].y - toward.y) <= Math.hypot(eyes[1].x - toward.x, eyes[1].y - toward.y) ? 0 : 1;
-  const unit = box.width / MILO.width;
   const glowShape = figure.querySelector("[data-milo-eye] ellipse");
   const alpha = glowShape ? parseFloat(getComputedStyle(glowShape).opacity) || 0.55 : 0.55;
   return { layers, eyes, chosen, glow: { reach: 4 * unit, blur: 14 * unit, alpha, color: "#ffffff" } };

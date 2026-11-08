@@ -1,10 +1,25 @@
 /* Milo and the course line he sits on. The figure is two Blender renders; only his eyes, the line and its ticks are drawn
    here, all in the site's neutrals, with the labs' orange kept for the one tick that's next. */
 
-.figure { position: relative; aspect-ratio: 854 / 1189; pointer-events: none; -webkit-user-select: none; user-select: none; }
+.figure { position: relative; aspect-ratio: 1340 / 1841; pointer-events: none; -webkit-user-select: none; user-select: none; }
 .layer { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.head { position: absolute; inset: 0; transform: translate(var(--hx, 0%), var(--hy, 0%)) rotate(var(--tilt, 0deg)); transform-origin: 50.383% 52.69%; }
-.breath { position: absolute; inset: 0; }
+/* The head turns on the neck, rides on it as the torso twists and leans, and rolls a little toward where it turns. */
+.head { position: absolute; inset: 0; transform: translate(var(--hx, 0%), var(--hy, 0%)) rotate(var(--tilt, 0deg)); transform-origin: 50.366% 53.977%; }
+/* The torso leans on still hips, legs and fists: a shear about the seat, which moves nothing at the ledge. */
+.body { position: absolute; inset: 0; transform: skewX(var(--lean, 0deg)); transform-origin: 50% 86.162%; }
+.bodyBreath, .headBreath { position: absolute; inset: 0; }
+.bodyBreath { transform-origin: 50% 86.162%; }
+/* The turn frames, drawn over a layer's own image while he's turned away from straight ahead. */
+.turns { position: absolute; display: block; visibility: hidden; }
+.figure[data-turn-body] .body .turns, .figure[data-turn-head] .head .turns { visibility: visible; }
+.figure[data-turn-body] .body .layer, .figure[data-turn-head] .head .layer { visibility: hidden; }
+/* Milo in 3D, once it has loaded: one canvas for his whole figure, over his contact shadow, under his eyes. It fades in
+   over his images, which then step aside; the model turns, breathes and leans itself, so the layers' own motion stops. */
+.figure [data-milo-model], .figure [data-milo-shadow] { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.figure [data-milo-model] { opacity: 0; transition: opacity .45s ease; }
+.figure[data-milo3d] [data-milo-model] { opacity: 1; }
+.figure[data-milo3d] .layer, .figure[data-milo3d] .turns { visibility: hidden; transition: visibility 0s .45s; }
+.figure[data-milo3d] .head, .figure[data-milo3d] .body, .figure[data-milo3d] .headBreath, .figure[data-milo3d] .bodyBreath { transform: none; animation: none; }
 .eyes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .gaze { transform: translate(var(--gx, 0px), var(--gy, 0px)); }
 .eye { transform-box: fill-box; transform-origin: center; transition: transform .1s ease-in; }
@@ -17,12 +32,15 @@
   .eyeGlow { opacity: .7; }
 }
 
+/* He breathes with his torso: it rises on still hips (a stretch about the seat), and his head rides up with his neck. */
 @media (prefers-reduced-motion: no-preference) {
-  .breath { animation: breathe 5.6s ease-in-out infinite; }
-  .figure[data-still] .breath { animation-play-state: paused; }
+  .bodyBreath { animation: breathe 5.6s ease-in-out infinite; }
+  .headBreath { animation: breatheHead 5.6s ease-in-out infinite; }
+  .figure[data-still] .bodyBreath, .figure[data-still] .headBreath { animation-play-state: paused; }
 }
 
-@keyframes breathe { 50% { transform: translateY(-.42%) rotate(-.25deg); } }
+@keyframes breathe { 50% { transform: scaleY(1.009); } }
+@keyframes breatheHead { 50% { transform: translateY(-0.29%); } }
 
 /* The line */
 .ledge { --hot-line: #eb6834; position: absolute; height: 0; color: var(--ink); }
