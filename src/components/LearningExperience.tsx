@@ -355,7 +355,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
 
           <div className={`sidebar-foot ${saveFailed ? "sidebar-foot-warning" : ""}`}>
             <span className="sidebar-foot-icon">{saveFailed ? <TriangleAlert size={13} /> : <Circle size={9} fill="currentColor" />}</span>
-            <span>{saveFailed ? "This browser isn’t saving your progress" : <>Saved in this browser. <Link href="/#progress">Back it up</Link></>}</span>
+            <span>{saveFailed ? "This browser isn’t saving your progress" : <>Saved in this browser. <Link href="/progress/">Back it up</Link></>}</span>
           </div>
         </div>
       </aside>

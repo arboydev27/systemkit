@@ -1,6 +1,5 @@
 export const ACTIVE_CHAPTER_KEY = "systemkit:active-chapter:v1";
 export const GOAL_KEY = "systemkit:goal:v1";
-export const COURSE_VIEW_KEY = "systemkit:course-view:v1";
 export const MIN_REASONING_LENGTH = 20;
 
 export type Progress = {
@@ -118,6 +117,18 @@ export function nextLessonInOrder(
 ) {
   const start = order.some((chapter) => chapter.id === activeChapterId) ? activeChapterId : order[0]?.id ?? null;
   return resumeLesson(order, start, read);
+}
+
+/** The lesson the home page's main button offers, and whether that's returning to it or starting out. Null once everything is finished. */
+export function mainAction(
+  order: OutlineChapter[],
+  activeChapterId: string | null,
+  read: (storageKey: string) => Progress,
+) {
+  const next = nextLessonInOrder(order, activeChapterId, read);
+  const chapter = order.find((item) => item.id === next?.chapterId);
+  if (!next || !chapter) return null;
+  return { ...next, title: chapter.title, resuming: order.some((item) => item.id === activeChapterId) };
 }
 
 export function completedCount(stepIds: string[], progress: Progress) {
