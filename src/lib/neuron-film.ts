@@ -67,7 +67,7 @@ const hash = (n: number) => {
   return x - Math.floor(x);
 };
 
-/** The film for one route through the orb: the lessons it passes, and how many other links each has. */
+/** The film for one route through the course: the lessons it passes, and how many other links each has. */
 export function makeFilm(route: number[], titles: string[], degrees: number[]): Film {
   const passed = route.slice(1, -1);
   // A route of one hop still passes a node: the axon needs one to read as an axon, so it's left unnamed.

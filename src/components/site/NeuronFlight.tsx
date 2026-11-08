@@ -4,11 +4,11 @@ import { useEffect, useRef, type RefObject } from "react";
 import { makeFilm, shoot, type Film } from "@/lib/neuron-film";
 import { createNeuronGl, type NeuronGl } from "@/lib/neuron-gl";
 import { FLIGHT, hermite, ramp, settleTo } from "@/lib/neuron-route";
-import { createNeuronScene, holeAt, type NeuronPlace } from "@/lib/neuron-scene";
+import { MILO } from "@/lib/milo-figure";
+import { createNeuronScene, holeAt, type FigureCopy, type NeuronPlace } from "@/lib/neuron-scene";
 import type { OrbGraph } from "@/lib/orb-layout";
-import type { OrbScene } from "@/lib/orb-scene";
-import { FIT, linkDegrees, ORB_RADIUS } from "@/lib/orb-view";
-import styles from "./OrbHome.module.css";
+import { linkDegrees } from "@/lib/orb-view";
+import styles from "./MiloHome.module.css";
 
 const FOLLOW = 0.05; // Seconds the dive takes to catch up with the page, so a wheel's steps run together.
 const QUICKEST = 0.6; // However far the page jumps, the whole dive takes at least this long, and the page waits under it.
@@ -24,16 +24,52 @@ export type NeuronFlightProps = {
   graph: OrbGraph;
   /** The lessons the dive may come out at: the ones about scaling, since the game is about scaling. */
   exits: number[];
-  orb: RefObject<OrbScene | null>;
+  /** The lesson the route starts from: the visitor's next one. */
+  start: RefObject<number>;
   finished: boolean[];
 };
 
+/** The transform an element has on screen, about its own origin, as a matrix. */
+function ownTransform(element: Element) {
+  const style = getComputedStyle(element);
+  if (!style.transform || style.transform === "none") return new DOMMatrix();
+  const [x, y] = style.transformOrigin.split(" ").map(parseFloat);
+  return new DOMMatrix().translate(x, y).multiply(new DOMMatrix(style.transform)).translate(-x, -y);
+}
+
+/** Milo as the page is showing him right now: his layers where they are on screen, and his eyes as they are. */
+function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): FigureCopy | null {
+  const box = figure.getBoundingClientRect();
+  const body = figure.querySelector<HTMLImageElement>("img[data-milo-layer='body']");
+  const head = figure.querySelector<HTMLImageElement>("img[data-milo-layer='head']");
+  const headTurn = figure.querySelector<HTMLElement>("[data-milo-head]");
+  const breath = headTurn?.firstElementChild;
+  if (!box.width || !body || !head || !headTurn || !breath || !body.complete || !head.complete) return null;
+  const at = new DOMMatrix().translate(box.left, box.top);
+  const layers = [
+    { image: body, width: box.width, height: box.height, matrix: at },
+    { image: head, width: box.width, height: box.height, matrix: at.multiply(ownTransform(headTurn)).multiply(ownTransform(breath)) },
+  ];
+  const eyes = [...figure.querySelectorAll("[data-milo-eye]")].map((eye, index) => {
+    const shape = eye.lastElementChild!.getBoundingClientRect();
+    return { x: shape.left + shape.width / 2, y: shape.top + shape.height / 2, rx: shape.width / 2, ry: shape.height / 2, open: MILO.eyes[index].ry * box.height };
+  });
+  if (eyes.length < 2) return null;
+  // The eye nearer the pointer, and otherwise the one nearer the middle of the screen, where the dive is going.
+  const toward = hint ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  const chosen = Math.hypot(eyes[0].x - toward.x, eyes[0].y - toward.y) <= Math.hypot(eyes[1].x - toward.x, eyes[1].y - toward.y) ? 0 : 1;
+  const unit = box.width / MILO.width;
+  const glowShape = figure.querySelector("[data-milo-eye] ellipse");
+  const alpha = glowShape ? parseFloat(getComputedStyle(glowShape).opacity) || 0.55 : 0.55;
+  return { layers, eyes, chosen, glow: { reach: 4 * unit, blur: 14 * unit, alpha, color: "#ffffff" } };
+}
+
 /**
- * Scrolling from the orb to the game dives through one of its dots and along real links to a lesson about scaling,
- * then opens on the game. The page scrolls as it always does: the dive only follows it, and once scrolling stops
- * partway it finishes the way the visitor was going. Anything a visitor does stops it.
+ * Scrolling from Milo to the game dives in through one of his eyes and along real links from the visitor's next
+ * lesson to a lesson about scaling, then opens on the game. The page scrolls as it always does: the dive only follows
+ * it, and once scrolling stops partway it finishes the way the visitor was going. Anything a visitor does stops it.
  */
-export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlightProps) {
+export default function NeuronFlight({ graph, exits, start, finished }: NeuronFlightProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const deep = useRef<HTMLCanvasElement>(null);
   const done = useRef(finished);
@@ -44,11 +80,10 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
     const under = deep.current;
     const world = node?.parentElement;
     const stage = world?.querySelector<HTMLElement>("[data-home-stage]");
-    const wrap = stage?.querySelector<HTMLElement>("[data-home-orb]");
-    const plate = wrap?.querySelector<HTMLElement>("[role='application']");
-    const lens = stage?.querySelector<HTMLElement>("[data-home-orb] a");
+    const figure = stage?.querySelector<HTMLElement>("[data-milo]");
+    const seat = figure?.parentElement;
     const section = document.getElementById("try");
-    if (!node || !under || !world || !stage || !wrap || !plate || !section) return;
+    if (!node || !under || !world || !stage || !figure || !seat || !section) return;
     const beneath: HTMLCanvasElement = under;
     let scene: ReturnType<typeof createNeuronScene> = null;
     try { scene = createNeuronScene(node, graph, exits); } catch { scene = null; }
@@ -88,7 +123,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
       const width = beneath.clientWidth || window.innerWidth;
       const height = beneath.clientHeight || window.innerHeight;
       if (neuron.calibrate(sample, shoot(sample, 0.45, width, height, width / 2, height / 2))) {
-        // A device found too slow may only have been busy, with the orb still growing, say, so it gets one more try.
+        // A device found too slow may only have been busy, with the page still loading, say, so it gets one more try.
         if (!neuron.capable() && !retried) {
           retried = true;
           neuron.retry();
@@ -137,30 +172,25 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
     };
 
     function launch() {
-      const box = plate!.getBoundingClientRect();
-      place.orbSize = plate!.offsetWidth;
-      place.orbX = box.left + box.width / 2;
-      place.orbY = box.top + box.height / 2;
-      launchOrbY = place.orbY;
+      const copy = copyOf(figure!, hint);
+      if (!copy) return false;
+      place.orbSize = figure!.offsetWidth;
       launchScroll = window.scrollY;
       pinned = getComputedStyle(stage!).position === "sticky";
-      const reach = place.orbSize * ORB_RADIUS * FIT;
-      const pointer = hint && Math.hypot(hint.x - place.orbX, hint.y - place.orbY) < reach * 1.1 ? { x: (hint.x - place.orbX) / reach, y: (hint.y - place.orbY) / reach } : null;
-      const lensReach = lens ? (lens.offsetWidth / 2 / reach) * 1.2 : 0;
-      orb.current?.setFrozen(true);
-      const entry = dive.launch(orb.current?.view() ?? { yaw: 0, pitch: 0 }, place, done.current, pointer, lensReach, orb.current?.stains() ?? null);
+      const entry = dive.launch(place, start.current ?? 0, copy, done.current);
+      launchOrbY = entry.y;
       film = neuron?.ready() && neuron.capable() ? makeFilm(dive.route(), graph.titles, degrees) : null;
-      // The page in front of the orb blows outward from the dot as the camera goes for it.
+      // The page around Milo blows outward from his eye as the camera goes for it.
       const stageBox = stage!.getBoundingClientRect();
-      stage!.style.transformOrigin = `${(place.orbX + entry.x - stageBox.left).toFixed(1)}px ${(place.orbY + entry.y - stageBox.top).toFixed(1)}px`;
+      stage!.style.transformOrigin = `${(entry.x - stageBox.left).toFixed(1)}px ${(entry.y - stageBox.top).toFixed(1)}px`;
       launched = true;
+      return true;
     }
 
     function release() {
       stage!.style.transform = "";
       stage!.style.transformOrigin = "";
       stage!.style.willChange = "";
-      orb.current?.setFrozen(false);
       launched = false;
     }
 
@@ -170,8 +200,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
       beneath.style.display = "none";
       stage!.style.opacity = "";
       stage!.style.pointerEvents = "";
-      plate!.style.opacity = "";
-      wrap!.style.opacity = "";
+      seat!.style.visibility = "";
       section!.style.opacity = "";
       delete root.dataset.neuron;
       arrived = false;
@@ -207,7 +236,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
         return;
       }
       if (progress >= 1) {
-        // At the game: the orb rests hidden under it, still in the tab order, and focusing it flies back.
+        // At the game: Milo rests hidden under it, still in the tab order, and focusing the stage flies back.
         if (launched) release();
         node!.style.display = "none";
         beneath.style.display = "none";
@@ -218,20 +247,20 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
         arrive();
         return;
       }
-      if (!launched) launch();
-      // The words go past the camera as it goes for the dot. The orb's own glass goes at once, since the copy on the
-      // canvas has taken over the dots and is about to draw back from them.
+      // His images haven't loaded yet, so there's nothing to copy: the page scrolls with its plain fade instead.
+      if (!launched && !launch()) return;
+      // The words go past the camera as it goes for the eye. Milo himself goes at once, since the copy on the canvas
+      // has taken him over.
       const fall = ramp(0, FLIGHT.pull, progress);
       const covered = progress >= FLIGHT.covered;
       stage!.style.willChange = covered ? "" : "transform, opacity";
       stage!.style.transform = covered ? "" : `scale(${(1 + fall * fall * 0.35).toFixed(4)})`;
       stage!.style.opacity = String(1 - fall);
       stage!.style.pointerEvents = "none";
-      wrap!.style.opacity = String(1 - ramp(0, 0.03, progress));
-      plate!.style.opacity = String(1 - ramp(0, 0.015, progress));
+      seat!.style.visibility = "hidden";
       section!.style.opacity = progress < 0.5 ? "0" : "";
       root.dataset.neuron = progress < FLIGHT.open ? "covering" : "open";
-      // Shaders that finish compiling before the dot opens still make this dive.
+      // Shaders that finish compiling before the eye opens still make this dive.
       if (!film && progress < FLIGHT.pull && neuron?.ready() && neuron.capable()) film = makeFilm(dive.route(), graph.titles, degrees);
       if (progress >= FLIGHT.open - 0.02) arrive();
       else if (progress < 0.5) arrived = false;
@@ -243,7 +272,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
         dive.draw(progress, place);
         return;
       }
-      // The neuron beneath shows through the dot as it opens, then fills the screen, and its far end opens on the game.
+      // The neuron beneath shows through the eye as it opens, then fills the screen, and its far end opens on the game.
       const width = node!.clientWidth;
       const height = node!.clientHeight;
       const toward = ramp(FLIGHT.covered - 0.02, FLIGHT.through + 0.08, progress);
@@ -254,7 +283,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
       y += (place.holeY - y) * toHole;
       const shot = shoot(film, progress, width, height, x, y);
       const entry = dive.draw(progress, place, { film, shot });
-      // Once the dot's inside fills the screen, the camera stops following the dot and settles on the middle.
+      // Once the eye's inside fills the screen, the camera stops following the eye and settles on the middle.
       if (progress < FLIGHT.covered) lastEntry = { x: Math.min(width, Math.max(0, entry.x)), y: Math.min(height, Math.max(0, entry.y)) };
       if (progress < FLIGHT.pull) {
         beneath.style.display = "none";
@@ -282,7 +311,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
       return false;
     }
 
-    // A gesture that started where the dive couldn't take it, such as a phone's swipe above the orb's foot, scrolls the
+    // A gesture that started where the dive couldn't take it, such as a phone's swipe above Milo's line, scrolls the
     // page natively, and is held at the game until it ends, under the dive, so its momentum can't carry past.
     let held: { last: number; touching: boolean } | null = null;
     function hold() {
@@ -363,7 +392,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
       wake();
     };
 
-    // Inside the dive, one gesture plays it all, into the dot and out onto the game, or all the way back, and the
+    // Inside the dive, one gesture plays it all, into the eye and out onto the game, or all the way back, and the
     // rest of that gesture, a trackpad's momentum and all, is held back: only its first event can be, so that's where
     // it's decided. So no flick can carry the page past the game.
     const wheel = { last: -Infinity, way: 0, sum: 0, taken: false, done: false, sizes: [] as number[] };
@@ -460,7 +489,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === "mouse") hint = { x: event.clientX, y: event.clientY };
     };
-    // Keyboard focus landing on the hidden orb brings it back rather than leaving focus out of sight.
+    // Keyboard focus landing on the hidden stage brings it back rather than leaving focus out of sight.
     const onFocus = (event: FocusEvent) => {
       if (progress > 0.02 && pinned && event.target instanceof Node && stage!.contains(event.target)) settle(0);
     };
@@ -518,7 +547,7 @@ export default function NeuronFlight({ graph, exits, orb, finished }: NeuronFlig
     listenToTouches();
     wake();
     return stop;
-  }, [graph, exits, orb]);
+  }, [graph, exits, start]);
 
   return <>
     <canvas ref={deep} className={styles.flightDeep} aria-hidden="true" />

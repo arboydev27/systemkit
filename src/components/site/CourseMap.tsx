@@ -1,13 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { chapterHref, lessonHref } from "@/lib/links";
 import type { OrbGraph } from "@/lib/orb-layout";
+import { ledgeOf, seatX } from "@/lib/milo";
 import { ACTIVE_CHAPTER_KEY, completedCount, emptyProgress, GOAL_KEY, mainAction, nextLessonInOrder, readProgress, type OutlineChapter, type Progress } from "@/lib/progress";
-import { CourseOrb } from "./CourseOrb";
+import { ChapterLessons, nextIsOutOfSight, useCourseNav, type CourseNavProps } from "./CourseNav";
+import navStyles from "./CourseNav.module.css";
+import { CourseLedge, MiloFigure, useMiloLife, type MiloFocus } from "./Milo";
 import styles from "./Site.module.css";
 
 export type CourseChapter = OutlineChapter & { summary: string; lessonCount: number };
@@ -100,7 +103,104 @@ export function useCoursePath(chapters: CourseChapter[], goals: GoalOption[]) {
   return { goalId, goal, choose, goalChanges, walk, order, next, started, progress, courseState, groups, orbFailed, setOrbFailed, hydrated };
 }
 
-/** Search engines and screen readers read this list while the orb is showing. It only leaves the screen and the tab order, and it takes over whenever the orb can't run. */
+/** The learning path's map: Milo on the course line at the next lesson, with the shown chapter's lessons beside him. */
+function CourseLine(props: CourseNavProps) {
+  const { graph, chapters, order, ordered, onFail } = props;
+  const nav = useCourseNav(props);
+  const ledge = useMemo(() => ledgeOf(graph), [graph]);
+  const scene = useRef<HTMLDivElement>(null);
+  const figure = useRef<HTMLDivElement>(null);
+  const focus = useRef<MiloFocus>(null);
+  const wake = useMiloLife(figure, focus);
+  const chapter = chapters[nav.shownChapter];
+  const orderPlace = order.indexOf(nav.shownChapter);
+  const doneInChapter = chapter.stepIds.filter((_, step) => nav.finished[nav.lessonAt(nav.shownChapter, step)]).length;
+
+  // His images are the map's only part that can fail to arrive; the list takes over if they do.
+  useEffect(() => {
+    const images = [...(figure.current?.querySelectorAll("img") ?? [])];
+    const failed = () => onFail();
+    for (const image of images) image.addEventListener("error", failed);
+    return () => { for (const image of images) image.removeEventListener("error", failed); };
+  }, [onFail]);
+
+  const place = useCallback(() => {
+    const node = scene.current;
+    const line = node?.querySelector<HTMLElement>("[data-ledge]");
+    if (!node || !line || !figure.current) return;
+    const width = node.getBoundingClientRect().width;
+    const x = seatX(ledge.lessons[nav.nextLesson ?? 0], { left: 0, width }, figure.current.offsetWidth * 0.84, { left: 0, right: width });
+    node.style.setProperty("--seat-x", `${x.toFixed(1)}px`);
+  }, [ledge, nav.nextLesson]);
+
+  useEffect(() => {
+    const node = scene.current;
+    if (!node) return;
+    place();
+    const watcher = new ResizeObserver(place);
+    watcher.observe(node);
+    return () => watcher.disconnect();
+  }, [place]);
+
+  const onFocusLesson = useCallback((spot: MiloFocus) => {
+    focus.current = spot;
+    wake.current();
+  }, [wake]);
+
+  return <>
+    <div className={navStyles.course}>
+      <div ref={scene} className={navStyles.scene}>
+        <i className={navStyles.horizon} aria-hidden="true" />
+        <CourseLedge
+          graph={graph}
+          chapters={chapters}
+          nav={nav}
+          ledge={ledge}
+          onPart={(part) => nav.showChapter(graph.chapterParts.indexOf(part))}
+          onFocusLesson={onFocusLesson}
+          highlight={{ from: graph.chapterStarts[nav.shownChapter], to: graph.chapterStarts[nav.shownChapter + 1] }}
+          className={navStyles.ledgeBox}
+          partsClassName={navStyles.partsBox}
+        />
+        <div className={navStyles.seat}>
+          <MiloFigure figureRef={figure} className={navStyles.figure} sizes="clamp(165px, 22vw, 237px)" />
+        </div>
+      </div>
+
+      <div className={navStyles.panel}>
+        <h3 className={navStyles.panelTitle}>{chapter.title}</h3>
+        <p className={navStyles.panelFacts}>
+          {chapter.part} · {doneInChapter > 0 ? `${doneInChapter} of ${chapter.lessonCount} lessons finished` : `${chapter.lessonCount} lessons`}
+          {ordered ? <> · step {orderPlace + 1} of {order.length} in your order</> : null}
+        </p>
+        {nextIsOutOfSight(nav, graph) && nav.nextLesson !== null ? <Link className={navStyles.nextUp} href={nav.hrefOf(nav.nextLesson)} onClick={() => trackEvent("orb_open_row")}>
+          <span>{nav.nextLabel}: {graph.titles[nav.nextLesson]}</span> <ArrowRight size={15} aria-hidden="true" />
+        </Link> : null}
+        <ChapterLessons nav={nav} graph={graph} chapter={chapter} index={nav.shownChapter} />
+        <div className={navStyles.panelFoot}>
+          <Link className={navStyles.chapterLink} href={chapterHref(chapter.id)} onClick={() => trackEvent("orb_open_chapter")}>About this chapter</Link>
+          <div className={navStyles.steppers}>
+            <button type="button" onClick={() => nav.stepChapter(-1)} aria-label="Previous chapter"><ChevronLeft size={17} aria-hidden="true" /></button>
+            <button type="button" onClick={() => nav.stepChapter(1)} aria-label="Next chapter"><ChevronRight size={17} aria-hidden="true" /></button>
+          </div>
+        </div>
+        {nav.nextLesson === null ? <p className={navStyles.allDone}>You’ve finished all {graph.titles.length} lessons. <Link href="/review/">Keep them fresh in review</Link>.</p> : null}
+      </div>
+    </div>
+
+    <div className={navStyles.key}>
+      <p>Each tick on the line is a lesson, in course order, gathered into chapters and four parts. Milo sits at your next one, which is lit. <span className={navStyles.hintPointer}>Point along the line to read a lesson&rsquo;s name, and click to open it.</span><span className={navStyles.hintTouch}>Each tick is a chapter on a phone. Tap one to see its lessons.</span></p>
+      <ul>
+        <li><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v6" stroke="currentColor" strokeOpacity=".3" /></svg> Not started</li>
+        <li><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v6" stroke="currentColor" /></svg> Finished</li>
+        <li><svg viewBox="0 0 12 12" aria-hidden="true"><path className={navStyles.keyNext} d="M6 1v10" strokeWidth="2" /></svg> {nav.nextLabel}</li>
+      </ul>
+    </div>
+    <p className="sr-only" aria-live="polite">{nav.spoken}</p>
+  </>;
+}
+
+/** Search engines and screen readers read this list while the course line is showing. It only leaves the screen and the tab order, and it takes over whenever the line can't run. */
 export function CourseList({ path }: { path: ReturnType<typeof useCoursePath> }) {
   return <div className={!path.orbFailed ? "sr-only" : undefined} data-course-list>
     {path.groups.map((group) => <div key={group.title} className={styles.part}>
@@ -110,7 +210,7 @@ export function CourseList({ path }: { path: ReturnType<typeof useCoursePath> })
   </div>;
 }
 
-/** The learning path page: the goal, then the orb with its lesson panel. */
+/** The learning path page: the goal, then Milo on the course line with its lesson panel. */
 export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[]; goals: GoalOption[]; orb: OrbGraph }) {
   const path = useCoursePath(chapters, goals);
   const { goal, goalId, choose, goalChanges, order, next, started, progress, orbFailed, setOrbFailed } = path;
@@ -127,7 +227,7 @@ export function CourseMap({ chapters, goals, orb }: { chapters: CourseChapter[];
     </fieldset>
     <p className={styles.goalDetail} role="status">{goal?.detail ?? "Choose one and the course will reorder to suit it. You can change your mind at any time."}</p>
     {!orbFailed ? <div data-course-orb>
-      <CourseOrb
+      <CourseLine
         graph={orb}
         chapters={chapters}
         order={order}
