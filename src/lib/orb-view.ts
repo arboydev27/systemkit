@@ -1,9 +1,9 @@
 import type { OrbGraph } from "./orb-layout";
 
-// How the orb looks from a given angle. Pure arithmetic, shared by the first paint and the live canvas so one
-// lands exactly on the other. What only the live canvas needs is in orb-motion.ts, which loads with it.
+// The course as a sphere of lessons, which the dive draws inside when there's no WebGL, and the lookups the course
+// line shares with it. Pure arithmetic.
 
-export const ORB_RADIUS = 0.44; // Of the stage's width, leaving a margin for the part names around the rim.
+export const ORB_RADIUS = 0.44; // The sphere's radius as a share of what the dive goes into, which sets the scale inside.
 /** How far the viewer stands from the orb's center, in orb radii, and how much of the stage the orb fills from there. */
 export const CAMERA = 3.1;
 export const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
@@ -11,12 +11,6 @@ export const FIT = Math.sqrt(1 - 1 / (CAMERA * CAMERA));
 /** How near a depth of -1 to 1 is to the viewer, from 0 at the back to 1 at the front. */
 export const nearness = (z: number) => Math.min(1, Math.max(0, (z + 1) / 2));
 const smooth = (t: number) => t * t * (3 - 2 * t);
-
-/** Screen position of a point already turned to face its angle. Screen y runs down. */
-export function projectPoint(x: number, y: number, z: number, center: number, radius: number, zoom = 1) {
-  const scale = (CAMERA / (CAMERA - z)) * FIT * radius * zoom;
-  return { x: center + x * scale, y: center - y * scale };
-}
 
 export function dotRadius(depth: number, degree: number, finished: boolean, radius: number) {
   return radius * 0.0118 * (1 + 0.14 * Math.sqrt(degree)) * (0.45 + 0.8 * depth) * (finished ? 1.32 : 1);
@@ -83,63 +77,4 @@ export function lessonsInOrder(graph: Pick<OrbGraph, "chapterStarts">, order: nu
   });
 }
 
-const whole = Math.round;
-const compact = (path: string) => path.replaceAll(" -", "-");
 
-/** The orb drawn from the front as static marks for the first paint, in as few bytes as the page can spare. */
-export function posterMarks(graph: OrbGraph, size: number) {
-  const center = size / 2;
-  const radius = size * ORB_RADIUS;
-  const point = (lesson: number) => graph.positions.slice(lesson * 3, lesson * 3 + 3);
-  const screen = (p: number[]) => projectPoint(p[0], p[1], p[2], center, radius);
-  const degrees = linkDegrees(graph);
-  const bands = [0.12, 0.32, 0.55, 0.85];
-  const band = (depth: number) => depth < 0.3 ? 0 : depth < 0.5 ? 1 : depth < 0.72 ? 2 : 3;
-  const chapterPaths = bands.map(() => "");
-  const linkPaths = bands.map(() => "");
-
-  for (let chapter = 0; chapter < graph.chapterStarts.length - 1; chapter++) {
-    const start = graph.chapterStarts[chapter];
-    const end = graph.chapterStarts[chapter + 1];
-    for (let lesson = start; lesson < end - 1; lesson++) {
-      const a = point(lesson);
-      const b = point(lesson + 1);
-      const { before, after } = foldNeighbors(start, end, lesson);
-      const [first, second] = foldHandles(point(before), a, b, point(after));
-      const [from, one, two, to] = [a, first, second, b].map(screen);
-      const x = whole(from.x);
-      const y = whole(from.y);
-      chapterPaths[band(nearness((a[2] + b[2]) / 2))] += `M${x} ${y}c${whole(one.x - x)} ${whole(one.y - y)} ${whole(two.x - x)} ${whole(two.y - y)} ${whole(to.x - x)} ${whole(to.y - y)}`;
-    }
-  }
-  for (let index = 0; index < graph.links.length; index += 2) {
-    const a = point(graph.links[index]);
-    const b = point(graph.links[index + 1]);
-    const control = arcControl(a, b);
-    const [from, bend, to] = [a, control, b].map(screen);
-    linkPaths[band(nearness(control[2]))] += `M${whole(from.x)} ${whole(from.y)}Q${whole(bend.x)} ${whole(bend.y)} ${whole(to.x)} ${whole(to.y)}`;
-  }
-
-  // A zero-length line with round caps is a dot, so all the dots of one size and shade fit in one path.
-  const dotGroups = new Map<string, { path: string; width: number; opacity: string; depth: number }>();
-  graph.titles.forEach((_, lesson) => {
-    const p = point(lesson);
-    const depth = nearness(p[2]);
-    const { x, y } = screen(p);
-    const width = whole(dotRadius(depth, degrees[lesson], false, radius) * 2);
-    const opacity = dotAlpha([0.15, 0.4, 0.62, 0.85][band(depth)], false).toFixed(2);
-    const key = `${width}/${opacity}`;
-    const group = dotGroups.get(key) ?? { path: "", width, opacity, depth: band(depth) };
-    group.path += `M${whole(x)} ${whole(y)}h0`;
-    dotGroups.set(key, group);
-  });
-
-  return {
-    lines: bands.map((depth, index) => ({
-      chapter: compact(chapterPaths[index]), chapterOpacity: lineAlpha(depth, CHAPTER_LINE).toFixed(3),
-      link: linkPaths[index], linkOpacity: lineAlpha(depth, RELATED_LINE).toFixed(3),
-    })),
-    dots: [...dotGroups.values()].sort((a, b) => a.depth - b.depth),
-    start: { ...screen(point(0)), r: dotRadius(nearness(graph.positions[2]), degrees[0], true, radius) },
-  };
-}

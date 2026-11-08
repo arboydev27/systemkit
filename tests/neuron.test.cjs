@@ -22,20 +22,16 @@ for (let lesson = graph.chapterStarts[scaling]; lesson < graph.chapterStarts[sca
 const routes = dive.routesTo(graph, exits);
 const chapterOf = (lesson) => { let chapter = 0; while (graph.chapterStarts[chapter + 1] <= lesson) chapter++; return chapter; };
 const linked = (a, b) => routes.related(a, b) || (Math.abs(a - b) === 1 && chapterOf(a) === chapterOf(b));
-const angles = [];
-for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 12) for (const pitch of [-0.8, -0.4, 0, 0.4, 0.8]) angles.push([yaw, pitch]);
+// The dive starts from the visitor's next lesson, so it has to work from any of them, seen from the front as the
+// dive draws the course inside.
+const front = dive.turnPoints(graph.positions, 0, 0);
 
-test('from any angle the orb can be turned to, the dive goes through a dot facing the viewer, a few real links from a lesson on scaling', () => {
-  for (const [yaw, pitch] of angles) {
-    const turned = dive.turnPoints(graph.positions, yaw, pitch);
-    const entry = dive.chooseEntry(graph, turned, routes, { lens: 0.3 });
-    assert.ok(entry >= 0, `no entry at ${yaw.toFixed(2)}, ${pitch}`);
-    assert.ok(turned[entry * 3 + 2] > 0.3, `${graph.titles[entry]} faces away`);
-    const place = dive.onScreen(turned[entry * 3], turned[entry * 3 + 1], turned[entry * 3 + 2]);
-    assert.ok(Math.hypot(place.x, place.y) > 0.3, `${graph.titles[entry]} is under the lens`);
-    const route = dive.routeFrom(routes, entry);
-    assert.ok(route.length >= 3 && route.length <= 5, `${route.length - 1} hops`);
-    assert.ok(exits.includes(route[route.length - 1]), `ends at ${graph.titles[route[route.length - 1]]}`);
+test('from any lesson a visitor could be on, the dive follows real links to a lesson on scaling', () => {
+  for (let start = 0; start < graph.titles.length; start++) {
+    const route = dive.routeFrom(routes, start);
+    assert.equal(route[0], start);
+    assert.ok(exits.includes(route[route.length - 1]), `${graph.titles[start]} ends at ${graph.titles[route[route.length - 1]]}`);
+    assert.ok(route.length <= 12, `${graph.titles[start]} takes ${route.length - 1} hops`);
     for (let index = 1; index < route.length; index++) assert.ok(linked(route[index - 1], route[index]), `${graph.titles[route[index - 1]]} → ${graph.titles[route[index]]} is not a real link`);
   }
 });
@@ -43,28 +39,16 @@ test('from any angle the orb can be turned to, the dive goes through a dot facin
 test('most routes dive through the middle on related links rather than creeping along a chapter', () => {
   let dives = 0;
   let hops = 0;
-  for (const [yaw, pitch] of angles) {
-    const turned = dive.turnPoints(graph.positions, yaw, pitch);
-    const entry = dive.chooseEntry(graph, turned, routes);
-    dives += routes.dives[entry];
-    hops += routes.hops[entry];
+  for (let start = 0; start < graph.titles.length; start++) {
+    dives += routes.dives[start];
+    hops += routes.hops[start];
   }
   assert.ok(dives / hops > 0.5, `${dives} of ${hops} hops are related links`);
 });
 
-test('the dot under the visitor\'s pointer is the one the dive goes through', () => {
-  const turned = dive.turnPoints(graph.positions, 0.4, 0.1);
-  for (let lesson = 0; lesson < graph.titles.length; lesson++) {
-    if (turned[lesson * 3 + 2] < 0.6 || routes.hops[lesson] < 2 || routes.hops[lesson] > 4) continue;
-    const place = dive.onScreen(turned[lesson * 3], turned[lesson * 3 + 1], turned[lesson * 3 + 2]);
-    if (Math.hypot(place.x, place.y) < 0.4) continue;
-    assert.equal(dive.chooseEntry(graph, turned, routes, { hint: { x: place.x, y: -place.y }, lens: 0.3 }), lesson, graph.titles[lesson]);
-  }
-});
-
-test('the camera starts where the viewer stands, goes through the first dot exactly, and passes every lesson in order', () => {
-  const turned = dive.turnPoints(graph.positions, 1.1, -0.3);
-  const route = dive.routeFrom(routes, dive.chooseEntry(graph, turned, routes));
+test('without WebGL, the camera starts where the viewer stands, goes through the first lesson exactly, and passes every lesson in order', () => {
+  const turned = front;
+  const route = dive.routeFrom(routes, 0);
   const path = dive.buildFlightPath(graph, turned, route, routes);
   const point = [0, 0, 0];
   assert.deepEqual([...dive.pathPoint(path, 0, point)].map((value) => +value.toFixed(4)), [0, 0, CAMERA]);
@@ -81,9 +65,9 @@ test('the camera starts where the viewer stands, goes through the first dot exac
   }
 });
 
-test('the flight draws back, lunges through the dot, keeps moving forward, and reaches the last lesson as the far end opens', () => {
-  const turned = dive.turnPoints(graph.positions, 2.3, 0.2);
-  const path = dive.buildFlightPath(graph, turned, dive.routeFrom(routes, dive.chooseEntry(graph, turned, routes)), routes);
+test('the flight draws back, lunges through the eye, keeps moving forward, and reaches the last lesson as the far end opens', () => {
+  const turned = front;
+  const path = dive.buildFlightPath(graph, turned, dive.routeFrom(routes, 40), routes);
   assert.ok(Math.abs(dive.flightDistance(path, 0)) < 1e-12);
   assert.ok(dive.flightDistance(path, dive.FLIGHT.pull) < 0);
   assert.ok(Math.abs(dive.flightDistance(path, dive.FLIGHT.through) - path.stops[0]) < 1e-9);
@@ -123,7 +107,7 @@ const film = require('../src/lib/neuron-film.ts');
 test('the neuron has a node of Ranvier for each lesson the route passes, and its names land in order', () => {
   const titles = graph.titles;
   const degrees = require('../src/lib/orb-view.ts').linkDegrees(graph);
-  const route = dive.routeFrom(routes, dive.chooseEntry(graph, dive.turnPoints(graph.positions, 0.7, 0.2), routes));
+  const route = dive.routeFrom(routes, 60);
   const made = film.makeFilm(route, titles, degrees);
   assert.equal(made.nodes.length, Math.max(1, Math.min(4, route.length - 2)));
   assert.deepEqual(made.names, [...route.slice(1, -1).slice(0, 4).map((lesson) => titles[lesson]), titles[route[route.length - 1]]]);
@@ -163,48 +147,3 @@ test('the camera looks straight down the axon, square and level, and what is dea
     assert.equal(film.onFilm(shot, shot.position.map((value, axis) => value - shot.forward[axis])), null);
   }
 });
-const arbor = require('../src/lib/orb-arbor.ts');
-
-test('every lesson grows into a neuron: dendrites from its cell body, in order, inside half the gap to its neighbours', () => {
-  const degrees = require('../src/lib/orb-view.ts').linkDegrees(graph);
-  const made = arbor.buildArbors(graph.positions, degrees, graph.links);
-  const again = arbor.buildArbors(graph.positions, degrees, graph.links);
-  assert.deepEqual([...made.ends.slice(0, 60)], [...again.ends.slice(0, 60)], 'the same every time, so every browser grows the same orb');
-  const count = graph.titles.length;
-  assert.equal(made.starts.length, count + 1);
-  for (let lesson = 0; lesson < count; lesson++) {
-    const soma = graph.positions.slice(lesson * 3, lesson * 3 + 3);
-    let stubs = 0;
-    for (let index = made.starts[lesson]; index < made.starts[lesson + 1]; index++) {
-      assert.equal(made.owner[index], lesson);
-      assert.ok(made.from[index] >= 0 && made.to[index] <= 1 + 1e-6 && made.to[index] > made.from[index]);
-      assert.ok(made.rank[index] <= 2);
-      stubs += made.stub[index];
-      for (const end of [0, 1]) {
-        const at = (index * 2 + end) * 3;
-        const away = Math.hypot(made.ends[at] - soma[0], made.ends[at + 1] - soma[1], made.ends[at + 2] - soma[2]);
-        assert.ok(away < 0.15, `${graph.titles[lesson]} reaches ${away.toFixed(3)}`);
-      }
-    }
-    assert.ok(stubs >= 4 && stubs <= 6, `${stubs} dendrites leave the cell body`);
-    const apex = made.apex.slice(lesson * 3, lesson * 3 + 3);
-    const out = Math.hypot(...soma);
-    assert.ok((apex[0] * soma[0] + apex[1] * soma[1] + apex[2] * soma[2]) / out > 0.8, 'the apical dendrite points out toward the surface');
-  }
-  for (let index = 0; index < made.beads.length; index++) assert.ok(made.beads[index] > 0.05 && made.beads[index] < 0.95);
-  const stained = graph.titles.filter((_, lesson) => arbor.stainedAtFirst(lesson)).length / count;
-  assert.ok(stained > 0.1 && stained < 0.32, `${(stained * 100).toFixed(0)}% stained at first`);
-});
-
-test('dendrites behind the orb are wider and fainter by the same factor, and a cell with no point is the poster\'s dot', () => {
-  const near = arbor.strokeOf(1, 0, 1, 1);
-  const far = arbor.strokeOf(0.1, 0, 1, 1);
-  assert.ok(far.width > near.width * 0.9 && far.alpha < near.alpha);
-  for (let rank = 1; rank < 3; rank++) assert.ok(arbor.strokeOf(1, rank, 1, 1).width < arbor.strokeOf(1, rank - 1, 1, 1).width);
-  const calls = [];
-  const recorder = new Proxy({}, { get: (_, name) => (...args) => calls.push([name, ...args]) });
-  arbor.somaPath(recorder, 10, 20, 4, 0, -1, 0);
-  assert.deepEqual(calls.map(([name]) => name), ['moveTo', 'arc']);
-  assert.deepEqual(calls[1].slice(1), [10, 20, 4, 0, Math.PI * 2]);
-});
-

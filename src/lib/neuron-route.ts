@@ -1,18 +1,18 @@
 import type { OrbGraph } from "./orb-layout";
 import { arcPoint, foldPoint } from "./orb-motion";
-import { arcControl, CAMERA, foldHandles, foldNeighbors, linkDegrees } from "./orb-view";
+import { arcControl, CAMERA, foldHandles, foldNeighbors } from "./orb-view";
 
-// The way through the orb when the home page scrolls from it to the game. The camera dives into one of the dots
-// facing the viewer and follows real links, lesson to lesson, to a lesson about scaling. Pure arithmetic, so the
-// route and the timing can be tested without a browser.
+// The way in when the home page scrolls from Milo to the game. The camera dives into his eye and follows real links,
+// lesson to lesson, from the visitor's next lesson to a lesson about scaling. Pure arithmetic, so the route and the
+// timing can be tested without a browser.
 
-/** The flight, as fractions of the way from the orb to the game. Everything on screen is a function of this one number. */
+/** The flight, as fractions of the way from Milo to the game. Everything on screen is a function of this one number. */
 export const FLIGHT = {
-  /** The orb takes the strain: the dot swells, everything leans toward it, and the camera draws back. */
+  /** The eye takes the strain: it swells and its pupil opens, and the camera draws back. */
   pull: 0.08,
-  /** The camera has gone through the dot. */
+  /** The camera has gone through the eye. */
   through: 0.28,
-  /** The inside of the dot fills the screen, so the page beneath can move freely. */
+  /** The inside of the eye fills the screen, so the page beneath can move freely. */
   covered: 0.26,
   /** The last lesson on the route has been reached and the far end opens. */
   open: 0.84,
@@ -30,7 +30,7 @@ const FOLD_STEPS = 6;
 
 export type Vec = [number, number, number];
 
-/** The lessons turned to the angle the orb is showing, in the orb's own view, where the viewer stands on +z. */
+/** The lessons turned to an angle, in the course sphere's own view, where the viewer stands on +z. */
 export function turnPoints(source: ArrayLike<number>, yaw: number, pitch: number, out = new Float32Array(source.length)) {
   const cosYaw = Math.cos(yaw);
   const sinYaw = Math.sin(yaw);
@@ -118,38 +118,6 @@ export function routeFrom(routes: Routes, start: number) {
   const route = [start];
   for (let lesson = routes.toward[start]; lesson >= 0 && route.length < 40; lesson = routes.toward[lesson]) route.push(lesson);
   return route;
-}
-
-/** Where a turned point lands from the viewer's place, in units of the orb's projected radius. */
-export function onScreen(x: number, y: number, z: number) {
-  const scale = CAMERA / (CAMERA - z);
-  return { x: x * scale, y: y * scale };
-}
-
-/**
- * The dot to dive through: one facing the viewer, clear of the lens, a few real links from a lesson about scaling,
- * and the one nearest the visitor's pointer when it's over the orb. The hint is in the orb's projected radii from
- * its center, with y running down the screen.
- */
-export function chooseEntry(graph: Pick<OrbGraph, "titles" | "links">, turned: ArrayLike<number>, routes: Routes, options: { hint?: { x: number; y: number } | null; lens?: number } = {}) {
-  const degrees = linkDegrees(graph);
-  const lens = options.lens ?? 0;
-  let best = -1;
-  let bestScore = -Infinity;
-  for (let pass = 0; pass < 2 && best < 0; pass++) {
-    for (let lesson = 0; lesson < graph.titles.length; lesson++) {
-      const z = turned[lesson * 3 + 2];
-      const hops = routes.hops[lesson];
-      if (pass === 0 ? z < 0.3 || hops < 2 || hops > 4 : z < -0.2 || hops < 1) continue;
-      const place = onScreen(turned[lesson * 3], turned[lesson * 3 + 1], z);
-      // With a pointer over the orb, the dot nearest it wins outright. Otherwise a big, near dot with deep dives does.
-      let score = options.hint ? -Math.hypot(place.x - options.hint.x, place.y + options.hint.y)
-        : z + 0.18 * Math.sqrt(degrees[lesson]) + (0.5 * routes.dives[lesson]) / hops - 0.12 * Math.abs(hops - 3);
-      if (Math.hypot(place.x, place.y) < lens) score -= 4;
-      if (score > bestScore) { bestScore = score; best = lesson; }
-    }
-  }
-  return best;
 }
 
 export type FlightPath = {

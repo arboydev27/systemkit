@@ -8,8 +8,8 @@ import { CourseScope } from "@/components/site/CourseMap";
 import { EstimateRoll, Live, ScaleGameSlot } from "@/components/site/HomeMotion";
 import { CacheChart, DesignChart, ForgettingChart, LimiterChart, QuorumChart, RetryChart } from "@/components/site/HomeVisuals";
 import visuals from "@/components/site/HomeVisuals.module.css";
-import { FluidField, OrbHome } from "@/components/site/OrbHome";
-import home from "@/components/site/OrbHome.module.css";
+import { FluidField, MiloHome } from "@/components/site/MiloHome";
+import home from "@/components/site/MiloHome.module.css";
 import { DueReviewBadge } from "@/components/site/SiteClient";
 import { SitePage } from "@/components/site/SiteChrome";
 import { courseChapters, courseGoals, courseOrb } from "@/lib/course";
@@ -27,7 +27,7 @@ export default function Home() {
   return <SitePage home>
     <FluidField />
     <div className={home.world}>
-      <OrbHome
+      <MiloHome
         chapters={courseChapters}
         goals={courseGoals}
         graph={courseOrb}
