@@ -34,7 +34,7 @@
 .stage {
   --edge: 16px;
   --milo-h: min(36svh, 88vw, 380px);
-  --milo-w: calc(var(--milo-h) * 874 / 1189);
+  --milo-w: calc(var(--milo-h) * 874 / 1205);
   --legs: calc(var(--milo-h) * .16);
   --line-l: var(--edge);
   position: relative;
@@ -52,7 +52,7 @@
 /* Milo, his line, and what he says. --seat-x is where he sits, from the stage's left edge; until the page knows the
    visitor's next lesson, he sits at the first. */
 .scene {
-  --line-y: calc(var(--milo-h) * .8569 + 4px);
+  --line-y: calc(var(--milo-h) * .85881 + 4px);
   position: relative;
   flex: none;
   height: calc(var(--line-y) + var(--legs) + 86px);
@@ -63,7 +63,7 @@
 .parts { top: calc(var(--line-y) + var(--legs) + 10px); left: var(--line-l); right: var(--edge); }
 .seat {
   position: absolute;
-  top: calc(var(--line-y) - var(--milo-h) * .8569);
+  top: calc(var(--line-y) - var(--milo-h) * .85881);
   left: 0;
   z-index: 2;
   width: var(--milo-w);

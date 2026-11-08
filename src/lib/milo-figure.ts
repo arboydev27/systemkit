@@ -4,18 +4,18 @@
 
 export const MILO = {
   width: 874,
-  height: 1189,
+  height: 1205,
   /** Width of the smaller layers, for phones. */
   small: 472,
   /** The middle of the seat, on the front edge of the ledge he sits on. */
-  seat: [0.5, 0.8569],
+  seat: [0.5, 0.85881],
   /** His eyes, left then right on the image, as ellipses on his face's screen. */
   eyes: [
-    { x: 0.37922, y: 0.44172, rx: 0.03683, ry: 0.04423 },
-    { x: 0.62826, y: 0.44172, rx: 0.03683, ry: 0.04423 },
+    { x: 0.37922, y: 0.43585, rx: 0.03683, ry: 0.04364 },
+    { x: 0.62826, y: 0.43585, rx: 0.03683, ry: 0.04364 },
   ],
   /** The screen his eyes are drawn on. */
-  display: { x: 0.50374, y: 0.4454, rx: 0.2938, ry: 0.10053 },
+  display: { x: 0.50374, y: 0.43949, rx: 0.2938, ry: 0.0992 },
   /** Where the head turns on the neck. */
-  neck: [0.50374, 0.56138],
+  neck: [0.50374, 0.55393],
 } as const;
