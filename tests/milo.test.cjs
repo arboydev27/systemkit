@@ -123,3 +123,54 @@ test('the figure geometry has two eyes side by side on the screen, and the seat 
     for (const size of ['', '-s']) assert.ok(fs.existsSync(`public/milo/${name}${size}.webp`), `${name}${size}.webp`);
   }
 });
+
+test('the images are the size the figure geometry says', () => {
+  // A WebP's canvas size, from its VP8X (extended) or VP8L (lossless) header.
+  const size = (file) => {
+    const b = fs.readFileSync(file);
+    const chunk = b.toString('ascii', 12, 16);
+    if (chunk === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    if (chunk === 'VP8L') { const bits = b.readUInt32LE(21); return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)]; }
+    throw new Error(`${file}: unexpected WebP chunk ${chunk}`);
+  };
+  for (const name of ['light-body', 'light-head', 'dark-body', 'dark-head']) {
+    assert.deepEqual(size(`public/milo/${name}.webp`), [MILO.width, MILO.height], name);
+    // The smaller layers are scaled in each direction and rounded separately, so the height may be a pixel off the ratio.
+    const [sw, sh] = size(`public/milo/${name}-s.webp`);
+    assert.equal(sw, MILO.small, `${name}-s width`);
+    assert.ok(Math.abs(sh - MILO.height * MILO.small / MILO.width) <= 1, `${name}-s height ${sh}`);
+  }
+});
+
+test('the stylesheets lay him out with the renders\' own proportions, seat and neck', () => {
+  const css = (name) => fs.readFileSync(`src/components/site/${name}.module.css`, 'utf8');
+  const near = (a, b, what) => assert.ok(Math.abs(a - b) < 1e-4, `${what}: ${a} against ${b}`);
+  const milo = css('Milo');
+  const [, w, h] = milo.match(/aspect-ratio: (\d+) \/ (\d+)/);
+  assert.deepEqual([+w, +h], [MILO.width, MILO.height], 'figure aspect ratio');
+  const [, ox, oy] = milo.match(/transform-origin: ([\d.]+)% ([\d.]+)%/);
+  near(ox / 100, MILO.neck[0], 'head turns on the neck (x)');
+  near(oy / 100, MILO.neck[1], 'head turns on the neck (y)');
+  for (const name of ['MiloHome', 'CourseNav']) {
+    const sheet = css(name);
+    const ratios = [...sheet.matchAll(/var\(--milo-h\) \* (\d+) \/ (\d+)/g)];
+    assert.ok(ratios.length > 0, `${name}: width from height`);
+    for (const [, a, b] of ratios) assert.deepEqual([+a, +b], [MILO.width, MILO.height], `${name}: width from height`);
+    near(+sheet.match(/--line-y: calc\(var\(--milo-h\) \* ([\d.]+)/)[1], MILO.seat[1], `${name}: the line at his seat`);
+    near(+sheet.match(/top: calc\(var\(--line-y\) - var\(--milo-h\) \* ([\d.]+)\)/)[1], MILO.seat[1], `${name}: the figure placed on the line`);
+  }
+});
+
+test('the images\' sizes hints are his height on each layout times the renders\' aspect', () => {
+  const read = (file) => fs.readFileSync(`src/components/site/${file}`, 'utf8');
+  const width = (heights) => heights.split(',').map((term) => {
+    const [, value, unit] = term.trim().match(/^([\d.]+)(svh|vw|px)$/);
+    return `${Math.round(value * MILO.width / MILO.height)}${unit === 'svh' ? 'vh' : unit}`;
+  }).join(', ');
+  const hint = read('MiloHome.tsx').match(/const FIGURE_SIZES = "([^"]+)"/)[1];
+  const layouts = [...read('MiloHome.module.css').matchAll(/--milo-h: min\(([^)]+)\)/g)].map((match) => match[1]);
+  assert.equal(layouts.length, 3);
+  for (const heights of layouts) assert.ok(hint.includes(`min(${width(heights)})`), `home: min(${heights}) wants min(${width(heights)})`);
+  const learn = read('CourseNav.module.css').match(/--milo-h: clamp\(([^)]+)\)/)[1];
+  assert.ok(read('CourseMap.tsx').includes(`sizes="clamp(${width(learn)})"`), `learn: clamp(${width(learn)})`);
+});
