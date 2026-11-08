@@ -13,6 +13,13 @@
 .turns { position: absolute; display: block; visibility: hidden; }
 .figure[data-turn-body] .body .turns, .figure[data-turn-head] .head .turns { visibility: visible; }
 .figure[data-turn-body] .body .layer, .figure[data-turn-head] .head .layer { visibility: hidden; }
+/* Milo in 3D, once it has loaded: one canvas for his whole figure, over his contact shadow, under his eyes. It fades in
+   over his images, which then step aside; the model turns, breathes and leans itself, so the layers' own motion stops. */
+.figure [data-milo-model], .figure [data-milo-shadow] { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.figure [data-milo-model] { opacity: 0; transition: opacity .45s ease; }
+.figure[data-milo3d] [data-milo-model] { opacity: 1; }
+.figure[data-milo3d] .layer, .figure[data-milo3d] .turns { visibility: hidden; transition: visibility 0s .45s; }
+.figure[data-milo3d] .head, .figure[data-milo3d] .body, .figure[data-milo3d] .headBreath, .figure[data-milo3d] .bodyBreath { transform: none; animation: none; }
 .eyes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .gaze { transform: translate(var(--gx, 0px), var(--gy, 0px)); }
 .eye { transform-box: fill-box; transform-origin: center; transition: transform .1s ease-in; }

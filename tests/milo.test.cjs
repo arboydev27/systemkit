@@ -15,6 +15,7 @@ const { buildOrbGraph } = require('../src/lib/orb-layout.ts');
 const milo = require('../src/lib/milo.ts');
 const { MILO } = require('../src/lib/milo-figure.ts');
 const { MILO_TURNS } = require('../src/lib/milo-turns.ts');
+const { MILO_3D } = require('../src/lib/milo-3d.ts');
 
 const graph = buildOrbGraph(chapters);
 const ledge = milo.ledgeOf(graph);
@@ -264,4 +265,26 @@ test('the images\' sizes hints are his height on each layout times the renders\'
   for (const heights of layouts) assert.ok(hint.includes(`min(${width(heights)})`), `home: min(${heights}) wants min(${width(heights)})`);
   const learn = read('CourseNav.module.css').match(/--milo-h: clamp\(([^)]+)\)/)[1];
   assert.ok(read('CourseMap.tsx').includes(`sizes="clamp(${width(learn)})"`), `learn: clamp(${width(learn)})`);
+});
+
+test('the map that carries his eyes onto a turned screen takes three points exactly where they go', () => {
+  const from = [[100, 200], [300, 200], [100, 260]];
+  const map = [0.93, -0.1, 0.05, 1.03, 12, -7];
+  const to = from.map(([x, y]) => [map[0] * x + map[2] * y + map[4], map[1] * x + map[3] * y + map[5]]);
+  const found = milo.affineFrom(from, to);
+  found.forEach((value, i) => assert.ok(Math.abs(value - map[i]) < 1e-9, `${i}: ${value}`));
+  assert.deepEqual(milo.affineFrom([[0, 0], [1, 1], [2, 2]], to), [1, 0, 0, 1, 0, 0], 'points in a line give no map');
+});
+
+test('the 3D Milo has its model, a matcap for every material in both themes, its shadow and the decoder', () => {
+  assert.ok(fs.existsSync(`public${MILO_3D.model}`));
+  for (const theme of ['light', 'dark']) {
+    for (const material of MILO_3D.materials) assert.ok(fs.existsSync(`public/milo/3d/matcap-${theme}-${material}.webp`), `${theme} ${material}`);
+    assert.ok(fs.existsSync(`public/milo/${theme}-shadow.webp`));
+  }
+  for (const file of ['draco_decoder.wasm', 'draco_wasm_wrapper.js']) assert.ok(fs.existsSync(`public/draco/${file}`), file);
+  assert.ok(MILO_3D.materials.includes('shell'), 'parts without a known material fall back to the shell');
+  for (const [name, joint] of Object.entries(MILO_3D.joints)) assert.ok(joint.parent === 'root' || joint.parent in MILO_3D.joints, `${name} hangs from a joint`);
+  // His eyes sit side by side on his screen, the screen's up pointing up.
+  assert.ok(MILO_3D.eyes.left[0] < MILO_3D.eyes.right[0] && Math.abs(MILO_3D.eyes.left[1] - MILO_3D.eyes.right[1]) < 0.01 && MILO_3D.eyes.up[1] > 0.9);
 });

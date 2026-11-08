@@ -11,6 +11,7 @@ import { MILO_TURNS } from "@/lib/milo-turns";
 import type { OrbGraph } from "@/lib/orb-layout";
 import { chapterOfLesson } from "@/lib/orb-view";
 import type { CourseNavProps, CourseNavState } from "./CourseNav";
+import type { Milo3D } from "./milo-3d-scene";
 import styles from "./Milo.module.css";
 
 const { width: W, height: H } = MILO;
@@ -23,6 +24,15 @@ const YAW_MAX = T.yaws[T.yaws.length - 1];
 const ROLL = 1.2;
 /** How long the head waits after the eyes before it follows, in seconds. */
 const HEAD_DELAY = 0.09;
+/** How far he turns in 3D, where any angle can be drawn: degrees of yaw, nod and torso twist, each way. */
+const TURN_3D = { yaws: [-24, 24], nods: [-9, 12], twists: [-8, 8] };
+/** One breath, in seconds. */
+const BREATH = 5.6;
+
+/** The prototype draws him in 3D unless the page is opened with ?milo=2d, which keeps the rendered turn frames. */
+function wants3D() {
+  try { return new URLSearchParams(window.location.search).get("milo") !== "2d"; } catch { return true; }
+}
 
 /** A place on screen Milo should look at instead of the pointer, such as the lesson being pointed at on the line. */
 export type MiloFocus = { x: number; y: number } | null;
@@ -199,6 +209,11 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     let pending: { yaw: number; nod: number; at: number } | null = null;
     let restTwist = 0;
     let sprites: Sprites | null = null;
+    // Milo in 3D, once loaded: then the head and torso turn to any angle, and he's drawn on a canvas instead of his images.
+    let three: Milo3D | null = null;
+    let shadow: HTMLImageElement | null = null;
+    let aims: { at: number; yaw: number; nod: number }[] = [];
+    let drawnAt = 0;
     // Each load is numbered, so one overtaken by a change of theme is dropped.
     let generation = 0;
     let painted = { head: "", body: "" };
@@ -287,8 +302,41 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       fitCanvas(bodyCanvas, T.body.box, sprites.small ? T.body.smallCell : T.body.cell);
     }
 
+    async function load3D() {
+      const mine = ++generation;
+      const theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      let made: Milo3D | null = null;
+      try {
+        const { createMilo3D } = await import("./milo-3d-scene");
+        made = await createMilo3D(el, theme);
+      } catch {
+        made = null;
+      }
+      if (mine !== generation || !el.isConnected) {
+        made?.destroy();
+        return true;
+      }
+      if (!made) return false;
+      three = made;
+      // His contact shadow on the ledge, which his body image used to carry, under the model.
+      shadow = document.createElement("img");
+      shadow.alt = "";
+      shadow.dataset.miloShadow = "";
+      shadow.src = `/milo/${theme}-shadow.webp`;
+      const headLayer = el.querySelector("[data-milo-head]");
+      el.insertBefore(shadow, headLayer);
+      el.insertBefore(three.canvas, headLayer);
+      three.resize();
+      draw3D(performance.now());
+      // The canvas fades in over his images, which then step aside.
+      requestAnimationFrame(() => { el.dataset.milo3d = ""; });
+      wake();
+      return true;
+    }
+
     async function load(again = true) {
-      if (sprites) return;
+      if (sprites || three) return;
+      if (wants3D() && await load3D()) return;
       const mine = ++generation;
       const found = await loadSprites(el);
       if (mine !== generation || !el.isConnected) return;
@@ -300,6 +348,14 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       sprites = found;
       fit();
       wake();
+    }
+
+    function draw3D(now: number) {
+      if (!three) return;
+      drawnAt = now;
+      const breath = still ? 0 : (1 - Math.cos((now / 1000 / BREATH) * Math.PI * 2)) / 2;
+      const map = three.draw({ yaw: yaw.at, nod: nod.at, roll: (yaw.at / TURN_3D.yaws[1]) * ROLL, twist: twist.at, lean: lean.at, breath });
+      screen?.setAttribute("transform", `matrix(${map.map((value) => value.toFixed(4)).join(" ")})`);
     }
 
     function show(yawNow: number, nodNow: number, twistNow: number) {
@@ -357,6 +413,10 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
         const cy = box.top + MILO.display.y * box.height;
         want = gaze((target.x - cx) / box.width, (target.y - cy) / box.height);
       }
+      if (three) {
+        loop3D(now, dt, want);
+        return;
+      }
       // The head comes to rest on the frame nearest where he looks, once its frames are here; until then it stays put.
       const aim = turnFor(want, T);
       const next = sprites ? { yaw: detent(T.yaws, rest.yaw, aim.yaw), nod: detent(T.nods, rest.nod, aim.nod) } : { yaw: 0, nod: 0 };
@@ -402,6 +462,37 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       else last = 0;
     }
 
+    // In 3D the head follows where the eyes look continuously, a beat behind them, and the torso follows the head.
+    function loop3D(now: number, dt: number, want: { x: number; y: number }) {
+      const aim = turnFor(want, TURN_3D);
+      aims.push({ at: now, yaw: aim.yaw, nod: aim.nod });
+      while (aims.length > 1 && aims[1].at <= now - HEAD_DELAY * 1000) aims.shift();
+      yaw.goal = aims[0].yaw;
+      nod.goal = aims[0].nod;
+      let moving = step(yaw, 7, dt);
+      moving = step(nod, 7, dt) || moving;
+      twist.goal = turnFor({ x: (yaw.at / TURN_3D.yaws[1]) * GAZE_REACH.x, y: 0 }, TURN_3D).twist;
+      moving = step(twist, 4, dt) || moving;
+      moving = step(lean, 2.2, dt) || moving;
+      const back = {
+        x: (yaw.at / TURN_3D.yaws[1]) * GAZE_REACH.x * EYES_GIVE_BACK,
+        y: (nod.at >= 0 ? nod.at / TURN_3D.nods[1] : -nod.at / TURN_3D.nods[0]) * GAZE_REACH.y * EYES_GIVE_BACK,
+      };
+      const goal = {
+        x: Math.max(-GAZE_REACH.x, Math.min(GAZE_REACH.x, want.x - back.x)),
+        y: Math.max(-GAZE_REACH.y, Math.min(GAZE_REACH.y, want.y - back.y)),
+      };
+      const quick = 1 - Math.exp(-dt / 0.07);
+      eyes = { x: eyes.x + (goal.x - eyes.x) * quick, y: eyes.y + (goal.y - eyes.y) * quick };
+      el.style.setProperty("--gx", `${(eyes.x * W).toFixed(2)}px`);
+      el.style.setProperty("--gy", `${(eyes.y * H).toFixed(2)}px`);
+      moving = moving || Math.abs(goal.x - eyes.x) * W > 0.05 || Math.abs(goal.y - eyes.y) * H > 0.05;
+      // While he only breathes, twenty frames a second is plenty.
+      if (moving || now - drawnAt > 50) draw3D(now);
+      if (visible && (moving || !still)) frame = requestAnimationFrame(loop);
+      else last = 0;
+    }
+
     function wake() {
       if (!frame && visible) frame = requestAnimationFrame(loop);
     }
@@ -422,10 +513,21 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       setStill(!visible);
       if (visible) wake();
     });
-    const sizer = new ResizeObserver(() => { fit(); painted = { head: "", body: "" }; wake(); });
+    const sizer = new ResizeObserver(() => {
+      fit();
+      painted = { head: "", body: "" };
+      if (three) { three.resize(); draw3D(performance.now()); }
+      wake();
+    });
     // A change of theme swaps his images, so the frames go back to straight ahead until the other theme's have loaded.
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
     const onScheme = () => {
+      if (three) {
+        const theme = scheme.matches ? "dark" : "light";
+        if (shadow) shadow.src = `/milo/${theme}-shadow.webp`;
+        void three.setTheme(theme).then(() => draw3D(performance.now()));
+        return;
+      }
       generation++;
       sprites = null;
       painted = { head: "", body: "" };
@@ -471,6 +573,10 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       wakeRef.current = () => {};
       generation++;
       sprites = null;
+      three?.destroy();
+      three = null;
+      shadow?.remove();
+      delete el.dataset.milo3d;
       delete el.dataset.still;
       delete el.dataset.blink;
       delete el.dataset.turnHead;

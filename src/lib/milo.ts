@@ -182,3 +182,18 @@ export function nextBlink(random: number, justBlinked: boolean) {
 export function bubbleSide(seat: number, stage: { left: number; right: number }) {
   return seat - stage.left > stage.right - seat ? "left" : "right";
 }
+
+/** The 2D affine map (as an SVG matrix: a, b, c, d, e, f) that carries three points onto three others. */
+export function affineFrom(from: number[][], to: number[][]) {
+  const [[x1, y1], [x2, y2], [x3, y3]] = from;
+  const det = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2);
+  if (Math.abs(det) < 1e-9) return [1, 0, 0, 1, 0, 0];
+  const solve = (v1: number, v2: number, v3: number) => [
+    (v1 * (y2 - y3) + v2 * (y3 - y1) + v3 * (y1 - y2)) / det,
+    (v1 * (x3 - x2) + v2 * (x1 - x3) + v3 * (x2 - x1)) / det,
+    (v1 * (x2 * y3 - x3 * y2) + v2 * (x3 * y1 - x1 * y3) + v3 * (x1 * y2 - x2 * y1)) / det,
+  ];
+  const [a, c, e] = solve(to[0][0], to[1][0], to[2][0]);
+  const [b, d, f] = solve(to[0][1], to[1][1], to[2][1]);
+  return [a, b, c, d, e, f];
+}

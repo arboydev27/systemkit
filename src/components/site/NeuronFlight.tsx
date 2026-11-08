@@ -67,9 +67,23 @@ function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): Fig
   const box = figure.getBoundingClientRect();
   if (!box.width) return null;
   const at = new DOMMatrix().translate(box.left, box.top);
-  const body = layerOf(figure, at, "body");
-  const head = layerOf(figure, at, "head");
-  if (!body || !head) return null;
+  let layers: FigureCopy["layers"];
+  const model = figure.dataset.milo3d !== undefined ? figure.querySelector<HTMLCanvasElement>("canvas[data-milo-model]") : null;
+  const shadow = figure.querySelector<HTMLImageElement>("img[data-milo-shadow]");
+  if (model && model.width > 0) {
+    // Milo in 3D: his contact shadow, then the model as it's drawn now (copied, since it goes on moving).
+    const copy = document.createElement("canvas");
+    copy.width = model.width;
+    copy.height = model.height;
+    copy.getContext("2d")?.drawImage(model, 0, 0);
+    layers = [{ image: copy, width: model.offsetWidth, height: model.offsetHeight, matrix: at.multiply(placeIn(figure, model)) }];
+    if (shadow?.complete && shadow.naturalWidth) layers.unshift({ image: shadow, width: shadow.offsetWidth, height: shadow.offsetHeight, matrix: at.multiply(placeIn(figure, shadow)) });
+  } else {
+    const body = layerOf(figure, at, "body");
+    const head = layerOf(figure, at, "head");
+    if (!body || !head) return null;
+    layers = [body, head];
+  }
   // His eyes sit on his screen as the head's frames have it turned (the screen's map), and the head rolls a little.
   const screen = figure.querySelector("[data-milo-screen]")?.getAttribute("transform")?.match(/matrix\(([^)]+)\)/);
   const map = screen ? screen[1].trim().split(/[\s,]+/).map(Number) : [1, 0, 0, 1, 0, 0];
@@ -93,7 +107,7 @@ function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): Fig
   const chosen = Math.hypot(eyes[0].x - toward.x, eyes[0].y - toward.y) <= Math.hypot(eyes[1].x - toward.x, eyes[1].y - toward.y) ? 0 : 1;
   const glowShape = figure.querySelector("[data-milo-eye] ellipse");
   const alpha = glowShape ? parseFloat(getComputedStyle(glowShape).opacity) || 0.55 : 0.55;
-  return { layers: [body, head], eyes, chosen, glow: { reach: 4 * unit, blur: 14 * unit, alpha, color: "#ffffff" } };
+  return { layers, eyes, chosen, glow: { reach: 4 * unit, blur: 14 * unit, alpha, color: "#ffffff" } };
 }
 
 /**
