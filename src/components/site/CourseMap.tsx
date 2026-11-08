@@ -163,7 +163,7 @@ function CourseLine(props: CourseNavProps) {
           partsClassName={navStyles.partsBox}
         />
         <div className={navStyles.seat}>
-          <MiloFigure figureRef={figure} className={navStyles.figure} sizes="clamp(158px, 21vw, 226px)" />
+          <MiloFigure figureRef={figure} className={navStyles.figure} sizes="clamp(169px, 22vw, 243px)" />
         </div>
       </div>
 

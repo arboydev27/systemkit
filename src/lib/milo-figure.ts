@@ -3,19 +3,19 @@
 // docs/design-system.md for how they are made.
 
 export const MILO = {
-  width: 854,
-  height: 1245,
+  width: 874,
+  height: 1189,
   /** Width of the smaller layers, for phones. */
-  small: 461,
+  small: 472,
   /** The middle of the seat, on the front edge of the ledge he sits on. */
-  seat: [0.5, 0.82485],
+  seat: [0.5, 0.8569],
   /** His eyes, left then right on the image, as ellipses on his face's screen. */
   eyes: [
-    { x: 0.37639, y: 0.42897, rx: 0.03769, ry: 0.04223 },
-    { x: 0.63126, y: 0.42897, rx: 0.03769, ry: 0.04223 },
+    { x: 0.37922, y: 0.44172, rx: 0.03683, ry: 0.04423 },
+    { x: 0.62826, y: 0.44172, rx: 0.03683, ry: 0.04423 },
   ],
   /** The screen his eyes are drawn on. */
-  display: { x: 0.50383, y: 0.43373, rx: 0.30067, ry: 0.09431 },
+  display: { x: 0.50374, y: 0.4454, rx: 0.2938, ry: 0.10053 },
   /** Where the head turns on the neck. */
-  neck: [0.50383, 0.54336],
+  neck: [0.50374, 0.56138],
 } as const;
