@@ -1,10 +1,16 @@
 // Milo in 3D: his Blender model, posed as he sits, drawn with three.js over his image layers, so his head can turn and
-// his torso twist smoothly to any angle. Each surface is shaded by a matcap rendered from the Cycles studio for its
-// material, through the same camera as his images, times the ambient occlusion baked into the model, so he looks as
-// close to his renders as a live model can. Loaded only once the page is quiet.
+// his torso twist smoothly to any angle, lit to look as close to his Cycles renders as a live model can:
+// - Each surface starts from a matcap, its material on a sphere lit by the Cycles studio and seen through his camera.
+// - The matcap holds display colours, after Blender's colour transform (AgX, the theme's look and exposure), so the
+//   page undoes that transform with a table sampled from Blender, works in scene light, and redoes it at the end.
+// - In scene light, the diffuse part is corrected by what Cycles baked into each vertex: how much more or less light
+//   it really gets than a lone sphere facing the same way (shadow, occlusion, and the light his white parts throw on
+//   each other), per theme. Glossy highlights stay as the matcap has them.
+// Loaded only once the page is quiet.
 import {
-  Euler, Matrix4, NoColorSpace, Object3D, OrthographicCamera, Quaternion, Scene, ShaderMaterial, SRGBColorSpace,
-  TextureLoader, Vector3, WebGLRenderer, type Mesh, type Texture,
+  DataTexture, DataUtils, Euler, HalfFloatType, LinearFilter, Matrix4, NoColorSpace, Object3D, OrthographicCamera,
+  Quaternion, RedFormat, Scene, ShaderMaterial, SRGBColorSpace, TextureLoader, Vector2, Vector3, WebGLRenderer,
+  type Mesh, type Texture,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -25,31 +31,53 @@ export type Milo3D = {
 };
 
 const vertex = /* glsl */ `
+attribute vec4 color_1;
+uniform float dark;
 varying vec3 vNormal;
-varying vec2 vShade;
+varying vec2 vLight;
 void main() {
   vNormal = normalize(normalMatrix * normal);
-  // Baked into the model: ambient occlusion in red, the studio lamps' cast shadows in green.
-  #if defined(USE_COLOR_ALPHA) || defined(USE_COLOR)
-    vShade = color.rg;
-  #else
-    vShade = vec2(1.0);
-  #endif
+  // Baked per vertex, the light theme's in red and green and the dark theme's in blue and alpha: the ratio of the light
+  // it gets to a lone sphere's (halved), and the lone sphere's diffuse light (log2, from -12 to 4).
+  vLight = mix(color_1.rg, color_1.ba, dark);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
 // The camera is orthographic, so the view-space normal alone picks the matcap's texel.
 const fragment = /* glsl */ `
 uniform sampler2D matcap;
-uniform float occlusion;
-uniform float shadow;
+uniform sampler2D toScene;
+uniform sampler2D toDisplay;
+uniform vec2 range;
 varying vec3 vNormal;
-varying vec2 vShade;
+varying vec2 vLight;
+const float SIZE = 1024.0;
+float lookup(sampler2D table, float at) { return texture2D(table, vec2(clamp(at, 0.0, 1.0) * (SIZE - 1.0) / SIZE + 0.5 / SIZE, 0.5)).r; }
+float scene(float shown) { return exp2(range.x + (range.y - range.x) * lookup(toScene, shown)); }
+float display(float light) { return lookup(toDisplay, (log2(max(light, 1e-7)) - range.x) / (range.y - range.x)); }
 void main() {
   vec3 n = normalize(vNormal);
-  vec3 lit = texture2D(matcap, n.xy * 0.495 + 0.5).rgb;
-  gl_FragColor = vec4(lit * mix(1.0, vShade.x, occlusion) * mix(1.0, vShade.y, shadow), 1.0);
+  vec3 shown = texture2D(matcap, n.xy * 0.495 + 0.5).rgb;
+  vec3 light = vec3(scene(shown.r), scene(shown.g), scene(shown.b));
+  float alone = exp2(vLight.y * 16.0 - 12.0);
+  light = max(light + alone * (vLight.x * 2.0 - 1.0), 0.0);
+  gl_FragColor = vec4(display(light.r), display(light.g), display(light.b), 1.0);
 }`;
+
+/** A colour transform table as a texture the shader can read between its entries. */
+function table(values: readonly number[]) {
+  const data = new Uint16Array(values.length);
+  values.forEach((value, index) => { data[index] = DataUtils.toHalfFloat(value); });
+  const texture = new DataTexture(data, values.length, 1, RedFormat, HalfFloatType);
+  texture.minFilter = texture.magFilter = LinearFilter;
+  texture.colorSpace = NoColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+const tables = (which: "light" | "dark") => {
+  const lut = MILO_3D.luts[which];
+  return { toScene: table(lut.inverse), toDisplay: table(lut.forward), range: new Vector2(lut.from, lut.to) };
+};
 
 const radians = (degrees: number) => (degrees * Math.PI) / 180;
 const node = (name: string) => name.replace(/[\[\]\.:\/]/g, "").replace(/\s/g, "_");
@@ -92,8 +120,19 @@ export async function createMilo3D(figure: HTMLElement, theme: "light" | "dark")
   const scene = new Scene();
   scene.add(gltf.scene);
   const materials = new Map<string, ShaderMaterial>();
+  let transform = tables(theme);
   for (const name of MILO_3D.materials) {
-    materials.set(name, new ShaderMaterial({ vertexShader: vertex, fragmentShader: fragment, vertexColors: true, uniforms: { matcap: { value: looks.get(name) }, occlusion: { value: 0.4 }, shadow: { value: 0.35 } } }));
+    materials.set(name, new ShaderMaterial({
+      vertexShader: vertex,
+      fragmentShader: fragment,
+      uniforms: {
+        matcap: { value: looks.get(name) },
+        toScene: { value: transform.toScene },
+        toDisplay: { value: transform.toDisplay },
+        range: { value: transform.range },
+        dark: { value: theme === "dark" ? 1 : 0 },
+      },
+    }));
   }
   gltf.scene.traverse((object) => {
     const mesh = object as Mesh;
@@ -226,7 +265,16 @@ export async function createMilo3D(figure: HTMLElement, theme: "light" | "dark")
     resize,
     async setTheme(which) {
       const next = await matcaps(which);
-      for (const [name, material] of materials) material.uniforms.matcap.value = next.get(name);
+      transform.toScene.dispose();
+      transform.toDisplay.dispose();
+      transform = tables(which);
+      for (const [name, material] of materials) {
+        material.uniforms.matcap.value = next.get(name);
+        material.uniforms.toScene.value = transform.toScene;
+        material.uniforms.toDisplay.value = transform.toDisplay;
+        material.uniforms.range.value = transform.range;
+        material.uniforms.dark.value = which === "dark" ? 1 : 0;
+      }
     },
     destroy() {
       renderer.dispose();
