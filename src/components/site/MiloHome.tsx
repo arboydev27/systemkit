@@ -27,8 +27,8 @@ const lessons = (count: number) => `${count} ${count === 1 ? "lesson" : "lessons
 // How much of the figure's width his body takes up at the line, which is what has to stay on the stage.
 // His head is the widest part of him, and it all has to stay on the stage and clear of the words.
 const HEAD_SHARE = 0.42;
-// His width on screen: his height times 874/1158, from the stage's --milo-h on each layout.
-const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(42vh, 30vw), (max-height: 599px) and (min-width: 640px) min(59vh, 30vw), min(27vh, 66vw, 287px)";
+// His width on screen: his height times 874/1185, from the stage's --milo-h on each layout.
+const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(41vh, 30vw), (max-height: 599px) and (min-width: 640px) min(58vh, 30vw), min(27vh, 65vw, 280px)";
 
 // When the course line can't run, or without JavaScript, everything below the words lies flat and the chapter list shows.
 const FLAT_PAGE = "[data-home-scene],[data-home-goal],[data-home-bubble]{display:none!important}"

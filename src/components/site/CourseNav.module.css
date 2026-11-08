@@ -3,9 +3,9 @@
 
 .scene {
   --milo-h: clamp(230px, 30vw, 330px);
-  --milo-w: calc(var(--milo-h) * 874 / 1158);
+  --milo-w: calc(var(--milo-h) * 874 / 1185);
   --legs: calc(var(--milo-h) * .16);
-  --line-y: calc(var(--milo-h) * .8533 + 8px);
+  --line-y: calc(var(--milo-h) * .85696 + 8px);
   position: relative;
   min-width: 0;
   height: calc(var(--line-y) + var(--legs) + 78px);
@@ -15,7 +15,7 @@
 .partsBox { top: calc(var(--line-y) + var(--legs) + 10px); right: 0; left: 0; }
 .seat {
   position: absolute;
-  top: calc(var(--line-y) - var(--milo-h) * .8533);
+  top: calc(var(--line-y) - var(--milo-h) * .85696);
   left: 0;
   z-index: 2;
   width: var(--milo-w);
