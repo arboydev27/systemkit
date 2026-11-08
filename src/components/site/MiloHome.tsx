@@ -27,8 +27,8 @@ const lessons = (count: number) => `${count} ${count === 1 ? "lesson" : "lessons
 // How much of the figure's width his body takes up at the line, which is what has to stay on the stage.
 // His head is the widest part of him, and it all has to stay on the stage and clear of the words.
 const HEAD_SHARE = 0.42;
-// His width on screen: his height times 874/1185, from the stage's --milo-h on each layout.
-const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(41vh, 30vw), (max-height: 599px) and (min-width: 640px) min(58vh, 30vw), min(27vh, 65vw, 280px)";
+// His width on screen: his height times 1340/1841, from the stage's --milo-h on each layout.
+const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(48vh, 34vw), (max-height: 599px) and (min-width: 640px) min(61vh, 32vw), min(31vh, 73vw, 320px)";
 
 // When the course line can't run, or without JavaScript, everything below the words lies flat and the chapter list shows.
 const FLAT_PAGE = "[data-home-scene],[data-home-goal],[data-home-bubble]{display:none!important}"
@@ -126,13 +126,16 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
     if (!node || !line || !figure.current) return;
     const box = node.getBoundingClientRect();
     const lineBox = line.getBoundingClientRect();
+    // He and his thought are placed in the scene the line is in, which on a phone on its side starts partway across.
+    const sceneBox = (line.offsetParent ?? node).getBoundingClientRect();
     const width = figure.current.offsetWidth;
     const lesson = nav.nextLesson ?? 0;
     const edge = parseFloat(getComputedStyle(node).getPropertyValue("--edge")) || 16;
-    const lineLeft = lineBox.left - box.left;
-    const x = seatX(ledge.lessons[lesson], { left: lineLeft, width: lineBox.width }, width * HEAD_SHARE * 2, { left: lineLeft, right: box.width - edge });
+    const lineLeft = lineBox.left - sceneBox.left;
+    const right = box.right - edge - sceneBox.left;
+    const x = seatX(ledge.lessons[lesson], { left: lineLeft, width: lineBox.width }, width * HEAD_SHARE * 2, { left: lineLeft, right });
     node.style.setProperty("--seat-x", `${x.toFixed(1)}px`);
-    setSide(bubbleSide(x, { left: lineLeft, right: box.width - edge }));
+    setSide(bubbleSide(x, { left: lineLeft, right }));
   }, [ledge, nav.nextLesson]);
 
   useEffect(() => {
@@ -277,14 +280,18 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
           onBlur={() => setMood(null)}
           data-home-bubble
         >
-          <span className={styles.bubbleIcon} aria-hidden="true">
-            <svg className={styles.bubbleRing} viewBox="0 0 36 36" focusable="false">
-              <circle className={styles.bubbleTrack} cx="18" cy="18" r="16.5" pathLength="100" />
-              {ring ? <circle className={styles.bubbleDone} cx="18" cy="18" r="16.5" pathLength="100" strokeDasharray={`${ring} 100`} /> : null}
-            </svg>
-            <Play size={12} fill="currentColor" strokeWidth={0} />
+          <span className={styles.bubblePill}>
+            <span className={styles.bubbleIcon} aria-hidden="true">
+              <svg className={styles.bubbleRing} viewBox="0 0 36 36" focusable="false">
+                <circle className={styles.bubbleTrack} cx="18" cy="18" r="16.5" pathLength="100" />
+                {ring ? <circle className={styles.bubbleDone} cx="18" cy="18" r="16.5" pathLength="100" strokeDasharray={`${ring} 100`} /> : null}
+              </svg>
+              <Play size={12} fill="currentColor" strokeWidth={0} />
+            </span>
+            <span className={styles.bubbleLabel}>{actionLabel}</span>
           </span>
-          <span className={styles.bubbleLabel}>{actionLabel}</span>
+          {/* The trail of a thought, from his head up to what he's thinking. */}
+          <span className={styles.bubbleTrail} aria-hidden="true"><i /><i /><i /></span>
         </Link>
         <CourseLedge
           graph={graph}

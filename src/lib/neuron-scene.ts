@@ -52,8 +52,12 @@ export type Filmed = { film: Film; shot: Shot };
 
 /** One of Milo's image layers as the page shows it: the image, its size, and where the page has put it on screen. */
 export type FigureLayer = { image: CanvasImageSource; width: number; height: number; matrix: DOMMatrix };
-/** One of his eyes on screen as the dive begins, with how tall it is when open, in case he was mid-blink. */
-export type FigureEye = { x: number; y: number; rx: number; ry: number; open: number };
+/**
+ * One of his eyes on screen as the dive begins, with how tall it is when open, in case he was mid-blink. With his head
+ * turned, the eye lies on a turned screen: `turn` is the linear map (a, b, c, d, as in a DOMMatrix) from the eye's own
+ * axes, along which rx and ry are measured, to the screen's.
+ */
+export type FigureEye = { x: number; y: number; rx: number; ry: number; open: number; turn?: readonly number[] };
 /** Milo as the page is showing him when the dive begins, so the first frame can be an exact copy. */
 export type FigureCopy = { layers: FigureLayer[]; eyes: FigureEye[]; chosen: number; glow: { reach: number; blur: number; alpha: number; color: string } };
 
@@ -600,13 +604,13 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = "destination-out";
         ctx.beginPath();
-        ctx.ellipse(a.x, a.y, holeX, holeY, 0, 0, Math.PI * 2);
+        eyePath(eye, a.x, a.y, holeX, holeY);
         ctx.fill();
         ctx.globalCompositeOperation = "source-over";
       } else if (pupil > 0.01) {
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(a.x, a.y, holeX, holeY, 0, 0, Math.PI * 2);
+        eyePath(eye, a.x, a.y, holeX, holeY);
         ctx.clip();
         drawInside(progress, along, 1, true);
         ctx.restore();
@@ -618,7 +622,7 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
         ctx.strokeStyle = "#f4f4f4";
         ctx.lineWidth = Math.min(3, 1.4 + Math.min(holeX, holeY) / 160);
         ctx.beginPath();
-        ctx.ellipse(a.x, a.y, holeX, holeY, 0, 0, Math.PI * 2);
+        eyePath(eye, a.x, a.y, holeX, holeY);
         ctx.stroke();
       }
     } else if (filmed) {
@@ -656,6 +660,16 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
     return { x: entryX, y: entryY };
   }
 
+  /** Adds an ellipse on an eye's own axes, centered at (x, y), to the path, so it lies on his screen however it's turned. */
+  function eyePath(eye: FigureEye, x: number, y: number, rx: number, ry: number) {
+    const turn = eye.turn ?? [1, 0, 0, 1];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.transform(turn[0], turn[1], turn[2], turn[3], 0, 0);
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.restore();
+  }
+
   /** Milo, drawn from the page's own images where the page put them, with the camera closing in on one eye. */
   function drawFigure(copy: FigureCopy, zoom: number, strain: number, progress: number, shift: number) {
     const { x: ex, y: ey } = copy.eyes[copy.chosen];
@@ -678,20 +692,25 @@ export function createNeuronScene(canvas: HTMLCanvasElement, graph: OrbGraph, ex
       const swell = index === copy.chosen ? 1 + 0.16 * strain : 1;
       const ry = (eye.ry + (eye.open - eye.ry) * opened) * swell;
       const rx = eye.rx * swell;
+      const turn = eye.turn ?? [1, 0, 0, 1];
       ctx.save();
       ctx.shadowColor = color;
       ctx.shadowBlur = blur * zoom * scale;
-      ctx.shadowOffsetX = away * zoom * scale;
+      // The shape is drawn `away` along the eye's own x axis, so its shadow is thrown back by that much, on screen.
+      ctx.shadowOffsetX = away * turn[0] * zoom * scale;
+      ctx.shadowOffsetY = away * turn[1] * zoom * scale;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.ellipse(eye.x - away, eye.y, rx + reach * swell, ry + reach * swell, 0, 0, Math.PI * 2);
+      ctx.translate(eye.x, eye.y);
+      ctx.transform(turn[0], turn[1], turn[2], turn[3], 0, 0);
+      ctx.ellipse(-away, 0, rx + reach * swell, ry + reach * swell, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
       ctx.fillStyle = "#f4f4f4";
       ctx.beginPath();
-      ctx.ellipse(eye.x, eye.y, rx, ry, 0, 0, Math.PI * 2);
+      eyePath(eye, eye.x, eye.y, rx, ry);
       ctx.fill();
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
