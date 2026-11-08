@@ -14,6 +14,8 @@ const { chapters } = require('../src/content/chapters.ts');
 const { buildOrbGraph } = require('../src/lib/orb-layout.ts');
 const milo = require('../src/lib/milo.ts');
 const { MILO } = require('../src/lib/milo-figure.ts');
+const { MILO_TURNS } = require('../src/lib/milo-turns.ts');
+const { MILO_3D } = require('../src/lib/milo-3d.ts');
 
 const graph = buildOrbGraph(chapters);
 const ledge = milo.ledgeOf(graph);
@@ -92,12 +94,66 @@ test('his eyes follow a target but never leave his screen, and look straight ahe
   assert.ok(Math.abs(milo.gaze(0.1, 0).x) < Math.abs(milo.gaze(1, 0).x));
 });
 
-test('the head leans the way the eyes look, and only a little', () => {
-  const right = milo.lean(milo.gaze(10, 0));
-  const left = milo.lean(milo.gaze(-10, 0));
-  assert.ok(right.tilt > 0 && left.tilt < 0);
-  assert.ok(Math.abs(right.tilt) <= 2.2 + 1e-9);
-  assert.deepEqual(milo.lean({ x: 0, y: 0 }), { tilt: 0, x: 0, y: 0 });
+test('his head carries most of a turn toward what he looks at, and his torso a little of it', () => {
+  const T = MILO_TURNS;
+  const right = milo.turnFor(milo.gaze(10, 0), T);
+  const left = milo.turnFor(milo.gaze(-10, 0), T);
+  assert.ok(right.yaw > 18 && right.yaw <= T.yaws.at(-1) + 1e-9, `far right turns the head ${right.yaw}`);
+  assert.ok(left.yaw < -18 && left.yaw >= T.yaws[0] - 1e-9);
+  assert.ok(right.twist > 5 && right.twist <= 8 && right.twist < right.yaw / 2, 'the torso follows least');
+  assert.ok(milo.turnFor(milo.gaze(0, 10), T).nod > 0 && milo.turnFor(milo.gaze(0, -10), T).nod < 0, 'down is a nod down');
+  assert.deepEqual(milo.turnFor({ x: 0, y: 0 }, T), { yaw: 0, nod: 0, twist: 0 });
+});
+
+test('the head comes to rest on a rendered frame, and doesn\'t flick between two near the middle', () => {
+  const yaws = MILO_TURNS.yaws;
+  assert.equal(milo.detent(yaws, 0, 2), 0);
+  assert.equal(milo.detent(yaws, 0, 4), 0, 'just past the middle it stays');
+  assert.equal(milo.detent(yaws, 0, 5.5), 7, 'well past the middle it moves on');
+  assert.equal(milo.detent(yaws, 7, 3), 7, 'and coming back it stays a little longer');
+  assert.equal(milo.detent(yaws, 7, 1.5), 0);
+  assert.equal(milo.detent(yaws, 0, 20), 21, 'a far target goes straight to the far frame');
+  assert.equal(milo.detent(yaws, 0, -40), -21);
+});
+
+test('the frames showing for a turn add up to one, and at a frame only that frame shows', () => {
+  const { yaws, nods, twists } = MILO_TURNS;
+  for (let yaw = -25; yaw <= 25; yaw += 1.75) {
+    for (let nod = -10; nod <= 12; nod += 1.5) {
+      const weights = milo.headWeights(yaws, nods, yaw, nod);
+      const sum = [...weights.values()].reduce((a, b) => a + b, 0);
+      assert.ok(Math.abs(sum - 1) < 1e-9 && weights.size <= 4, `yaw ${yaw} nod ${nod}`);
+      for (const cell of weights.keys()) assert.ok(cell >= 0 && cell < yaws.length * nods.length);
+    }
+  }
+  yaws.forEach((yaw, column) => nods.forEach((nod, row) => assert.deepEqual([...milo.headWeights(yaws, nods, yaw, nod)], [[row * yaws.length + column, 1]])));
+  twists.forEach((twist, index) => assert.deepEqual([...milo.rowWeights(twists, twist)], [[index, 1]]));
+  // Halfway between two frames, both show equally; a quarter of the way, the nearer one shows more than three quarters.
+  assert.deepEqual([...milo.rowWeights(twists, (twists[0] + twists[1]) / 2)].map(([, w]) => w), [0.5, 0.5]);
+  assert.ok(milo.rowWeights(twists, twists[0] + (twists[1] - twists[0]) / 4).get(0) > 0.75);
+  const mixed = milo.mixAffine([[1, 0, 0, 1, 0, 0], [3, 0, 0, 1, 10, 0]], new Map([[0, 0.5], [1, 0.5]]));
+  assert.deepEqual(mixed, [2, 0, 0, 1, 5, 0]);
+});
+
+test('the turn frames\' geometry fits the figure, and the straight-ahead frame is the plain layer', () => {
+  const { yaws, nods, twists, head, body } = MILO_TURNS;
+  assert.ok(yaws.includes(0) && nods.includes(0) && twists.includes(0));
+  for (const values of [yaws, nods, twists]) for (let i = 1; i < values.length; i++) assert.ok(values[i] > values[i - 1]);
+  assert.equal(head.affine.length, yaws.length * nods.length);
+  assert.equal(body.neck.length, twists.length);
+  assert.deepEqual([...head.affine[nods.indexOf(0) * yaws.length + yaws.indexOf(0)]], [1, 0, 0, 1, 0, 0]);
+  assert.deepEqual([...body.neck[twists.indexOf(0)]], [0, 0]);
+  for (const box of [head.box, body.box]) {
+    assert.ok(box[0] >= 0 && box[1] >= 0 && box[0] + box[2] <= 1 + 1e-9 && box[1] + box[3] <= 1 + 1e-9, `${box}`);
+  }
+  // Turning toward the image's right carries his eyes right; nodding down carries them down.
+  const at = (yaw, nod) => head.affine[nods.indexOf(nod) * yaws.length + yaws.indexOf(yaw)];
+  const eye = [MILO.display.x * MILO.width, MILO.display.y * MILO.height];
+  const move = (m) => [m[0] * eye[0] + m[2] * eye[1] + m[4] - eye[0], m[1] * eye[0] + m[3] * eye[1] + m[5] - eye[1]];
+  assert.ok(move(at(yaws.at(-1), 0))[0] > 0 && move(at(yaws[0], 0))[0] < 0);
+  assert.ok(move(at(0, nods.at(-1)))[1] > 0 && move(at(0, nods[0]))[1] < 0);
+  // The neck barely moves as the torso twists: the head rides on it.
+  for (const [dx, dy] of body.neck) assert.ok(Math.abs(dx) < 0.02 && Math.abs(dy) < 0.02);
 });
 
 test('blinks come every few seconds, now and then twice', () => {
@@ -142,6 +198,37 @@ test('the images are the size the figure geometry says', () => {
   }
 });
 
+test('the turn sprites are the size their geometry says, in AVIF and WebP', () => {
+  const webp = (file) => {
+    const b = fs.readFileSync(file);
+    const chunk = b.toString('ascii', 12, 16);
+    if (chunk === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    if (chunk === 'VP8L') { const bits = b.readUInt32LE(21); return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)]; }
+    throw new Error(`${file}: unexpected WebP chunk ${chunk}`);
+  };
+  // An AVIF's size, from its image spatial extents ('ispe') property.
+  const avif = (file) => {
+    const b = fs.readFileSync(file);
+    const at = b.indexOf('ispe');
+    assert.ok(at > 0, `${file}: no ispe`);
+    return [b.readUInt32BE(at + 8), b.readUInt32BE(at + 12)];
+  };
+  const { yaws, nods, twists, head, body } = MILO_TURNS;
+  for (const theme of ['light', 'dark']) {
+    for (const [name, layer, columns, rows] of [['head', head, yaws.length, nods.length], ['body', body, twists.length, 1]]) {
+      for (const [suffix, cell] of [['', layer.cell], ['-s', layer.smallCell]]) {
+        const want = [cell[0] * columns, cell[1] * rows];
+        const base = `public/milo/${theme}-turns-${name}${suffix}`;
+        assert.deepEqual(avif(`${base}.avif`), want, `${base}.avif`);
+        assert.deepEqual(webp(`${base}.webp`), want, `${base}.webp`);
+      }
+      // Each cell is the same shape as the box it fills, give or take rounding.
+      const ratio = (layer.box[2] * MILO.width) / (layer.box[3] * MILO.height);
+      assert.ok(Math.abs(layer.cell[0] / layer.cell[1] - ratio) < 0.01, `${name} cell shape`);
+    }
+  }
+});
+
 test('the stylesheets lay him out with the renders\' own proportions, seat and neck', () => {
   const css = (name) => fs.readFileSync(`src/components/site/${name}.module.css`, 'utf8');
   const near = (a, b, what) => assert.ok(Math.abs(a - b) < 1e-4, `${what}: ${a} against ${b}`);
@@ -151,6 +238,11 @@ test('the stylesheets lay him out with the renders\' own proportions, seat and n
   const [, ox, oy] = milo.match(/transform-origin: ([\d.]+)% ([\d.]+)%/);
   near(ox / 100, MILO.neck[0], 'head turns on the neck (x)');
   near(oy / 100, MILO.neck[1], 'head turns on the neck (y)');
+  for (const name of ['body', 'bodyBreath']) {
+    const [, sx, sy] = milo.match(new RegExp(`\\.${name} \\{[^}]*transform-origin: ([\\d.]+)% ([\\d.]+)%`));
+    near(sx / 100, MILO.seat[0], `${name} turns about the seat (x)`);
+    near(sy / 100, MILO.seat[1], `${name} turns about the seat (y)`);
+  }
   for (const name of ['MiloHome', 'CourseNav']) {
     const sheet = css(name);
     const ratios = [...sheet.matchAll(/var\(--milo-h\) \* (\d+) \/ (\d+)/g)];
@@ -173,4 +265,26 @@ test('the images\' sizes hints are his height on each layout times the renders\'
   for (const heights of layouts) assert.ok(hint.includes(`min(${width(heights)})`), `home: min(${heights}) wants min(${width(heights)})`);
   const learn = read('CourseNav.module.css').match(/--milo-h: clamp\(([^)]+)\)/)[1];
   assert.ok(read('CourseMap.tsx').includes(`sizes="clamp(${width(learn)})"`), `learn: clamp(${width(learn)})`);
+});
+
+test('the map that carries his eyes onto a turned screen takes three points exactly where they go', () => {
+  const from = [[100, 200], [300, 200], [100, 260]];
+  const map = [0.93, -0.1, 0.05, 1.03, 12, -7];
+  const to = from.map(([x, y]) => [map[0] * x + map[2] * y + map[4], map[1] * x + map[3] * y + map[5]]);
+  const found = milo.affineFrom(from, to);
+  found.forEach((value, i) => assert.ok(Math.abs(value - map[i]) < 1e-9, `${i}: ${value}`));
+  assert.deepEqual(milo.affineFrom([[0, 0], [1, 1], [2, 2]], to), [1, 0, 0, 1, 0, 0], 'points in a line give no map');
+});
+
+test('the 3D Milo has its model, a matcap for every material in both themes, its shadow and the decoder', () => {
+  assert.ok(fs.existsSync(`public${MILO_3D.model}`));
+  for (const theme of ['light', 'dark']) {
+    for (const material of MILO_3D.materials) assert.ok(fs.existsSync(`public/milo/3d/matcap-${theme}-${material}.webp`), `${theme} ${material}`);
+    assert.ok(fs.existsSync(`public/milo/${theme}-shadow.webp`));
+  }
+  for (const file of ['draco_decoder.wasm', 'draco_wasm_wrapper.js']) assert.ok(fs.existsSync(`public/draco/${file}`), file);
+  assert.ok(MILO_3D.materials.includes('shell'), 'parts without a known material fall back to the shell');
+  for (const [name, joint] of Object.entries(MILO_3D.joints)) assert.ok(joint.parent === 'root' || joint.parent in MILO_3D.joints, `${name} hangs from a joint`);
+  // His eyes sit side by side on his screen, the screen's up pointing up.
+  assert.ok(MILO_3D.eyes.left[0] < MILO_3D.eyes.right[0] && Math.abs(MILO_3D.eyes.left[1] - MILO_3D.eyes.right[1]) < 0.01 && MILO_3D.eyes.up[1] > 0.9);
 });
