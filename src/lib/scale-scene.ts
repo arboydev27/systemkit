@@ -4,9 +4,14 @@
 
 export type ScalePlace = { x: number; y: number; r: number };
 export type ScaleSceneFlow = { routes: string[][]; rate: number; drop: Record<string, number>; absorb: Record<string, number>; heft: number };
-export type ScaleScene = { update: (flow: ScaleSceneFlow) => void; destroy: () => void };
+export type ScaleScene = {
+  update: (flow: ScaleSceneFlow) => void;
+  /** The signal that dived through the orb arrives, and goes on through the map as the first request. */
+  arrive: () => void;
+  destroy: () => void;
+};
 
-type Dot = { path: string[]; segment: number; along: number; state: "moving" | "lost" | "answered"; x: number; y: number; vx: number; vy: number; age: number };
+type Dot = { path: string[]; segment: number; along: number; state: "moving" | "lost" | "answered"; x: number; y: number; vx: number; vy: number; age: number; first?: boolean };
 
 const SEGMENT_SECONDS = 0.62;
 const LOST_SECONDS = 1.15;
@@ -110,6 +115,11 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
       const reached = dot.path[dot.segment + 1];
       const place = places.get(reached);
       if (!place) return false;
+      if (dot.first) {
+        dot.segment += 1;
+        dot.along = 0;
+        return dot.segment < dot.path.length - 1;
+      }
       if (Math.random() < (flow.drop[reached] ?? 0)) {
         spill(dot, place);
         return true;
@@ -161,6 +171,27 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
       ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
     }
     ctx.fill();
+
+    // The signal from the orb, larger than the rest, with the ripple it arrived in fading behind it.
+    for (const dot of dots) {
+      if (!dot.first) continue;
+      const a = places.get(dot.path[dot.segment]);
+      const b = places.get(dot.path[dot.segment + 1]);
+      if (!a || !b) continue;
+      const point = wirePoint(a, b, dot.along);
+      const fresh = dot.segment === 0 ? 1 - dot.along : 0;
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, size * 1.9, 0, Math.PI * 2);
+      ctx.fill();
+      if (fresh > 0) {
+        ctx.globalAlpha = fresh * 0.5;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, size * (2 + (1 - fresh) * 9), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
 
     for (const dot of dots) {
       if (dot.state === "moving") continue;
@@ -230,6 +261,12 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
       }));
       places = readPlaces();
       settleUntil = performance.now() + SETTLE_MS;
+      lastChange = performance.now();
+      wake();
+    },
+    arrive() {
+      if (motion.matches || !flow.routes.length) return;
+      dots.push({ path: flow.routes[0], segment: 0, along: 0, state: "moving", x: 0, y: 0, vx: 0, vy: 0, age: 0, first: true });
       lastChange = performance.now();
       wake();
     },
