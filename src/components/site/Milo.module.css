@@ -52,6 +52,9 @@
 .tickLit { opacity: .78; }
 .tickShown { opacity: 1; stroke-width: 1.6 !important; }
 .tickNext { stroke: var(--hot-line) !important; stroke-width: 2 !important; }
+.tickNextMarked { visibility: hidden; }
+/* Where the page draws its own mark for the next lesson, it goes along the line with Milo. */
+.nextMark { position: absolute; top: 0; width: 0; height: 0; pointer-events: none; transition: left 1.1s cubic-bezier(.22, 1, .36, 1); }
 
 @media (prefers-color-scheme: dark) {
   .ledge { --hot-line: #f0733f; }
@@ -111,9 +114,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eye { transition: none; }
+  .eye, .nextMark { transition: none; }
 }
 
 @media (forced-colors: active) {
   .tickNext { stroke: Highlight !important; }
+  .tickNextMarked { visibility: visible; }
+  .nextMark { display: none; }
 }

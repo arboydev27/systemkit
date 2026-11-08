@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
@@ -599,7 +599,7 @@ function ticksPath(xs: number[], height: number) {
  * the next one lit, and below it the four parts, which open the course where they point. Pointing along the line names
  * the lesson there, and the arrow keys walk it.
  */
-export function CourseLedge({ graph, chapters, nav, ledge, onPart, onFocusLesson, highlight, className = "", partsClassName = "" }: {
+export function CourseLedge({ graph, chapters, nav, ledge, onPart, onFocusLesson, highlight, nextMark, className = "", partsClassName = "" }: {
   graph: OrbGraph;
   chapters: CourseNavProps["chapters"];
   nav: CourseNavState;
@@ -609,6 +609,8 @@ export function CourseLedge({ graph, chapters, nav, ledge, onPart, onFocusLesson
   onFocusLesson?: (spot: { x: number; y: number } | null) => void;
   /** Lessons to ink in for what the panel is showing. */
   highlight: { from: number; to: number } | null;
+  /** Drawn at the next lesson in place of its orange tick, which stays for forced colours. */
+  nextMark?: ReactNode;
   className?: string;
   partsClassName?: string;
 }) {
@@ -655,9 +657,10 @@ export function CourseLedge({ graph, chapters, nav, ledge, onPart, onFocusLesson
         <path className={styles.tickDone} d={done} />
         <path className={styles.tickDoneChapter} d={doneChapters} />
         {litPath ? <path className={styles.tickLit} d={litPath} /> : null}
-        {nav.nextLesson !== null ? <path className={styles.tickNext} d={ticksPath([ledge.lessons[nav.nextLesson]], TICK.next)} /> : null}
+        {nav.nextLesson !== null ? <path className={`${styles.tickNext} ${nextMark ? styles.tickNextMarked : ""}`} d={ticksPath([ledge.lessons[nav.nextLesson]], TICK.next)} /> : null}
         {shown !== null ? <path className={styles.tickShown} d={ticksPath([ledge.lessons[shown]], TICK.next)} /> : null}
       </svg>
+      {nextMark && nav.nextLesson !== null ? <span className={styles.nextMark} style={{ left: `${ledge.lessons[nav.nextLesson] * 100}%` }}>{nextMark}</span> : null}
       <div
         ref={band}
         className={styles.band}

@@ -85,17 +85,17 @@ function through(points: [number, number][], start: boolean) {
   return d;
 }
 
-/** A run's stream, from up in the sheet to its neck: its centre and half-width every few units. */
-export function streamOf(run: Run) {
+/** A run's stream, from `top` (up in the sheet) to its neck: its centre and half-width every few units. */
+export function streamOf(run: Run, top = RUN_TOP) {
   const next = random(run.seed);
-  const span = run.reach - RUN_TOP;
+  const span = run.reach - top;
   // Where the paint paused on its way down and gathered a little, and how it wanders from side to side.
   const swells = [0, 1].map(() => ({ at: run.reach - span * (0.2 + 0.6 * next()), size: 0.08 + 0.16 * next(), spread: 10 + 26 * next() }));
   const wander = { by: 0.2 + 0.35 * next(), every: 40 + 70 * next(), from: next() * Math.PI * 2 };
   const samples: { y: number; x: number; half: number }[] = [];
   const steps = Math.max(8, Math.ceil(span / 10));
   for (let i = 0; i <= steps; i++) {
-    const y = RUN_TOP + (span * i) / steps;
+    const y = top + (span * i) / steps;
     // A run thickens a little toward its head, where the paint is still coming down.
     const near = Math.exp((y - run.reach) / 90);
     let half = run.width * (0.8 + 0.2 * near);
@@ -107,8 +107,8 @@ export function streamOf(run: Run) {
 }
 
 /** The outline of a run: down the left of its stream, round its head, and back up the right. */
-export function runPath(run: Run) {
-  const samples = streamOf(run);
+export function runPath(run: Run, top = RUN_TOP) {
+  const samples = streamOf(run, top);
   const { x, half: w } = samples[samples.length - 1];
   const { head, length, reach: y } = run;
   const left = samples.map((s) => [s.x - s.half, s.y] as [number, number]);
@@ -155,8 +155,56 @@ export function depthOf(spill: Spill) {
 }
 
 /** The glint down a run, where the light catches it: a line a little left of its middle, from below the sheet to its head. */
-export function glintPath(run: Run, from = 24) {
-  const samples = streamOf(run).filter(({ y }) => y > from && y < run.reach + run.length * 0.12);
+export function glintPath(run: Run, from = 24, top = RUN_TOP) {
+  const samples = streamOf(run, top).filter(({ y }) => y > from && y < run.reach + run.length * 0.12);
   if (samples.length < 2) return "";
   return through(samples.map(({ x, y, half }) => [x - half * 0.4, y] as [number, number]), true);
+}
+
+/** A smooth closed loop through points. */
+function loop(points: [number, number][]) {
+  const n = points.length;
+  let d = `M${f(points[0][0])} ${f(points[0][1])}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const p3 = points[(i + 2) % n];
+    d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return `${d}Z`;
+}
+
+/** The dab of paint that marks the next lesson on the ledge: a blob where the brush touched its front edge (at y = 0),
+ *  dragged a little to the right, and one short run down the face ending in a head. The blob's lower edge sags into the
+ *  run where it leaves, as the spill's sheet does. */
+export const DAB = {
+  blob: { left: -3.1, right: 3.6, up: 1.8, down: 1, seed: 5 },
+  run: { x: 0.3, width: 1.15, head: 2.5, reach: 15, length: 5.8, seed: 3 } as Run,
+};
+
+export function dabPaths() {
+  const { left, right, up, down, seed } = DAB.blob;
+  const { run } = DAB;
+  const next = random(seed);
+  const middle = (left + right) / 2;
+  const half = (right - left) / 2;
+  const across = (t: number) => left + (right - left) * t;
+  const round = (x: number) => Math.sqrt(Math.max(0, 1 - ((x - middle) / half) ** 2));
+  const steps = 14;
+  const top: [number, number][] = [];
+  const bottom: [number, number][] = [];
+  for (let i = 1; i < steps; i++) {
+    const x = across(i / steps);
+    top.push([x, -up * round(x) ** 0.7 * (0.9 + 0.2 * next())]);
+  }
+  for (let i = steps - 1; i >= 1; i--) {
+    const x = across(i / steps);
+    const away = Math.abs(x - run.x);
+    const t = Math.min(1, Math.max(0, (away - run.width) / (run.width * 1.6)));
+    const sag = run.width * 1.8 * (1 - t * t * (3 - 2 * t));
+    bottom.push([x, down * round(x) ** 0.7 * (0.9 + 0.2 * next()) + sag]);
+  }
+  const blob = loop([[left, 0.1], ...top, [right, 0], ...bottom]);
+  return { blob, run: runPath(run, 0), glint: glintPath(run, 2.5, 0) };
 }

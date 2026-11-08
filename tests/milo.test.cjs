@@ -309,3 +309,13 @@ test('the paint on the wall: every run leaves the sheet, hangs clear of the othe
     assert.ok(!/NaN|Infinity/.test(paint.sheetPath(spill)), `${name}: the sheet draws`);
   }
 });
+
+test('the next lesson\'s dab of paint leaves its bead on the ledge\'s edge and ends in a head', () => {
+  const paint = require('../src/lib/paint.ts');
+  const { blob, run } = paint.DAB;
+  assert.ok(blob.left < run.x - run.head && run.x + run.head < blob.right, 'the run leaves from under the bead');
+  assert.ok(blob.up > 0 && blob.down > 0, 'the bead sits across the edge, on the top and the face');
+  assert.ok(run.head > run.width * 1.8, 'its head is wider than its run');
+  assert.ok(run.reach > blob.down + run.width * 4, 'the run comes out below the bead');
+  for (const path of Object.values(paint.dabPaths())) assert.ok(path && !/NaN|Infinity/.test(path));
+});

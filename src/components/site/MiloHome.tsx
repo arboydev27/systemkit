@@ -15,7 +15,7 @@ import { ChapterLessons, nextIsOutOfSight, useCourseNav } from "./CourseNav";
 import { CourseLedge, MiloFigure, partLessons, useMiloLife, type MiloFocus } from "./Milo";
 import type { NeuronFlightProps } from "./NeuronFlight";
 import { DueReviewBadge } from "./SiteClient";
-import { WallPaint } from "./WallPaint";
+import { PaintDab, WallPaint } from "./WallPaint";
 import styles from "./MiloHome.module.css";
 import siteStyles from "./Site.module.css";
 
@@ -304,6 +304,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
           onPart={browse}
           onFocusLesson={onFocusLesson}
           highlight={lit}
+          nextMark={<PaintDab />}
           className={styles.ledge}
           partsClassName={styles.parts}
         />

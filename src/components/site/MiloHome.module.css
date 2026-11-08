@@ -111,6 +111,15 @@
 .spillShadow { flood-color: #000; flood-opacity: .2; }
 .glint { fill: none; stroke: #fff; stroke-opacity: .5; stroke-linecap: round; }
 .spark { fill: #fff; opacity: .85; }
+/* The next lesson's dab of paint, its front-edge point on the ledge's line. */
+.dab {
+  position: absolute;
+  top: calc(var(--paint-u) * var(--dab-top) * -1);
+  left: calc(var(--paint-u) * var(--dab-left) * -1);
+  width: calc(var(--paint-u) * var(--dab-w));
+  height: calc(var(--paint-u) * var(--dab-h));
+  overflow: visible;
+}
 
 /* One run is still coming down: it creeps on for a minute, slowing as it goes, in small steps so the wall is only
    redrawn a few times a second, and waits while the wall is off screen. */
