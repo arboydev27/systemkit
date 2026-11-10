@@ -288,3 +288,34 @@ test('the 3D Milo has its model, a matcap for every material in both themes, its
   // His eyes sit side by side on his screen, the screen's up pointing up.
   assert.ok(MILO_3D.eyes.left[0] < MILO_3D.eyes.right[0] && Math.abs(MILO_3D.eyes.left[1] - MILO_3D.eyes.right[1]) < 0.01 && MILO_3D.eyes.up[1] > 0.9);
 });
+
+test('the paint on the wall: every run leaves the sheet, hangs clear of the others, and stays joined while it creeps', () => {
+  const paint = require('../src/lib/paint.ts');
+  for (const { name, spill, creep } of paint.SPILLS) {
+    const creeper = paint.creeperOf(spill);
+    assert.ok(spill.runs[creeper].reach === Math.max(...spill.runs.map((run) => run.reach)), `${name}: the longest run creeps`);
+    spill.runs.forEach((run, index) => {
+      const edge = paint.edgeAt(spill, run.x);
+      const slide = index === creeper ? creep : 0;
+      // It starts up inside the sheet, even once it has crept as far as it goes, and comes out below it.
+      assert.ok(paint.streamOf(run)[0].y + slide < edge - 12, `${name} run ${index} starts inside the sheet`);
+      assert.ok(run.reach > edge + run.width * 4, `${name} run ${index} hangs below the sheet`);
+      assert.ok(run.x - run.head > spill.left && run.x + run.head < spill.right, `${name} run ${index} leaves from the sheet`);
+      assert.ok(run.head > run.width * 1.4, `${name} run ${index} ends in a head wider than its stream`);
+      for (const path of [paint.runPath(run), paint.glintPath(run)]) assert.ok(path && !/NaN|Infinity/.test(path), `${name} run ${index} draws`);
+    });
+    const across = [...spill.runs].sort((a, b) => a.x - b.x);
+    for (let i = 1; i < across.length; i++) assert.ok(across[i].x - across[i].head > across[i - 1].x + across[i - 1].head, `${name}: runs ${i} and ${i + 1} apart`);
+    assert.ok(!/NaN|Infinity/.test(paint.sheetPath(spill)), `${name}: the sheet draws`);
+  }
+});
+
+test('the next lesson\'s dab of paint leaves its bead on the ledge\'s edge and ends in a head', () => {
+  const paint = require('../src/lib/paint.ts');
+  const { blob, run } = paint.DAB;
+  assert.ok(blob.left < run.x - run.head && run.x + run.head < blob.right, 'the run leaves from under the bead');
+  assert.ok(blob.up > 0 && blob.down > 0, 'the bead sits across the edge, on the top and the face');
+  assert.ok(run.head > run.width * 1.8, 'its head is wider than its run');
+  assert.ok(run.reach > blob.down + run.width * 4, 'the run comes out below the bead');
+  for (const path of Object.values(paint.dabPaths())) assert.ok(path && !/NaN|Infinity/.test(path));
+});

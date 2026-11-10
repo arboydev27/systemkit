@@ -15,6 +15,7 @@ import { ChapterLessons, nextIsOutOfSight, useCourseNav } from "./CourseNav";
 import { CourseLedge, MiloFigure, partLessons, useMiloLife, type MiloFocus } from "./Milo";
 import type { NeuronFlightProps } from "./NeuronFlight";
 import { DueReviewBadge } from "./SiteClient";
+import { PaintDab, WallPaint } from "./WallPaint";
 import styles from "./MiloHome.module.css";
 import siteStyles from "./Site.module.css";
 
@@ -31,7 +32,7 @@ const HEAD_SHARE = 0.42;
 const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(48vh, 34vw), (max-height: 599px) and (min-width: 640px) min(61vh, 32vw), min(31vh, 73vw, 320px)";
 
 // When the course line can't run, or without JavaScript, everything below the words lies flat and the chapter list shows.
-const FLAT_PAGE = "[data-home-scene],[data-home-goal],[data-home-bubble]{display:none!important}"
+const FLAT_PAGE = "[data-home-scene],[data-home-wall],[data-home-goal],[data-home-bubble]{display:none!important}"
   + "[data-home-stage]{position:relative!important;height:auto!important;min-height:0!important;display:block!important;padding:24px clamp(16px,4vw,40px)!important}"
   + "[data-home-words],[data-home-foot]{position:static!important;width:auto!important;max-width:none!important;margin:0 0 16px!important}"
   + "[data-home-moons]{position:static!important;display:flex!important;flex-wrap:wrap!important;width:auto!important;height:auto!important;gap:8px!important;padding:76px clamp(16px,4vw,40px) 0!important;background:none!important;border:0!important;box-shadow:none!important}"
@@ -78,8 +79,8 @@ function useLast<T>(value: T | null) {
 }
 
 /**
- * The opening of the home page: Milo, sitting on the course. The line he sits on is every lesson in order, he sits at
- * the visitor's next one, and what he says starts it. The four parts under the line open the course where they point,
+ * The opening of the home page: Milo, sitting on the course, on a ledge in front of a wall with orange paint running
+ * down it. The ledge's front edge is every lesson in order, he sits at the visitor's next one, and what he says starts it. The four parts under the line open the course where they point,
  * and scrolling dives in through his eye.
  */
 export function MiloHome({ chapters, goals, graph, words, foot, start, counts }: {
@@ -266,10 +267,12 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
     </nav>
 
     <div id="path" ref={stage} className={`${styles.stage} ${open ? styles.exploring : ""}`} data-home-stage>
+      <WallPaint />
       <div className={styles.words} data-home-words>{words}</div>
 
       <div className={styles.scene} data-home-scene>
-        <i className={styles.horizon} aria-hidden="true" />
+        <i className={styles.cast} aria-hidden="true" />
+        <i className={styles.shelf} aria-hidden="true" />
         <Link
           className={`${styles.bubble} ${side === "left" ? styles.bubbleLeft : ""}`}
           href={actionHref}
@@ -301,6 +304,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
           onPart={browse}
           onFocusLesson={onFocusLesson}
           highlight={lit}
+          nextMark={<PaintDab />}
           className={styles.ledge}
           partsClassName={styles.parts}
         />

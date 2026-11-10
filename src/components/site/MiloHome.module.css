@@ -37,6 +37,11 @@
   --milo-w: calc(var(--milo-h) * 1340 / 1841);
   --legs: calc(var(--milo-h) * .16);
   --line-l: var(--edge);
+  /* A unit of the wall, about a pixel when he's 600px tall, that the paint on it is drawn in, and where its spill is. */
+  --u: calc(var(--milo-h) / 600);
+  --paint-u: max(var(--u), .74px);
+  --spill-x: calc(100% - var(--paint-u) * 46);
+  --hot-line: #eb6834;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -46,22 +51,115 @@
   overflow-x: clip;
 }
 
-.words, .foot, .goalBlock { transition: opacity .35s ease, transform .7s var(--fluid), visibility 0s; }
+.words, .foot, .goalBlock { position: relative; transition: opacity .35s ease, transform .7s var(--fluid), visibility 0s; }
 .words h1 { margin: 0; color: var(--ink); font-size: clamp(2.5rem, 11.4vw, 4.75rem); font-weight: 660; line-height: 1; letter-spacing: -.038em; text-wrap: balance; }
 
 /* Milo, his line, and what he says. --seat-x is where he sits, from the stage's left edge; until the page knows the
    visitor's next lesson, he sits at the first. */
 .scene {
   --line-y: calc(var(--milo-h) * 0.86162 + 4px);
+  /* The ledge: how deep its top looks from where we see him, and how thick its front is. */
+  --shelf-d: calc(var(--milo-h) * .07);
+  --shelf-t: clamp(14px, calc(var(--milo-h) * .036), 22px);
+  --tick-catch: rgb(255 255 255 / 90%);
+  --wall-corner: rgb(0 0 0 / 6%);
+  --shelf-back: #ececec;
+  --shelf-top: #f9f9f9;
+  --shelf-lip: #ffffff;
+  --shelf-face: #ebebeb;
+  --shelf-face-low: #e2e2e2;
+  --shelf-edge: #d2d2d2;
+  --shelf-cast: rgb(0 0 0 / 8%);
+  --cast: rgb(0 0 0 / 9%);
+  --cast-x: calc(var(--milo-w) * .05);
+  --cast-y: calc(var(--milo-h) * .025);
   position: relative;
   flex: none;
   height: calc(var(--line-y) + var(--legs) + 86px);
   margin: 18px -20px 0;
 }
-.horizon { position: absolute; top: var(--line-y); right: 0; left: 0; height: 1px; background: var(--ink); opacity: .16; }
+
+/* The ledge he sits on: its top going back to the wall, its lit front edge, the front where the course is marked,
+   and its shadow on the wall under it. The course's line is the front edge. */
+.shelf {
+  position: absolute;
+  top: calc(var(--line-y) - var(--shelf-d));
+  right: 0;
+  left: 0;
+  height: calc(var(--shelf-d) + var(--shelf-t));
+  background: linear-gradient(to bottom,
+    var(--shelf-back) 0, var(--shelf-top) calc(var(--shelf-d) - 2px),
+    var(--shelf-lip) calc(var(--shelf-d) - 1px), var(--shelf-lip) calc(var(--shelf-d) + 1px),
+    var(--shelf-face) calc(var(--shelf-d) + 2px), var(--shelf-face-low) calc(100% - 1px), var(--shelf-edge) calc(100% - 1px));
+}
+.shelf::before, .shelf::after { position: absolute; right: 0; left: 0; content: ""; pointer-events: none; }
+.shelf::before { bottom: 100%; height: calc(var(--shelf-d) * .6); background: linear-gradient(to top, var(--wall-corner), transparent); }
+.shelf::after { top: 100%; height: calc(var(--milo-h) * .2); background: linear-gradient(to bottom, var(--shelf-cast), transparent 70%); }
+
+/* The wall behind him, and the paint coming over its top and running down it. */
+.wall { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.spill {
+  position: absolute;
+  top: calc(var(--paint-u) * var(--spill-above) * -1);
+  left: calc(var(--spill-x) - var(--paint-u) * var(--spill-left));
+  width: calc(var(--paint-u) * var(--spill-w));
+  height: calc(var(--paint-u) * var(--spill-h));
+  overflow: visible;
+}
+.spillWide { display: none; }
+.paint { fill: var(--hot-line); }
+.spillShadow { flood-color: #000; flood-opacity: .2; }
+.glint { fill: none; stroke: #fff; stroke-opacity: .5; stroke-linecap: round; }
+.spark { fill: #fff; opacity: .85; }
+/* The next lesson's dab of paint, its front-edge point on the ledge's line. */
+.dab {
+  position: absolute;
+  top: calc(var(--paint-u) * var(--dab-top) * -1);
+  left: calc(var(--paint-u) * var(--dab-left) * -1);
+  width: calc(var(--paint-u) * var(--dab-w));
+  height: calc(var(--paint-u) * var(--dab-h));
+  overflow: visible;
+}
+
+/* One run is still coming down: it creeps on for a minute, slowing as it goes, in small steps so the wall is only
+   redrawn a few times a second, and waits while the wall is off screen. */
+@media (prefers-reduced-motion: no-preference) {
+  .creep { animation: creep 64s 1.2s both; }
+  .wall[data-away] .creep { animation-play-state: paused; }
+}
+@keyframes creep {
+  0% { transform: none; animation-timing-function: steps(32); }
+  10% { transform: translateY(calc(var(--creep) * .34)); animation-timing-function: steps(40); }
+  25% { transform: translateY(calc(var(--creep) * .64)); animation-timing-function: steps(48); }
+  50% { transform: translateY(calc(var(--creep) * .88)); animation-timing-function: steps(32); }
+  75% { transform: translateY(calc(var(--creep) * .97)); animation-timing-function: steps(16); }
+  100% { transform: translateY(var(--creep)); }
+}
+
+@media (prefers-color-scheme: dark) {
+  .stage { --hot-line: #f0733f; }
+  .scene {
+    --tick-catch: rgb(0 0 0 / 70%);
+    --wall-corner: rgb(0 0 0 / 55%);
+    --shelf-back: #111111;
+    --shelf-top: #1d1d1d;
+    --shelf-lip: #3b3b3b;
+    --shelf-face: #171717;
+    --shelf-face-low: #121212;
+    --shelf-edge: #060606;
+    --shelf-cast: rgb(0 0 0 / 62%);
+    --cast: rgb(255 255 255 / 6%);
+    --cast-x: 0px;
+    --cast-y: 0px;
+  }
+  .spillShadow { flood-opacity: .55; }
+}
+
 .ledge { top: var(--line-y); left: var(--line-l); right: var(--edge); }
+/* The ticks are cut into the ledge's face, so each catches a little light along its lower side. */
+.ledge svg { filter: drop-shadow(.5px 1px 0 var(--tick-catch)); }
 .parts { top: calc(var(--line-y) + var(--legs) + 10px); left: var(--line-l); right: var(--edge); }
-.seat {
+.seat, .cast {
   position: absolute;
   top: calc(var(--line-y) - var(--milo-h) * 0.86162);
   left: 0;
@@ -73,6 +171,16 @@
   pointer-events: none;
 }
 .figure { width: 100%; height: 100%; }
+/* What sets him off from the wall: in the light, the soft shadow he casts on it, and in the dark, light on the wall
+   behind him. Both are soft and follow him along the ledge, and both stop at the back of the ledge. */
+.cast {
+  z-index: auto;
+  background:
+    radial-gradient(ellipse 42% 25% at 53% 31%, var(--cast), transparent),
+    radial-gradient(ellipse 33% 20% at 53% 62%, var(--cast), transparent);
+  translate: var(--cast-x) var(--cast-y);
+  clip-path: inset(-10% -40% calc(var(--milo-h) * .13838 + var(--shelf-d) + var(--cast-y)) -40%);
+}
 
 /* What Milo is thinking: the page's one main action, a glass pill floating off his head, joined to it by a trail of
    smaller and smaller glass puffs. The trail ends just off his head's outline at his temple, at (87.6%, 31%) of the
@@ -209,10 +317,14 @@
 
 /* A phone on its side: the words beside Milo, so the main action stays on the first screen. */
 @media (max-height: 599px) and (min-width: 640px) {
-  .stage { --milo-h: min(84svh, 44vw); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-content: start; column-gap: 12px; padding: 66px 12px 12px 20px; }
+  .spillWide { display: block; }
+  .spillNarrow { display: none; }
+  .stage { --milo-h: min(84svh, 44vw); --paint-u: var(--u); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-content: start; column-gap: 12px; padding: 66px 12px 12px 20px; }
   .words h1 { font-size: clamp(2rem, 5.6vw, 3rem); }
   .words, .foot, .goalBlock { grid-column: 1; }
   .scene { grid-column: 2; grid-row: 1 / span 3; margin: -50px -12px 0 0; }
+  /* The ledge comes out of the soft light beside the words rather than stopping short. */
+  .shelf { -webkit-mask-image: linear-gradient(to right, transparent, #000 64px); mask-image: linear-gradient(to right, transparent, #000 64px); }
 }
 
 /* A wide screen: one pinned stage. The words top left, the line across it with Milo on the course, the parts under him. */
@@ -221,6 +333,8 @@
     --edge: clamp(20px, 3vw, 44px);
     --milo-h: min(66svh, 47vw);
     --line-l: max(42vw, calc(var(--edge) + min(34vw, 560px) + 28px));
+    --spill-x: calc(var(--line-l) - var(--milo-w) * .2);
+    --paint-u: var(--u);
     position: sticky;
     top: 0;
     display: block;
@@ -231,6 +345,8 @@
     overflow: clip;
   }
   .scene { --line-y: 64svh; position: absolute; inset: 0; height: auto; margin: 0; }
+  .spillWide { display: block; }
+  .spillNarrow { display: none; }
 
   .words { position: absolute; top: clamp(76px, 11svh, 112px); left: var(--edge); z-index: 2; width: min(34vw, 560px); pointer-events: none; }
   .words h1 { font-size: clamp(2.75rem, min(5vw, 9.4svh), 5.75rem); line-height: .99; }
@@ -278,13 +394,13 @@
 
 @supports (animation-timeline: scroll()) {
   @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
-    .seat, .horizon, .ledge, .parts { animation: recede linear both; animation-timeline: scroll(root); animation-range: 0 95vh; }
+    .seat, .cast, .shelf, .wall, .ledge, .parts { animation: recede linear both; animation-timeline: scroll(root); animation-range: 0 95vh; }
     .words, .foot, .goalBlock, .bubble { animation: fallAway linear both; animation-timeline: scroll(root); animation-range: 0 45vh; }
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .world[data-flight] .seat, .world[data-flight] .horizon, .world[data-flight] .ledge, .world[data-flight] .parts,
+  .world[data-flight] .seat, .world[data-flight] .cast, .world[data-flight] .shelf, .world[data-flight] .wall, .world[data-flight] .ledge, .world[data-flight] .parts,
   .world[data-flight] .words, .world[data-flight] .foot, .world[data-flight] .goalBlock, .world[data-flight] .bubble { animation: none; }
 }
 
@@ -306,11 +422,22 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .words, .foot, .goalBlock, .seat, .bubble, .moon, .panel, .panelOn, .chapterRows button, .blobLight { transition: none; }
+  .words, .foot, .goalBlock, .seat, .cast, .bubble, .moon, .panel, .panelOn, .chapterRows button, .blobLight { transition: none; }
   .panelBody { animation: none; }
   .moon:hover, .bubble:hover { scale: none; }
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .bubblePill, .bubbleTrail i, .moons, .moon, .panel, .goalBlock { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* With more contrast, the ledge's edges are drawn as firmly as a control's. */
+@media (prefers-contrast: more) {
+  .scene { --shelf-edge: var(--control-border); --shelf-lip: var(--control-border); }
+}
+
+/* With the system's own colours, the ledge is its edge, and the paint and the light on the wall go. */
+@media (forced-colors: active) {
+  .wall, .cast, .shelf::before, .shelf::after { display: none; }
+  .shelf { height: 0; top: var(--line-y); border-top: 1px solid CanvasText; background: none; }
 }
