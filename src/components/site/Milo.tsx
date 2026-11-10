@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { chapterHref } from "@/lib/links";
-import { EYES_GIVE_BACK, GAZE_REACH, detent, gaze, headWeights, mixAffine, nearestLesson, nextBlink, rowWeights, turnFor, type Ledge } from "@/lib/milo";
+import { GAZE_REACH, detent, eyesOnFace, gaze, headWeights, mixAffine, nearestLesson, nextBlink, rowWeights, turnFor, type Ledge } from "@/lib/milo";
 import { MILO } from "@/lib/milo-figure";
 import { MILO_TURNS } from "@/lib/milo-turns";
 import type { OrbGraph } from "@/lib/orb-layout";
@@ -22,8 +22,8 @@ const STRAIGHT_BODY = T.twists.indexOf(0);
 const YAW_MAX = T.yaws[T.yaws.length - 1];
 /** The most his head rolls toward the side he turns to, in degrees, so the turn doesn't look stiff. */
 const ROLL = 1.2;
-/** How long the head waits after the eyes before it follows, in seconds. */
-const HEAD_DELAY = 0.09;
+/** How long the head waits after the eyes before it follows, in seconds: a beat, so the eyes lead, but not so long they look alone. */
+const HEAD_DELAY = 0.05;
 /** How far he turns in 3D, where any angle can be drawn: degrees of yaw, nod and torso twist, each way. */
 const TURN_3D = { yaws: [-24, 24], nods: [-9, 12], twists: [-8, 8] };
 /** One breath, in seconds. */
@@ -444,14 +444,7 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
         settle(lean);
       }
       // The eyes dart, then give some of the turn back to the head as it comes round.
-      const back = {
-        x: (yaw.at / YAW_MAX) * GAZE_REACH.x * EYES_GIVE_BACK,
-        y: (nod.at >= 0 ? nod.at / T.nods[T.nods.length - 1] : -nod.at / T.nods[0]) * GAZE_REACH.y * EYES_GIVE_BACK,
-      };
-      const goal = {
-        x: Math.max(-GAZE_REACH.x, Math.min(GAZE_REACH.x, want.x - back.x)),
-        y: Math.max(-GAZE_REACH.y, Math.min(GAZE_REACH.y, want.y - back.y)),
-      };
+      const goal = eyesOnFace(want, { x: yaw.at / YAW_MAX, y: nod.at >= 0 ? nod.at / T.nods[T.nods.length - 1] : -nod.at / T.nods[0] });
       const quick = 1 - Math.exp(-dt / 0.07);
       eyes = { x: eyes.x + (goal.x - eyes.x) * quick, y: eyes.y + (goal.y - eyes.y) * quick };
       el.style.setProperty("--gx", `${(eyes.x * W).toFixed(2)}px`);
@@ -469,19 +462,12 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       while (aims.length > 1 && aims[1].at <= now - HEAD_DELAY * 1000) aims.shift();
       yaw.goal = aims[0].yaw;
       nod.goal = aims[0].nod;
-      let moving = step(yaw, 7, dt);
-      moving = step(nod, 7, dt) || moving;
+      let moving = step(yaw, 9, dt);
+      moving = step(nod, 9, dt) || moving;
       twist.goal = turnFor({ x: (yaw.at / TURN_3D.yaws[1]) * GAZE_REACH.x, y: 0 }, TURN_3D).twist;
       moving = step(twist, 4, dt) || moving;
       moving = step(lean, 2.2, dt) || moving;
-      const back = {
-        x: (yaw.at / TURN_3D.yaws[1]) * GAZE_REACH.x * EYES_GIVE_BACK,
-        y: (nod.at >= 0 ? nod.at / TURN_3D.nods[1] : -nod.at / TURN_3D.nods[0]) * GAZE_REACH.y * EYES_GIVE_BACK,
-      };
-      const goal = {
-        x: Math.max(-GAZE_REACH.x, Math.min(GAZE_REACH.x, want.x - back.x)),
-        y: Math.max(-GAZE_REACH.y, Math.min(GAZE_REACH.y, want.y - back.y)),
-      };
+      const goal = eyesOnFace(want, { x: yaw.at / TURN_3D.yaws[1], y: nod.at >= 0 ? nod.at / TURN_3D.nods[1] : -nod.at / TURN_3D.nods[0] });
       const quick = 1 - Math.exp(-dt / 0.07);
       eyes = { x: eyes.x + (goal.x - eyes.x) * quick, y: eyes.y + (goal.y - eyes.y) * quick };
       el.style.setProperty("--gx", `${(eyes.x * W).toFixed(2)}px`);
