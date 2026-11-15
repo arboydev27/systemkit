@@ -67,10 +67,13 @@ export function seatX(lessonAt: number, line: { left: number; width: number }, f
   return most < least ? (least + most) / 2 : Math.min(most, Math.max(least, want));
 }
 
-/** How far the eyes can travel across his screen, as fractions of the figure, before they'd touch its edge. */
+/**
+ * How far the eyes can travel across his screen, as fractions of the figure: well short of how far his head carries the
+ * screen when it turns all the way (about two thirds of it sideways), so they lead a look but the head does most of it.
+ */
 export const GAZE_REACH = {
-  x: (MILO.display.rx - MILO.eyes[0].rx) * 0.42,
-  y: (MILO.display.ry - MILO.eyes[0].ry) * 0.62,
+  x: (MILO.display.rx - MILO.eyes[0].rx) * 0.22,
+  y: (MILO.display.ry - MILO.eyes[0].ry) * 0.4,
 };
 
 /**
@@ -101,7 +104,20 @@ export function turnFor(eyes: { x: number; y: number }, frames: { yaws: readonly
 }
 
 /** How far the eyes come back toward the middle of his screen once the head has turned toward what they look at. */
-export const EYES_GIVE_BACK = 0.55;
+export const EYES_GIVE_BACK = 0.65;
+
+/**
+ * Where his eyes sit on his screen while his head turns: they look where `gaze` says, less what the head's turn so far
+ * already carries, given as the share of its widest turn each way (-1 to 1, toward the image's right and down). So they
+ * dart ahead, then come back toward the middle of the screen as the head comes round, the way eyes hold a look.
+ */
+export function eyesOnFace(want: { x: number; y: number }, turned: { x: number; y: number }) {
+  const clamp = (value: number, reach: number) => Math.max(-reach, Math.min(reach, value));
+  return {
+    x: clamp(want.x - turned.x * GAZE_REACH.x * EYES_GIVE_BACK, GAZE_REACH.x),
+    y: clamp(want.y - turned.y * GAZE_REACH.y * EYES_GIVE_BACK, GAZE_REACH.y),
+  };
+}
 
 /**
  * The rendered frame a turn should come to rest on: the nearest one, but it only moves on once the turn is well past

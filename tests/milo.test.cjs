@@ -105,6 +105,38 @@ test('his head carries most of a turn toward what he looks at, and his torso a l
   assert.deepEqual(milo.turnFor({ x: 0, y: 0 }, T), { yaw: 0, nod: 0, twist: 0 });
 });
 
+test('his head does most of a look: his eyes reach less far across his face than it turns, and come back as it does', () => {
+  const { yaws, nods, head } = MILO_TURNS;
+  const { width: W, height: H, display } = MILO;
+  const { GAZE_REACH: reach } = milo;
+  // How far each of the head's widest turns carries the middle of his screen, in the figure's pixels.
+  const centre = [display.x * W, display.y * H];
+  const carried = (yaw, nod) => {
+    const m = head.affine[nods.indexOf(nod) * yaws.length + yaws.indexOf(yaw)];
+    return [m[0] * centre[0] + m[2] * centre[1] + m[4] - centre[0], m[1] * centre[0] + m[3] * centre[1] + m[5] - centre[1]];
+  };
+  for (const yaw of [yaws[0], yaws.at(-1)]) {
+    const travel = Math.abs(carried(yaw, 0)[0]);
+    assert.ok(reach.x * W < travel * 0.75, `sideways the eyes reach ${(reach.x * W).toFixed(0)}px, the head ${travel.toFixed(0)}px`);
+  }
+  for (const nod of [nods[0], nods.at(-1)]) {
+    const travel = Math.abs(carried(0, nod)[1]);
+    assert.ok(reach.y * H < travel * 0.9, `up and down the eyes reach ${(reach.y * H).toFixed(0)}px, the head ${travel.toFixed(0)}px`);
+  }
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+    const want = milo.gaze(Math.cos(angle) * 10, Math.sin(angle) * 10);
+    // Before the head moves, the eyes lead the whole look.
+    const ahead = milo.eyesOnFace(want, { x: 0, y: 0 });
+    assert.ok(Math.abs(ahead.x - want.x) < 1e-12 && Math.abs(ahead.y - want.y) < 1e-12);
+    // Once it has come round, they sit near the middle of his screen, still on the side they look to.
+    const aim = milo.turnFor(want, MILO_TURNS);
+    const turned = { x: aim.yaw / yaws.at(-1), y: aim.nod >= 0 ? aim.nod / nods.at(-1) : -aim.nod / nods[0] };
+    const rest = milo.eyesOnFace(want, turned);
+    assert.ok(Math.abs(rest.x) <= reach.x * 0.36 && Math.abs(rest.y) <= reach.y * 0.36, `at ${angle.toFixed(2)} they rest at ${rest.x.toFixed(4)}, ${rest.y.toFixed(4)}`);
+    assert.ok(rest.x * want.x >= 0 && rest.y * want.y >= 0, 'never looking back the other way');
+  }
+});
+
 test('the head comes to rest on a rendered frame, and doesn\'t flick between two near the middle', () => {
   const yaws = MILO_TURNS.yaws;
   assert.equal(milo.detent(yaws, 0, 2), 0);
