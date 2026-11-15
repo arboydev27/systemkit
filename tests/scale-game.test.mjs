@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatPercent, formatUsers, readWork, SCALE_CALM, SCALE_ROUNDS, SCALE_START, scaleFlow, scaleNodes, scaleRoutes, systemLoad, withFix } from "../src/lib/scale-game.ts";
+import { formatPercent, formatUsers, SCALE_CALM, SCALE_ROUNDS, SCALE_START, scaleFlow, scaleNodes, scaleRoutes, systemLoad, withFix } from "../src/lib/scale-game.ts";
 
-const FEED_ROUND = SCALE_ROUNDS.find((round) => round.answer === "paginate");
 const LAST_ROUND = SCALE_ROUNDS[SCALE_ROUNDS.length - 1];
 
 test("nothing is failing before the surge", () => {
@@ -25,11 +24,11 @@ test("each round starts from what the last one built, with servers growing to ma
   for (let index = 1; index < SCALE_ROUNDS.length; index++) {
     const before = withFix(SCALE_ROUNDS[index - 1], SCALE_ROUNDS[index - 1].answer);
     const next = SCALE_ROUNDS[index].system;
-    // Traffic buys servers and time grows the feed. Everything else was the player's own call.
-    const built = (system) => ({ ...system, servers: 0, feedPosts: 0, call: null });
+    // Traffic buys servers. Everything else was the player's own call.
+    const built = (system) => ({ ...system, servers: 0 });
     assert.deepEqual(built(next), built(before));
     assert.ok(next.servers > before.servers);
-    assert.ok(systemLoad({ ...next, feedPosts: before.feedPosts }, SCALE_ROUNDS[index].requests).server <= 1, "traffic alone never overloads the new round's servers");
+    assert.ok(systemLoad(next, SCALE_ROUNDS[index].requests).server <= 1, "traffic alone never overloads the new round's servers");
   }
 });
 
@@ -49,37 +48,6 @@ test("the reasons the notes give are true of the model", () => {
   const writesAlone = (third.requests * 0.1) / 5_000;
   for (const id of ["replicas", "bigger-cache"]) assert.ok(systemLoad(withFix(third, id), third.requests).database > writesAlone);
   assert.ok(writesAlone > 1, "writes alone are too much for one database");
-});
-
-test("the feed round runs every tier hot, because the trouble is the call itself", () => {
-  const round = FEED_ROUND;
-  const open = systemLoad(round.system, round.requests);
-  assert.ok(open.server > 1 && open.database > 1);
-  // More servers cool the servers, but the database fails just as many requests.
-  const scaled = systemLoad(withFix(round, "more-servers"), round.requests);
-  assert.ok(scaled.server <= 1);
-  assert.equal(scaled.failing, open.failing);
-  // A new protocol asking for the same posts is the same work.
-  const graphql = withFix(round, "graphql");
-  assert.notEqual(graphql.call, round.system.call);
-  assert.equal(graphql.feedPosts, round.system.feedPosts);
-  assert.equal(systemLoad(graphql, round.requests).failing, open.failing);
-  // The answer buys no hardware, and it cools both tiers.
-  const paged = withFix(round, "paginate");
-  assert.match(paged.call, /\?limit=20$/);
-  assert.equal(paged.feedPosts, 20);
-  assert.equal(paged.servers, round.system.servers);
-  assert.equal(paged.databasePower, round.system.databasePower);
-  const after = systemLoad(paged, round.requests);
-  assert.ok(after.server < 1 && after.database < 1);
-});
-
-test("the feed only becomes the trouble late on, and the fix stays in place afterwards", () => {
-  assert.equal(readWork(SCALE_START.feedPosts), 1);
-  assert.equal(SCALE_START.call, null);
-  assert.equal(SCALE_ROUNDS[0].system.call, null);
-  assert.ok(SCALE_ROUNDS.indexOf(FEED_ROUND) > 1 && FEED_ROUND !== LAST_ROUND, "after two infrastructure rounds, before the last");
-  assert.equal(SCALE_ROUNDS[SCALE_ROUNDS.indexOf(FEED_ROUND) + 1].system.call, withFix(FEED_ROUND, "paginate").call);
 });
 
 test("the map draws one node per tier, or a stack of three for many, and labels each tier once", () => {
@@ -127,17 +95,13 @@ test("the flow loses requests at an overloaded tier and stops cache hits at the 
 });
 
 test("dots lost across two hot tiers add up to the number on screen", () => {
-  const flow = scaleFlow(FEED_ROUND.system, FEED_ROUND.requests, scaleNodes(FEED_ROUND.system, FEED_ROUND.requests));
+  // No round runs both tiers hot, but the flow has to add up whichever tiers are, so this one is built to.
+  const requests = 10_000;
+  const load = systemLoad(SCALE_START, requests);
+  assert.ok(load.server > 1 && load.database > 1);
+  const flow = scaleFlow(SCALE_START, requests, scaleNodes(SCALE_START, requests));
   const reached = (1 - flow.drop["server-1"]) * (1 - flow.drop["database-1"]);
-  assert.ok(Math.abs(reached - (1 - systemLoad(FEED_ROUND.system, FEED_ROUND.requests).failing)) < 1e-9);
-});
-
-test("a dot's area follows the work in a request, and never shrinks out of sight", () => {
-  const heft = (system) => scaleFlow(system, 1_000, scaleNodes(system, 1_000)).heft;
-  assert.equal(heft(SCALE_START), 1);
-  assert.ok(Math.abs(heft(FEED_ROUND.system) ** 2 - readWork(FEED_ROUND.system.feedPosts)) < 1e-9);
-  const paged = heft(withFix(FEED_ROUND, "paginate"));
-  assert.ok(paged < 1 && paged >= 0.8);
+  assert.ok(Math.abs(reached - (1 - load.failing)) < 1e-9);
 });
 
 test("values read the way the game shows them", () => {

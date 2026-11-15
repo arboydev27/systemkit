@@ -211,37 +211,6 @@
 .nodeLabel b { display: inline-flex; gap: 3px; color: var(--ink); font-size: clamp(12px, 1.2vw, 15px); font-weight: 680; font-variant-numeric: tabular-nums; }
 .node[data-hot] .nodeLabel b { color: var(--hot-text); }
 
-/* The feed's API call, standing on the wire between the users and the balancer. That wire is 44% down the map, and its stem clears the discs either side. */
-.endpoint {
-  --stem: calc(var(--disc) / 2 + 12px);
-  --stem-color: var(--control-border);
-  position: absolute;
-  bottom: calc(56cqh + var(--stem));
-  left: 18.5cqw;
-  translate: -50% 0;
-  display: grid;
-  gap: 2px;
-  width: max-content;
-  padding: 7px 11px;
-  border: 1px solid var(--glass-line);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: inset 0 1px 0 var(--glass-sheen);
-  color: var(--ink);
-  transition: opacity .5s ease, translate .8s var(--fluid), scale .8s var(--fluid), border-color .4s ease;
-  @starting-style { opacity: 0; translate: -50% 10px; scale: .96; }
-}
-.endpoint::before, .endpoint::after { position: absolute; background: var(--stem-color); content: ""; transition: background .4s ease; }
-.endpoint::before { top: 100%; left: calc(50% - .5px); width: 1px; height: var(--stem); }
-.endpoint::after { top: calc(100% + var(--stem) - 3.5px); left: calc(50% - 3.5px); width: 7px; height: 7px; border-radius: 50%; }
-.endpoint[data-hot] { --stem-color: var(--hot-line); border-color: var(--hot-line); }
-.endpoint code { padding: 0; background: none; color: inherit; font-size: clamp(12px, 1.25vw, 15px); font-weight: 560; line-height: 1.3; white-space: nowrap; transition: opacity .35s ease; @starting-style { opacity: 0; } }
-.endpoint code b { font-weight: 760; }
-.endpointMethod { color: var(--muted); }
-.endpointPosts { display: flex; align-items: baseline; gap: 4px; color: var(--muted); font-size: clamp(11px, 1.05vw, 13px); font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; }
-.endpointCount { color: var(--ink); font-size: clamp(13px, 1.35vw, 16px); font-weight: 680; transition: color .4s ease; }
-.endpoint[data-hot] .endpointCount { color: var(--hot-text); }
-
 .calls { display: grid; gap: 10px; }
 .note { min-height: 26px; margin: 0; color: var(--ink); font-size: clamp(15px, 1.5vw, 18px); font-weight: 620; line-height: 1.3; letter-spacing: -.012em; text-align: center; text-wrap: balance; }
 .note svg { margin-right: 7px; color: var(--success); vertical-align: -2px; }
@@ -268,15 +237,10 @@
   .fixes button, .again, .finishMain, .finishNext { width: 100%; justify-content: center; }
   .readout { grid-template-columns: 1fr 1fr; }
   .rounds { display: none; }
-  .endpointMethod { display: none; }
-}
-
-@media (max-width: 359px) {
-  .endpoint code b { display: block; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .node, .ringLoad, .fixes button, .endpoint, .endpoint::before, .endpoint::after, .endpoint code { transition: none; }
+  .node, .ringLoad, .fixes button { transition: none; }
   .node[data-hot] .disc { animation: none; }
 }
 
