@@ -15,19 +15,19 @@
 }
 
 .tile { position: relative; display: flex; flex-direction: column; min-width: 0; padding: clamp(18px, 2.4vw, 30px); border: 1px solid var(--glass-line); border-radius: 22px; background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-sheen); transition: background .25s ease; -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
-.tileLink:hover { background: var(--glass-strong); }
+@media (hover: hover) { .tileLink:hover { background: var(--glass-strong); } }
 .tileHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: clamp(14px, 2vw, 22px); }
 .tileHead h3 { margin: 0; color: var(--ink); font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 640; line-height: 1.05; letter-spacing: -.033em; }
 .tileHead h3 a { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
 .tileHead h3 a svg { transition: transform .4s var(--fluid); }
-.tile:hover .tileHead h3 a svg { transform: translateX(5px); }
+@media (hover: hover) { .tile:hover .tileHead h3 a svg { transform: translateX(5px); } }
 .tileLink h3 a::after { position: absolute; inset: 0; border-radius: inherit; content: ""; }
 .tileFacts { display: inline-flex; align-items: center; gap: 7px; flex: none; color: var(--muted); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tileBody { flex: 1; display: grid; align-content: center; min-width: 0; }
 
 .labGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .lab { display: grid; gap: 8px; padding: clamp(10px, 1.4vw, 16px); border: 1px solid var(--glass-line); border-radius: 15px; color: var(--ink); text-decoration: none; transition: background .2s ease, transform .4s var(--fluid); }
-.lab:hover { background: var(--glass); transform: translateY(-2px); }
+@media (hover: hover) { .lab:hover { background: var(--glass); transform: translateY(-2px); } }
 .lab span { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: clamp(12px, 1.1vw, 14px); font-weight: 640; line-height: 1.25; letter-spacing: -.008em; }
 .lab svg:not(.chart) { flex: none; color: var(--muted); }
 
@@ -217,16 +217,16 @@
 
 .fixes, .finish { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 8px; }
 .fixes button, .again { min-height: 48px; padding: 10px 18px; border: 1px solid var(--control-border); border-radius: 14px; background: transparent; color: var(--ink); font-size: 14px; font-weight: 660; letter-spacing: -.01em; transition: background .18s ease, transform .3s var(--fluid), opacity .3s ease, border-color .18s ease; }
-.fixes button:hover:not(:disabled), .again:hover { background: var(--glass); }
+@media (hover: hover) { .fixes button:hover:not(:disabled), .again:hover { background: var(--glass); } }
 .fixes button:active:not(:disabled), .again:active { transform: scale(.97); }
 .fixes button[aria-pressed="true"] { border-color: var(--ink); background: var(--glass); box-shadow: inset 0 0 0 1px var(--ink); }
 .fixes button:disabled { opacity: .46; }
 .fixes button[aria-pressed="true"]:disabled { opacity: 1; }
 .fixes .next, .finishMain { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-color: var(--accent); background: var(--accent); color: var(--on-accent); scroll-margin-block: 96px; }
-.fixes .next:hover:not(:disabled), .finishMain:hover { background: var(--accent-hover); }
+@media (hover: hover) { .fixes .next:hover:not(:disabled), .finishMain:hover { background: var(--accent-hover); } }
 .finishMain, .finishNext { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 18px; border: 1px solid var(--accent); border-radius: 14px; font-size: 14px; font-weight: 680; text-decoration: none; transition: background .18s ease; }
 .finishNext { border-color: var(--control-border); color: var(--ink); }
-.finishNext:hover { background: var(--glass); }
+@media (hover: hover) { .finishNext:hover { background: var(--glass); } }
 .again { display: inline-flex; align-items: center; gap: 7px; }
 
 .small { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
@@ -264,3 +264,6 @@
 @media (hover: none), (pointer: coarse) {
   .game { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); }
 }
+
+/* On a touch screen a tap presses instead of leaving a hover look behind. */
+.tileLink:active, .lab:active { background: var(--glass-strong); }

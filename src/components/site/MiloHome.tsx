@@ -131,15 +131,14 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
     const node = stage.current;
     const line = node?.querySelector<HTMLElement>("[data-ledge]");
     if (!node || !line || !figure.current) return;
-    const box = node.getBoundingClientRect();
     const lineBox = line.getBoundingClientRect();
     // He and his thought are placed in the scene the line is in, which on a phone on its side starts partway across.
     const sceneBox = (line.offsetParent ?? node).getBoundingClientRect();
     const width = figure.current.offsetWidth;
     const lesson = nav.nextLesson ?? 0;
-    const edge = parseFloat(getComputedStyle(node).getPropertyValue("--edge")) || 16;
     const lineLeft = lineBox.left - sceneBox.left;
-    const right = box.right - edge - sceneBox.left;
+    // He stays within the line, which ends short of the stage's edge, and of a phone's notch when it's on its side.
+    const right = lineBox.right - sceneBox.left;
     const x = seatX(ledge.lessons[lesson], { left: lineLeft, width: lineBox.width }, width * HEAD_SHARE * 2, { left: lineLeft, right });
     node.style.setProperty("--seat-x", `${x.toFixed(1)}px`);
     setSide(bubbleSide(x, { left: lineLeft, right }));

@@ -101,9 +101,9 @@
 .parts { position: absolute; margin: 0; padding: 0; list-style: none; }
 .parts li { position: absolute; top: 0; display: flex; justify-content: center; }
 .part { display: grid; justify-items: center; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 8px; border-radius: 12px; color: var(--ink); text-align: center; text-decoration: none; transition: background .18s ease; }
-.part:hover { background: var(--glass, var(--surface-soft)); }
+@media (hover: hover) { .part:hover { background: var(--glass, var(--surface-soft)); } }
 .partTitle { font-size: 13px; font-weight: 660; line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
-.part:hover .partTitle { text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) { .part:hover .partTitle { text-decoration: underline; text-underline-offset: 3px; } }
 .partFacts { color: var(--muted); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* The rod Milo hangs on, on a screen held upright. Everything on it is placed from where his fist holds it
@@ -200,3 +200,6 @@
   .tickNextMarked { visibility: visible; }
   .nextMark { display: none; }
 }
+
+/* A tap on a part presses it; the hover look above is only for a pointer that hovers, as a touch screen keeps it after the tap. */
+.part:active { background: var(--glass, var(--surface-soft)); }

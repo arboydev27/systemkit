@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { designChallenges, findChallenge } from "@/content/challenges";
@@ -16,6 +16,9 @@ import { courseChapters, courseGoals, courseOrb } from "@/lib/course";
 import { lessonHref } from "@/lib/links";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
+// The home page runs edge to edge, into the room beside a phone's notch when it's on its side: its soft light and the
+// dive fill the whole screen, while everything to read or touch keeps clear of the notch and the screen's rounded corners.
+export const viewport: Viewport = { viewportFit: "cover" };
 
 const LAB_CHARTS = { "retry-storm": RetryChart, "rate-limiters": LimiterChart, quorum: QuorumChart, cache: CacheChart };
 const LAB_ORDER = ["cache", "retry-storm", "rate-limiters", "quorum"] as const;
