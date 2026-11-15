@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link";
 import { ArrowRight, Check, Database, RotateCcw, Server, Split, Users, Zap, type LucideIcon } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
-import { formatPercent, formatUsers, readWork, SCALE_CALM, SCALE_ROUNDS, SCALE_START, scaleFlow, scaleNodes, systemLoad, withFix, type ScaleNode } from "@/lib/scale-game";
+import { formatPercent, formatUsers, SCALE_CALM, SCALE_ROUNDS, SCALE_START, scaleFlow, scaleNodes, systemLoad, withFix, type ScaleNode } from "@/lib/scale-game";
 import { createScaleScene, type ScalePlace, type ScaleScene } from "@/lib/scale-scene";
 import { Rolling } from "./HomeMotion";
 import styles from "./HomeVisuals.module.css";
@@ -15,16 +15,6 @@ function NodeValue({ node, cacheHit }: { node: ScaleNode; cacheHit: number }) {
   if (node.kind === "cache") return <><Rolling value={formatPercent(cacheHit)} /> hits</>;
   if (node.load === null) return null;
   return <Rolling value={formatPercent(node.load)} />;
-}
-
-/** The feed's API call, pinned to the wire it travels along, with what it brings back. */
-function Endpoint({ call, posts }: { call: string; posts: number }) {
-  const [method, target] = call.split(" ");
-  const [path, query] = target.split("?");
-  return <div className={styles.endpoint} data-hot={readWork(posts) > 1 || undefined}>
-    <code key={call}><span className={styles.endpointMethod}>{method} </span>{path}{query ? <b>?{query}</b> : null}</code>
-    <span className={styles.endpointPosts}><Rolling className={styles.endpointCount} value={posts.toLocaleString("en-US")} /> posts</span>
-  </div>;
 }
 
 /** Your app, growing, and a call to make each time something gives. The dots are requests, and the orange ones are lost. */
@@ -148,7 +138,6 @@ export default function ScaleGame() {
           {node.label ? <span className={styles.nodeLabel}>{node.label}<b><NodeValue node={node} cacheHit={system.cacheHit} /></b></span> : null}
         </div>;
       })}
-      {system.call ? <Endpoint call={system.call} posts={system.feedPosts} /> : null}
     </div>
 
     <div className={styles.calls}>
@@ -174,6 +163,6 @@ export default function ScaleGame() {
     </div>
 
     <p className={styles.small}>A simplified model.</p>
-    <p className="sr-only" role="status">{users.toLocaleString("en-US")} users, {formatPercent(load.failing)} of requests failing. Servers at {formatPercent(load.server)}, database at {formatPercent(load.database)}. {system.call ? `${system.call} returns ${system.feedPosts.toLocaleString("en-US")} posts. ` : ""}{note ?? ""}</p>
+    <p className="sr-only" role="status">{users.toLocaleString("en-US")} users, {formatPercent(load.failing)} of requests failing. Servers at {formatPercent(load.server)}, database at {formatPercent(load.database)}. {note ?? ""}</p>
   </div>;
 }
