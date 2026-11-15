@@ -351,3 +351,40 @@ test('the next lesson\'s dab of paint leaves its bead on the ledge\'s edge and e
   assert.ok(run.reach > blob.down + run.width * 4, 'the run comes out below the bead');
   for (const path of Object.values(paint.dabPaths())) assert.ok(path && !/NaN|Infinity/.test(path));
 });
+
+test('hanging on the rod, his fist holds it above where his boot braces against it, and his eyes sit side by side', () => {
+  const { MILO_HANG } = require('../src/lib/milo-hang.ts');
+  const [left, right] = MILO_HANG.eyes;
+  assert.ok(left.x < right.x && Math.abs(left.y - right.y) < 0.01, 'eyes side by side on the upright screen');
+  assert.ok(MILO_HANG.hold[0] === MILO_HANG.rod, 'the fist is on the rod');
+  assert.ok(MILO_HANG.brace[1] > MILO_HANG.hold[1] + 0.2, 'the boot braces well below the fist');
+  assert.ok(Math.abs(MILO_HANG.brace[0] - MILO_HANG.rod) < 0.05, 'the boot is at the rod');
+  assert.ok(MILO_HANG.display.y < MILO_HANG.neck[1], 'the screen is above the neck');
+  assert.ok(Math.abs(MILO_HANG.tilt) < 15, 'his head tilts only a little');
+  const size = (file) => {
+    const b = fs.readFileSync(file);
+    const chunk = b.toString('ascii', 12, 16);
+    if (chunk === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    if (chunk === 'VP8L') { const bits = b.readUInt32LE(21); return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)]; }
+    throw new Error(`${file}: unexpected WebP chunk ${chunk}`);
+  };
+  for (const name of ['light-body', 'light-head', 'dark-body', 'dark-head']) {
+    assert.deepEqual(size(`public/milo/hang/${name}.webp`), [MILO_HANG.width, MILO_HANG.height], name);
+    const [sw, sh] = size(`public/milo/hang/${name}-s.webp`);
+    assert.equal(sw, MILO_HANG.small, `${name}-s width`);
+    assert.ok(Math.abs(sh - MILO_HANG.height * MILO_HANG.small / MILO_HANG.width) <= 1, `${name}-s height ${sh}`);
+  }
+});
+
+test('the rod layout places him with the renders\' own proportions, fist on the rod, in the one media query the code uses', () => {
+  const { MILO_HANG } = require('../src/lib/milo-hang.ts');
+  const { ROD_MEDIA } = require('../src/lib/milo-pose.ts');
+  const sheet = fs.readFileSync('src/components/site/MiloHome.module.css', 'utf8');
+  const near = (a, b, what) => assert.ok(Math.abs(a - b) < 1e-4, `${what}: ${a} against ${b}`);
+  const [, w, h] = sheet.match(/--hang-w: calc\(var\(--hang-h\) \* (\d+) \/ (\d+)\)/);
+  assert.deepEqual([+w, +h], [MILO_HANG.width, MILO_HANG.height], 'his width from his height');
+  near(+sheet.match(/top: calc\(var\(--hang-h\) \* -([\d.]+)\);\n  left/)[1], MILO_HANG.hold[1], 'his fist at the grip');
+  near(+sheet.match(/left: calc\(var\(--rod-x\) - var\(--hang-w\) \* ([\d.]+)\)/)[1], MILO_HANG.rod, 'his fist on the rod');
+  near(+sheet.match(/--rod-w: calc\(var\(--hang-w\) \* ([\d.]+)\)/)[1], MILO_HANG.rodWidth, 'the rod as wide as the one cut out of him');
+  assert.ok(sheet.includes(`@media ${ROD_MEDIA} {`), 'the stylesheet switches to the rod where the code does');
+});

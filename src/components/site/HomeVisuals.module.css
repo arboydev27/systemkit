@@ -239,6 +239,19 @@
   .rounds { display: none; }
 }
 
+/* On a phone the map stands up: requests come in at the top and fall through the tiers to the database at the foot,
+   each tier named beside it, and the map takes whatever height is left so the whole game, choices and all, fits on one
+   screen held upright. */
+@media (max-width: 639px) {
+  .map { --disc: 46px; height: clamp(250px, calc(100svh - 440px), 460px); }
+  .node { transform: translate(calc((.4 + (var(--y) - .44) * .7) * 100cqw - 50%), calc((.07 + var(--x) * .8) * 100cqh - 50%)); }
+  .nodeLabel { top: 50%; left: calc(100% + 11px); justify-items: start; text-align: left; transform: translateY(-50%); }
+  .readout { align-items: end; }
+  .calls { gap: 8px; }
+  .fixes button, .again, .finishMain, .finishNext { min-height: 46px; padding-block: 8px; }
+  .gameSlot:empty { min-height: calc(100svh - 120px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .node, .ringLoad, .fixes button { transition: none; }
   .node[data-hot] .disc { animation: none; }

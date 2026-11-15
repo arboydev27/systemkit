@@ -267,6 +267,8 @@
 .goalOptions input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .goalOptions label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
 .goalOptions .goalOn { background: var(--accent); color: var(--on-accent); }
+/* The goal, in the course sheet: only where the page has no room for it beside Milo. */
+.panelGoal { display: none; margin-top: 18px; }
 
 /* The site's four sections: a dock at the bottom on a phone, and a row at the top on a wide screen. */
 .moons { position: fixed; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); left: 8px; z-index: 40; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 4px; border: 1px solid var(--glass-line); border-radius: 18px; background: var(--glass-strong); box-shadow: inset 0 1px 0 var(--glass-sheen), var(--glass-drop); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
@@ -276,7 +278,9 @@
 
 /* Browsing the course */
 .panel { position: fixed; right: 8px; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 68px); left: 8px; z-index: 35; display: flex; flex-direction: column; max-height: 54vh; max-height: 54svh; border: 1px solid var(--glass-line); border-radius: 22px; background: var(--glass-strong); box-shadow: inset 0 1px 0 var(--glass-sheen), var(--glass-drop); opacity: 0; visibility: hidden; transform: translateY(26px) scale(.98); transition: transform .6s var(--fluid), opacity .22s ease, visibility 0s .22s; -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(1.1); backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(1.1); }
-.panelOn { opacity: 1; visibility: visible; transform: none; transition: transform .6s var(--fluid), opacity .22s ease, visibility 0s; }
+.panelOn { opacity: 1; visibility: visible; transform: none; transition: transform .6s var(--fluid), opacity .22s ease, visibility 0s; animation: settleTaps .45s step-end; }
+/* A sheet that has just opened under a finger takes no tap for a moment, so a second tap can't open what's under it. */
+@keyframes settleTaps { from { pointer-events: none; } to { pointer-events: auto; } }
 
 .panelBar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 0 18px; }
 .panelPlace { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -314,6 +318,92 @@
 
 .asks { position: relative; width: min(100%, 1180px); margin-inline: auto; padding: clamp(40px, 7vw, 88px) clamp(12px, 3vw, 32px) clamp(24px, 4vw, 48px); content-visibility: auto; contain-intrinsic-size: auto 1200px; }
 .asks > h2 { margin-bottom: 0; }
+
+/* A screen held upright: Milo hangs on the side of the course's rod, big, in the height a phone has to spare. The
+   first screen is just the words, and the rod with him on it; the four sections move up into a row at the top, so the
+   only bar along the bottom is the browser's own. */
+.poleScene { display: none; }
+.hanger, .hangCast {
+  position: absolute;
+  top: calc(var(--hang-h) * -.44299);
+  left: calc(var(--rod-x) - var(--hang-w) * .06416);
+  width: var(--hang-w);
+  height: var(--hang-h);
+  pointer-events: none;
+}
+.hanger { z-index: 2; }
+.hangCast {
+  background:
+    radial-gradient(ellipse 40% 22% at 60% 30%, var(--cast), transparent),
+    radial-gradient(ellipse 30% 24% at 52% 64%, var(--cast), transparent);
+  translate: var(--cast-x) var(--cast-y);
+}
+/* What he's thinking floats up off his head, clear of his ear. */
+.bubbleHang {
+  top: calc(var(--hang-h) * -.44299 - 50px);
+  left: calc(var(--rod-x) + var(--hang-w) * .3);
+  max-width: min(236px, calc(100% - var(--rod-x) - var(--hang-w) * .3 - 14px));
+  transform: translateY(-100%);
+}
+
+@media (max-width: 959px) and (min-height: 600px) {
+  .stage { height: 100svh; min-height: 540px; padding: 74px 20px 0; }
+  .words h1 { font-size: clamp(2.25rem, 10.2vw, 3.6rem); }
+  .words { order: 1; }
+  .foot { order: 2; margin-top: 10px; }
+  .foot > :not(.lede) { display: none; }
+  .lede { font-size: 15px; line-height: 1.45; }
+  /* The orange here is the next lesson's dab on the rod; the spill down the wall would run behind the words. */
+  .scene, .goalBlock, .wall { display: none; }
+  .panelGoal { display: block; }
+  .poleScene {
+    --hang-h: min(540px, 66cqh, 150cqw);
+    --hang-w: calc(var(--hang-h) * 960 / 1505);
+    /* The rod runs up the screen's left edge, its ticks in the margin beside it, Milo hanging off its right, and the
+       parts named in the room to his right. */
+    --rod-x: clamp(26px, 5cqw, 40px);
+    --rod-w: calc(var(--hang-w) * .02476);
+    --labels-x: calc(var(--rod-x) + var(--hang-w) * .9 + 12px);
+    /* His fist, placed so he and what he's thinking sit in the middle of the scene. */
+    --grip-y: calc((100cqh - var(--hang-h) - 70px) * .5 + 70px + var(--hang-h) * .44299);
+    --mark-gap: calc(var(--hang-h) * .042);
+    --rule: max(900px, 230cqh);
+    --rod-above: calc(var(--hang-h) * .5 + 40px);
+    --rod-below: calc(var(--hang-h) * .56 - var(--mark-gap) + 10px);
+    --paint-u: calc(var(--rod-w) / 4.2);
+    --cast: rgb(0 0 0 / 9%);
+    --cast-x: calc(var(--hang-w) * .05);
+    --cast-y: calc(var(--hang-h) * .025);
+    position: relative;
+    display: block;
+    flex: 1 1 0;
+    order: 3;
+    min-height: 0;
+    margin: 6px -20px 0;
+    container-type: size;
+  }
+  .bubbleHang { font-size: 15px; }
+  /* The game's section starts close under its heading, so the game fits the screen the dive opens on. */
+  .try { padding-top: 28px; }
+
+  /* The four sections, in a row of glass at the top beside the brand, scrolling away with the first screen as it does. */
+  .moons { position: absolute; top: 16px; right: 12px; bottom: auto; left: auto; display: flex; gap: 0; padding: 3px; border-radius: 15px; }
+  .moon { min-height: 38px; padding: 0 10px; border-radius: 12px; font-size: 13px; }
+  .panel { bottom: max(10px, env(safe-area-inset-bottom)); max-height: 50svh; }
+  /* Browsing, the words step aside and the rod and Milo rise into their place, so his face stays above the sheet and he
+     reads along; what he was thinking goes, since the sheet has its own way in. */
+  .poleScene { transition: transform .6s var(--fluid); }
+  .exploring .poleScene { transform: translateY(-24svh); }
+  .exploring .bubbleHang { opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s; }
+}
+@media (max-width: 959px) and (min-height: 600px) and (prefers-color-scheme: dark) {
+  .poleScene { --cast: rgb(255 255 255 / 6%); --cast-x: 0px; --cast-y: 0px; }
+}
+/* Phones: the counts go, so the four names fit beside the brand. */
+@media (max-width: 479px) and (min-height: 600px) {
+  .moonCount { display: none; }
+  .moon { padding: 0 9px; }
+}
 
 /* A phone on its side: the words beside Milo, so the main action stays on the first screen. */
 @media (max-height: 599px) and (min-width: 640px) {
@@ -380,6 +470,7 @@
 /* Milo arrives once, and the stage falls back as the page scrolls over it. */
 @media (prefers-reduced-motion: no-preference) {
   .figure { animation: arrive 1.4s var(--fluid) both; }
+  .hanger .figure { animation: catchRod .9s cubic-bezier(.3, .7, .4, 1) .1s both; }
   .bubblePill, .bubbleTrail i { animation: pop .5s var(--pop-at) cubic-bezier(.34, 1.56, .64, 1) both, float var(--float-for) var(--float-at) ease-in-out infinite alternate; }
   .bubbleTrail i:nth-child(3) { --pop-at: .75s; --float-for: 4.6s; --float-at: 1.3s; --float-by: -2px; }
   .bubbleTrail i:nth-child(2) { --pop-at: .86s; --float-for: 5.2s; --float-at: 1.5s; --float-by: -2.5px; }
@@ -389,6 +480,9 @@
 }
 
 @keyframes arrive { from { opacity: 0; translate: 0 2.5%; } }
+/* Hanging, he arrives as if he'd just caught the rod: a little drop that his arm takes up, and settles. He's there
+   from the first frame, so the page shows him as soon as it can. */
+@keyframes catchRod { from { translate: 0 -2.2%; } 55% { translate: 0 .5%; } }
 @keyframes pop { from { opacity: 0; scale: .2; } }
 @keyframes float { to { translate: 0 var(--float-by); } }
 
@@ -422,7 +516,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .words, .foot, .goalBlock, .seat, .cast, .bubble, .moon, .panel, .panelOn, .chapterRows button, .blobLight { transition: none; }
+  .words, .foot, .goalBlock, .seat, .cast, .bubble, .moon, .panel, .panelOn, .chapterRows button, .blobLight, .poleScene { transition: none; }
   .panelBody { animation: none; }
   .moon:hover, .bubble:hover { scale: none; }
 }
