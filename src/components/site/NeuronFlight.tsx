@@ -452,8 +452,10 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     // rest of that gesture, a trackpad's momentum and all, is held back: only its first event can be, so that's where
     // it's decided. So no flick can carry the page past the game.
     const wheel = { last: -Infinity, way: 0, sum: 0, taken: false, done: false, sizes: [] as number[] };
+    // A gesture on something open over the page, like the sections' wheel, is that thing's, not a way into the dive.
+    const overPage = (event: Event) => event.target instanceof Element && event.target.closest("dialog[open]") !== null;
     const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
+      if (event.ctrlKey || overPage(event)) return;
       const now = performance.now();
       inputAt = now;
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
@@ -492,6 +494,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
 
     let touch: { x: number; y: number; taken: boolean | null; done: boolean } | null = null;
     const onTouchStart = (event: TouchEvent) => {
+      if (overPage(event)) { touch = null; return; }
       touching = true;
       inputAt = performance.now();
       const point = event.touches?.[0];
@@ -527,7 +530,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       wake();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || !SCROLL_KEYS.has(event.key)) return;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || !SCROLL_KEYS.has(event.key) || overPage(event)) return;
       inputAt = performance.now();
       const way = event.key === " " && event.shiftKey ? -1 : DIVE_KEYS[event.key];
       const target = event.target instanceof HTMLElement ? event.target : null;

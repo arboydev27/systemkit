@@ -152,8 +152,9 @@
   .pageHome .footer { padding-bottom: 84px; }
 }
 
-/* On a phone, upright or on its side, the home page's four sections sit at the top beside the brand, which keeps only its mark. */
-@media (max-width: 959px) and (min-height: 600px), (max-height: 599px) and (min-width: 640px) {
+/* Where the home page's four sections sit at the top beside the brand, on a tablet held upright or a phone on its side,
+   the brand keeps only its mark. On a phone held upright they wait on a wheel behind a menu button, so it keeps its name. */
+@media (min-width: 640px) and (max-width: 959px) and (min-height: 600px), (max-height: 599px) and (min-width: 640px) {
   .headerHome .brand { gap: 0; padding: 6px; font-size: 0; }
 }
 

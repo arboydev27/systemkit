@@ -398,3 +398,13 @@ test('the course in small gives each part a stretch as long as its share of the 
   assert.match(rod, /\.railParts li \{[^}]*flex: var\(--lessons\) 1 0;[^}]*min-height: 0;/, 'stretches grow by lesson count alone');
   assert.match(code, /"--lessons": count/, 'each part passes its own lesson count');
 });
+
+test('the sections wheel opens where the code says, and only there the row of sections gives way to its menu button', () => {
+  const [, WHEEL_MEDIA] = fs.readFileSync('src/components/site/SectionWheel.tsx', 'utf8').match(/export const WHEEL_MEDIA = "([^"]+)";/);
+  const home = fs.readFileSync('src/components/site/MiloHome.module.css', 'utf8');
+  const site = fs.readFileSync('src/components/site/Site.module.css', 'utf8');
+  const block = home.slice(home.indexOf(`@media ${WHEEL_MEDIA} {`));
+  assert.ok(home.includes(`@media ${WHEEL_MEDIA} {`), 'the stylesheet hides the row where the code opens the wheel');
+  assert.match(block, /^@media[^{]*\{\s*\.moons \{ display: none; \}/, 'the row goes, and the menu button shows, in that one block');
+  assert.ok(site.includes('@media (min-width: 640px) and (max-width: 959px) and (min-height: 600px), (max-height: 599px) and (min-width: 640px) {'), 'the brand keeps its name on a phone held upright');
+});
