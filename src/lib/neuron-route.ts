@@ -272,11 +272,13 @@ export function flightDistance(path: Pick<FlightPath, "stops">, progress: number
 }
 
 /** Where to settle once scrolling stops partway: on through with the smallest push, back with the smallest pull. */
-/** What a dive came to, counted once it's over, by the end it left and the end it reached: a dive started and turned
- * back is a visitor who didn't want it. */
-export function diveOutcome(from: 0 | 1, end: 0 | 1) {
-  if (from === end) return end === 0 ? "dive_turned_back" : "dive_turned_back_up";
-  return end === 1 ? "dive_down" : "dive_up";
+/** Whether a point on screen falls on Milo's face, the screen his eyes are on, from his figure's box on screen and the
+ * screen's place in it (as fractions of his width and height), with a little to spare round it for a finger. */
+export function onFace(x: number, y: number, box: { left: number; top: number; width: number; height: number }, display: { x: number; y: number; rx: number; ry: number }) {
+  if (!box.width || !box.height) return false;
+  const dx = (x - (box.left + display.x * box.width)) / (display.rx * box.width * 1.15);
+  const dy = (y - (box.top + display.y * box.height)) / (display.ry * box.height * 1.5);
+  return dx * dx + dy * dy <= 1;
 }
 
 export function settleTo(progress: number, direction: number, nudge = 0.05) {

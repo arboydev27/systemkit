@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { trackEvent } from "@/lib/analytics";
 import { makeFilm, shoot, type Film } from "@/lib/neuron-film";
 import { createNeuronGl, type NeuronGl } from "@/lib/neuron-gl";
-import { FLIGHT, diveOutcome, hermite, ramp, settleTo } from "@/lib/neuron-route";
+import { FLIGHT, hermite, onFace, ramp, settleTo } from "@/lib/neuron-route";
 import { figureOf } from "@/lib/milo-pose";
 import { createNeuronScene, holeAt, type FigureCopy, type NeuronPlace } from "@/lib/neuron-scene";
 import type { OrbGraph } from "@/lib/orb-layout";
@@ -23,6 +22,16 @@ const QUIET_OTHERWISE = 480;
 // so a nudge past Milo's line springs back rather than plays the whole dive.
 const NEAR = 0.3;
 const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Tab"]);
+// The dive plays with the scroll once, on a visitor's first visit, and is remembered here once it has reached the game.
+const SEEN = "systemkit:dive-seen:v1";
+
+function seenBefore() {
+  try { return window.localStorage.getItem(SEEN) === "1"; } catch { return false; }
+}
+
+function markSeen() {
+  try { window.localStorage.setItem(SEEN, "1"); } catch { /* A browser that won't keep it just plays it again. */ }
+}
 
 export type NeuronFlightProps = {
   graph: OrbGraph;
@@ -120,6 +129,8 @@ function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): Fig
  * Scrolling from Milo to the game dives in through one of his eyes and along real links from the visitor's next
  * lesson to a lesson about scaling, then opens on the game. The page scrolls as it always does: the dive only follows
  * it, and once scrolling stops partway it finishes the way the visitor was going. Anything a visitor does stops it.
+ * It plays with the scroll once, on a first visit, until it reaches the game; after that the page scrolls past Milo as
+ * it would without it, and a tap on his face plays it.
  */
 export default function NeuronFlight({ graph, exits, start, finished }: NeuronFlightProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -189,7 +200,9 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       tuning = idles ? window.requestIdleCallback(tune, { timeout: 2000 }) : window.setTimeout(tune, 300);
     };
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    world.dataset.flight = "";
+    // Following the scroll, until the dive has once reached the game; until then the stage's own fade stands aside.
+    let live = !seenBefore();
+    if (live) world.dataset.flight = "";
 
     const place: NeuronPlace = { orbX: 0, orbY: 0, orbSize: 0, holeX: 0, holeY: 0 };
     let zoneStart = 0;
@@ -244,6 +257,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       const stageBox = stage!.getBoundingClientRect();
       stage!.style.transformOrigin = `${(entry.x - stageBox.left).toFixed(1)}px ${(entry.y - stageBox.top).toFixed(1)}px`;
       launched = true;
+      played = true;
       return true;
     }
 
@@ -363,19 +377,18 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       wake();
     }
 
-    // Each dive, once it's over, is counted by how it went: down to the game, back up to the top, or turned back the way it
-    // came. A dive started and turned back is a visitor who didn't want it.
-    let from: 0 | 1 = 0;
-    let away = false;
-    function count() {
-      if (progress > 0 && progress < 1) {
-        away = true;
-        return;
-      }
-      const end = progress >= 1 ? 1 : 0;
-      if (away) trackEvent(diveOutcome(from, end));
-      away = false;
-      from = end;
+    // Once the dive has reached the game it puts itself away, remembered, and the page scrolls past Milo as it would
+    // without it: the stage fades as he's scrolled past, and a tap on his face is the way back in.
+    let played = false;
+    function sleep() {
+      live = false;
+      // Only a dive the visitor saw counts: a page opened already past the game hasn't shown them one.
+      if (played) markSeen();
+      settling = null;
+      progress = 0;
+      drawn = 0;
+      land();
+      delete world!.dataset.flight;
     }
 
     function loop(now: number) {
@@ -397,19 +410,22 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
         lastScrollAt = now;
         if (t >= 1) settling = null;
       }
-      const target = scrolled();
+      const target = live ? scrolled() : 0;
       const gap = target - progress;
       const most = dt / (touching || now - inputAt < 1000 ? FOLLOWING : QUICKEST);
       progress = Math.abs(gap) < 0.0005 ? target : progress + Math.max(-most, Math.min(most, gap * (1 - Math.exp(-dt / FOLLOW))));
       if (progress !== drawn) {
         drawn = progress;
-        count();
         try {
           apply();
         } catch {
           stop();
           return;
         }
+      }
+      if (live && progress >= 1 && !settling) {
+        sleep();
+        return;
       }
       const partway = target > 0 && target < 1;
       if (partway && !settling && !touching && now - lastScrollAt > (now - inputAt < 1000 ? QUIET_AFTER_INPUT : QUIET_OTHERWISE)) settle(settleTo(target, direction, NEAR));
@@ -426,7 +442,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       if (y !== lastY) direction = Math.sign(y - lastY);
       lastY = y;
       lastScrollAt = performance.now();
-      wake();
+      if (live) wake();
     };
 
     // The dive takes no gesture: a wheel, a swipe or a key scrolls the page as it would anywhere, and the dive only follows
@@ -459,11 +475,35 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       settling = null;
       wake();
     };
+    // A tap or click on Milo's face, while he's on screen and nothing else is under it, plays the dive down to the game.
+    const faceAt = (x: number, y: number) => {
+      const now = shown();
+      return !!now && onFace(x, y, now.getBoundingClientRect(), figureOf(now.dataset.miloPose).display);
+    };
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || progress > 0 || settling || window.scrollY > zoneEnd - 2) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("a, button, input, select, textarea, label, dialog, [role='application']")) return;
+      if (!faceAt(event.clientX, event.clientY)) return;
+      hint = { x: event.clientX, y: event.clientY };
+      if (!live) {
+        live = true;
+        world!.dataset.flight = "";
+      }
+      settle(1);
+    };
+    let pointing = false;
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === "mouse") settling = null;
     };
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerType === "mouse") hint = { x: event.clientX, y: event.clientY };
+      if (event.pointerType !== "mouse") return;
+      hint = { x: event.clientX, y: event.clientY };
+      // His face takes a click: the pointer says so over it.
+      const over = progress === 0 && faceAt(event.clientX, event.clientY);
+      if (over === pointing) return;
+      pointing = over;
+      stage!.style.cursor = over ? "pointer" : "";
     };
     // Keyboard focus landing on the hidden stage brings it back rather than leaving focus out of sight.
     const onFocus = (event: FocusEvent) => {
@@ -490,6 +530,8 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("click", onClick);
+      stage!.style.cursor = "";
       window.removeEventListener("resize", onResize);
       document.removeEventListener("focusin", onFocus);
       motion.removeEventListener("change", onMotion);
@@ -503,7 +545,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     const onMotion = () => { if (motion.matches) stop(); };
 
     measure();
-    progress = scrolled();
+    progress = live ? scrolled() : 0;
     // Straight after this task rather than at the next quiet moment, since a visitor may scroll at once.
     tuning = window.setTimeout(tune, 0);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -514,6 +556,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointerDown, { passive: true });
     window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("click", onClick);
     window.addEventListener("resize", onResize);
     document.addEventListener("focusin", onFocus);
     motion.addEventListener("change", onMotion);
