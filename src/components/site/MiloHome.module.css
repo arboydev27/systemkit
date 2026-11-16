@@ -394,7 +394,7 @@
      reads along; what he was thinking goes, since the sheet has its own way in. */
   .poleScene { transition: transform .6s var(--fluid); }
   .exploring .poleScene { transform: translateY(-24svh); }
-  .exploring .bubbleHang { opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s; }
+  .exploring .bubbleHang, .exploring [data-course-rail] { opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility 0s .2s; }
 }
 @media (max-width: 959px) and (min-height: 600px) and (prefers-color-scheme: dark) {
   .poleScene { --cast: rgb(255 255 255 / 6%); --cast-x: 0px; --cast-y: 0px; }

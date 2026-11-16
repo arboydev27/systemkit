@@ -791,9 +791,9 @@ function rungsPath(places: number[], length: number) {
 /**
  * The course as the rod Milo hangs on, where a screen held upright has height to spare and little width: the same
  * lessons and parts as the ledge, running up the rod from the first at its foot, a tick for every lesson cut into its
- * left side, the finished ones inked in and the four parts named beside their stretches. The rod slides so the visitor's
- * next lesson is just under his fist, so he's always where he's comfortable to see, and climbs as the visitor goes on.
- * A tap on the rod opens the chapter there.
+ * left side, the finished ones inked in. The rod slides so the visitor's next lesson is just under his fist, so he's
+ * always where he's comfortable to see, and climbs as the visitor goes on; only a stretch of it fits the screen, so the
+ * whole course stands in small to his right (CourseRail). A tap on the rod opens the chapter there.
  */
 export function CoursePole({ graph, chapters, nav, ledge, onPart, onFocusLesson, highlight, nextMark, children }: {
   graph: OrbGraph;
@@ -861,31 +861,58 @@ export function CoursePole({ graph, chapters, nav, ledge, onPart, onFocusLesson,
             else nav.onTap(lessonAt(event));
           }}
         />
-        <ol className={styles.poleParts} aria-label="The four parts of the course">
-          {graph.partTitles.map((title, part) => {
-            const { from, to } = partLessons(graph, part);
-            const finished = nav.finished.slice(from, to).filter(Boolean).length;
-            const first = graph.chapterParts.indexOf(part);
-            const { start, end } = ledge.parts[part];
-            return <li key={title} style={{ "--from": start.toFixed(5), "--to": end.toFixed(5) } as CSSProperties}>
-              <Link
-                href={chapterHref(chapters[first].id)}
-                className={styles.polePart}
-                onClick={(event) => {
-                  if (!onPart || event.metaKey || event.ctrlKey || event.shiftKey) return;
-                  event.preventDefault();
-                  onPart(part);
-                }}
-              >
-                <span className={styles.partTitle}>{title}</span>
-                <span className={styles.partFacts}>{finished > 0 ? `${finished} of ${to - from}` : `${to - from} lessons`}</span>
-              </Link>
-            </li>;
-          })}
-        </ol>
       </div>
     </div></div>
     <div className={styles.poleGrip}>{children}</div>
+    <CourseRail graph={graph} chapters={chapters} nav={nav} onPart={onPart} />
+  </div>;
+}
+
+/**
+ * The whole course in small, beside Milo where the big rod has no room to show it: the four parts up a thin rod of their
+ * own, each as long as its share of the lessons and climbing from the first at its foot as the big rod does, inked as
+ * they're finished, with the visitor's place marked by the same orange dab and each part named to its right.
+ */
+function CourseRail({ graph, chapters, nav, onPart }: {
+  graph: OrbGraph;
+  chapters: CourseNavProps["chapters"];
+  nav: CourseNavState;
+  onPart?: (part: number) => void;
+}) {
+  const next = nav.nextLesson;
+  // The page fades it while a part is open in the sheet, which has its own way between parts.
+  return <div className={styles.rail} data-course-rail>
+    <p className={styles.railTotal}>{graph.partTitles.length} parts · {graph.titles.length} lessons</p>
+    <ol className={styles.railParts} aria-label="The four parts of the course">
+      {graph.partTitles.map((title, part) => {
+        const { from, to } = partLessons(graph, part);
+        const count = to - from;
+        const finished = nav.finished.slice(from, to).filter(Boolean).length;
+        const here = next !== null && next >= from && next < to;
+        const facts = here ? (finished > 0 ? `${finished} of ${count}` : nav.nextLabel.toLowerCase())
+          : finished === count ? "finished" : finished > 0 ? `${finished} of ${count}` : `${count} lessons`;
+        return <li
+          key={title}
+          data-here={here || undefined}
+          style={{ "--lessons": count, "--done": (finished / count).toFixed(4), "--at": here && next !== null ? ((next - from) / count).toFixed(4) : 0 } as CSSProperties}
+        >
+          {here ? <i className={styles.railDab} aria-hidden="true" /> : null}
+          <Link
+            href={chapterHref(chapters[graph.chapterParts.indexOf(part)].id)}
+            className={styles.railPart}
+            aria-current={here ? "step" : undefined}
+            onClick={(event) => {
+              if (!onPart || event.metaKey || event.ctrlKey || event.shiftKey) return;
+              event.preventDefault();
+              onPart(part);
+            }}
+          >
+            <span className={styles.partTitle}>{title}</span>
+            <span className={styles.partFacts}>Part {part + 1} · {facts}</span>
+          </Link>
+        </li>;
+      })}
+    </ol>
   </div>;
 }
 
