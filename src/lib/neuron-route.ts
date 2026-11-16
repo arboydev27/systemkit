@@ -272,6 +272,13 @@ export function flightDistance(path: Pick<FlightPath, "stops">, progress: number
 }
 
 /** Where to settle once scrolling stops partway: on through with the smallest push, back with the smallest pull. */
+/** What a dive came to, counted once it's over, by the end it left and the end it reached: a dive started and turned
+ * back is a visitor who didn't want it. */
+export function diveOutcome(from: 0 | 1, end: 0 | 1) {
+  if (from === end) return end === 0 ? "dive_turned_back" : "dive_turned_back_up";
+  return end === 1 ? "dive_down" : "dive_up";
+}
+
 export function settleTo(progress: number, direction: number, nudge = 0.05) {
   if (direction > 0) return progress >= nudge ? 1 : 0;
   if (direction < 0) return progress <= 1 - nudge ? 0 : 1;

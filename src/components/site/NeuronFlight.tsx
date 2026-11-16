@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { makeFilm, shoot, type Film } from "@/lib/neuron-film";
 import { createNeuronGl, type NeuronGl } from "@/lib/neuron-gl";
-import { FLIGHT, hermite, ramp, settleTo } from "@/lib/neuron-route";
+import { FLIGHT, diveOutcome, hermite, ramp, settleTo } from "@/lib/neuron-route";
 import { figureOf } from "@/lib/milo-pose";
 import { createNeuronScene, holeAt, type FigureCopy, type NeuronPlace } from "@/lib/neuron-scene";
 import type { OrbGraph } from "@/lib/orb-layout";
@@ -11,14 +12,17 @@ import { linkDegrees } from "@/lib/orb-view";
 import styles from "./MiloHome.module.css";
 
 const FOLLOW = 0.05; // Seconds the dive takes to catch up with the page, so a wheel's steps run together.
-const QUICKEST = 0.6; // However far the page jumps, the whole dive takes at least this long, and the page waits under it.
+const QUICKEST = 0.6; // However far the page jumps on its own, a link say, the whole dive takes at least this long.
+const FOLLOWING = 0.22; // Following the visitor's own scrolling, it keeps closer to the page than that.
 const SETTLE_MS = 1000; // A whole dive, when scrolling stops partway and it finishes on its own.
-const QUIET_AFTER_INPUT = 140;
+// How long the page has to be still before a dive stopped partway finishes on its own: long enough that a wheel turned a
+// notch at a time, or a finger resting on the glass, isn't taken for stopping.
+const QUIET_AFTER_INPUT = 450;
 const QUIET_OTHERWISE = 480;
-const WHEEL_GAP = 200; // A pause this long between wheel events ends a gesture.
-const PUSH = 12; // Pixels of wheel or swipe that start the dive, or take it back.
+// Stopped partway, the dive goes on the way the visitor was going once they're this far into it, and otherwise goes back,
+// so a nudge past Milo's line springs back rather than plays the whole dive.
+const NEAR = 0.3;
 const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Tab"]);
-const DIVE_KEYS: Record<string, number> = { ArrowDown: 1, PageDown: 1, " ": 1, ArrowUp: -1, PageUp: -1 };
 
 export type NeuronFlightProps = {
   graph: OrbGraph;
@@ -197,7 +201,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     let lastScrollAt = 0;
     let inputAt = -Infinity;
     let touching = false;
-    let settling: { from: number; to: number; start: number; ms: number; way: number; at: number } | null = null;
+    let settling: { from: number; to: number; start: number; ms: number; at: number } | null = null;
     let frame = 0;
     let last = 0;
     let launched = false;
@@ -355,30 +359,23 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       const from = window.scrollY;
       if (Math.abs(y - from) < 1) return;
       const share = Math.abs(y - from) / Math.max(1, zoneEnd - zoneStart);
-      settling = { from, to: y, start: performance.now(), ms: SETTLE_MS * Math.max(0.35, Math.min(1, share)), way: Math.sign(y - from), at: from };
+      settling = { from, to: y, start: performance.now(), ms: SETTLE_MS * Math.max(0.35, Math.min(1, share)), at: from };
       wake();
     }
 
-    /** Whether a gesture going this way from where the page is now is the dive's to take, rather than the page's. */
-    function ours(way: number) {
-      const y = window.scrollY;
-      if (way > 0) return y >= zoneStart - 1 && y < zoneEnd - 1;
-      if (way < 0) return y > zoneStart + 1 && y <= zoneEnd + 2;
-      return false;
-    }
-
-    // A gesture that started where the dive couldn't take it, such as a phone's swipe above Milo's line, scrolls the
-    // page natively, and is held at the game until it ends, under the dive, so its momentum can't carry past.
-    let held: { last: number; touching: boolean } | null = null;
-    function hold() {
-      if (!held) return;
-      const y = Math.round(zoneEnd);
-      if (window.scrollY > y + 1) {
-        settling = null;
-        root.style.scrollBehavior = "auto";
-        window.scrollTo(0, y);
-        root.style.scrollBehavior = "";
+    // Each dive, once it's over, is counted by how it went: down to the game, back up to the top, or turned back the way it
+    // came. A dive started and turned back is a visitor who didn't want it.
+    let from: 0 | 1 = 0;
+    let away = false;
+    function count() {
+      if (progress > 0 && progress < 1) {
+        away = true;
+        return;
       }
+      const end = progress >= 1 ? 1 : 0;
+      if (away) trackEvent(diveOutcome(from, end));
+      away = false;
+      from = end;
     }
 
     function loop(now: number) {
@@ -386,7 +383,6 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       // Two calls in one frame would make no time pass.
       const dt = last ? Math.min(0.05, Math.max(0.004, (now - last) / 1000)) : 1 / 60;
       last = now;
-      if (held && !held.touching && now - held.last > WHEEL_GAP && now - lastScrollAt > QUIET_AFTER_INPUT) held = null;
       // Anything else moving the page, such as a link or the Learn moon scrolling to the top, takes over from the settling.
       if (settling && Math.abs(window.scrollY - settling.at) > 2) settling = null;
       if (settling) {
@@ -401,15 +397,13 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
         lastScrollAt = now;
         if (t >= 1) settling = null;
       }
-      hold();
-      let target = scrolled();
-      // The far end waits to open until a held gesture is over, so the game never shakes under it.
-      if (held && target > FLIGHT.open - 0.03) target = FLIGHT.open - 0.03;
+      const target = scrolled();
       const gap = target - progress;
-      const most = dt / QUICKEST;
+      const most = dt / (touching || now - inputAt < 1000 ? FOLLOWING : QUICKEST);
       progress = Math.abs(gap) < 0.0005 ? target : progress + Math.max(-most, Math.min(most, gap * (1 - Math.exp(-dt / FOLLOW))));
       if (progress !== drawn) {
         drawn = progress;
+        count();
         try {
           apply();
         } catch {
@@ -418,8 +412,8 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
         }
       }
       const partway = target > 0 && target < 1;
-      if (partway && !settling && !touching && !held && now - lastScrollAt > (now - inputAt < 1000 ? QUIET_AFTER_INPUT : QUIET_OTHERWISE)) settle(settleTo(target, direction));
-      if (settling || progress !== target || partway || held) wake();
+      if (partway && !settling && !touching && now - lastScrollAt > (now - inputAt < 1000 ? QUIET_AFTER_INPUT : QUIET_OTHERWISE)) settle(settleTo(target, direction, NEAR));
+      if (settling || progress !== target || partway) wake();
       else if (!frame) last = 0;
     }
 
@@ -427,118 +421,41 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       if (!frame) frame = requestAnimationFrame(loop);
     }
 
-    // Touches near the dive are listened to closely enough to stop the page scrolling, and only there, so the rest
-    // of the page scrolls without waiting on this script.
-    let listening = false;
-    function listenToTouches() {
-      const near = window.scrollY <= zoneEnd + 2;
-      if (near === listening) return;
-      listening = near;
-      if (near) document.addEventListener("touchmove", onTouchMove, { passive: false });
-      else document.removeEventListener("touchmove", onTouchMove);
-    }
-
     const onScroll = () => {
       const y = window.scrollY;
       if (y !== lastY) direction = Math.sign(y - lastY);
       lastY = y;
       lastScrollAt = performance.now();
-      hold();
-      listenToTouches();
       wake();
     };
 
-    // Inside the dive, one gesture plays it all, into the eye and out onto the game, or all the way back, and the
-    // rest of that gesture, a trackpad's momentum and all, is held back: only its first event can be, so that's where
-    // it's decided. So no flick can carry the page past the game.
-    const wheel = { last: -Infinity, way: 0, sum: 0, taken: false, done: false, sizes: [] as number[] };
-    // A gesture on something open over the page, like the sections' wheel, is that thing's, not a way into the dive.
+    // The dive takes no gesture: a wheel, a swipe or a key scrolls the page as it would anywhere, and the dive only follows
+    // it, so a slow drag plays it slowly and a flick goes straight through. Whatever the visitor does takes over from a
+    // dive finishing on its own.
+    // A gesture on something open over the page, like the sections' wheel, is that thing's, not the page's.
     const overPage = (event: Event) => event.target instanceof Element && event.target.closest("dialog[open]") !== null;
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey || overPage(event)) return;
-      const now = performance.now();
-      inputAt = now;
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
-      const way = Math.sign(delta);
-      if (!way) return;
-      const size = Math.abs(delta);
-      const recent = wheel.sizes.slice(-5);
-      const mean = recent.reduce((sum, value) => sum + value, 0) / Math.max(1, recent.length);
-      const easing = recent.length >= 4 && recent.every((value, index) => index === 0 || value <= recent[index - 1] + 1);
-      const momentum = (event as WheelEvent & { momentum?: boolean }).momentum === true;
-      const fresh = !momentum && easing && size > 8 && size > 1.5 * mean;
-      if (now - wheel.last >= WHEEL_GAP || way !== wheel.way || fresh) {
-        wheel.way = way;
-        wheel.sum = 0;
-        wheel.sizes = [];
-        wheel.done = false;
-        wheel.taken = ours(way) && event.cancelable;
-        if (!wheel.taken && way > 0 && window.scrollY < zoneEnd - 1) held = { last: now, touching: false };
-      }
-      wheel.last = now;
-      wheel.sizes.push(size);
-      if (wheel.sizes.length > 8) wheel.sizes.shift();
-      if (held) held.last = now;
-      if (wheel.taken) {
-        if (event.cancelable) event.preventDefault();
-        wheel.sum += size;
-        if (!wheel.done && wheel.sum >= PUSH) {
-          wheel.done = true;
-          settle(way > 0 ? 1 : 0);
-        }
-      } else if (settling && way !== settling.way) {
-        settling = null;
-      }
+      inputAt = performance.now();
+      settling = null;
       wake();
     };
-
-    let touch: { x: number; y: number; taken: boolean | null; done: boolean } | null = null;
     const onTouchStart = (event: TouchEvent) => {
-      if (overPage(event)) { touch = null; return; }
+      if (overPage(event)) return;
       touching = true;
       inputAt = performance.now();
+      settling = null;
       const point = event.touches?.[0];
       if (point) hint = { x: point.clientX, y: point.clientY };
-      touch = event.touches.length === 1 && point ? { x: point.clientX, y: point.clientY, taken: null, done: false } : null;
     };
-    function onTouchMove(event: TouchEvent) {
-      if (!touch || event.touches.length !== 1) return;
-      const point = event.touches[0];
-      const dy = touch.y - point.clientY;
-      const dx = touch.x - point.clientX;
-      if (touch.taken === null) {
-        if (Math.abs(dy) < 2 && Math.abs(dx) < 2) return;
-        const y = window.scrollY;
-        // Inside the dive every move is its own. At either end, only a move into it is.
-        const inside = y > zoneStart + 1 && y < zoneEnd - 1;
-        touch.taken = event.cancelable && (inside || (Math.abs(dy) >= Math.abs(dx) && ours(Math.sign(dy))));
-        if (touch.taken) settling = null;
-        else if (dy > 0 && y < zoneEnd - 1) held = { last: performance.now(), touching: true };
-      }
-      if (!touch.taken) return;
-      if (event.cancelable) event.preventDefault();
-      if (!touch.done && Math.abs(dy) >= PUSH * 2 && Math.abs(dy) > 1.25 * Math.abs(dx)) {
-        touch.done = true;
-        settle(dy > 0 ? 1 : 0);
-      }
-    }
     const onTouchEnd = () => {
       touching = false;
-      touch = null;
-      if (held) { held.touching = false; held.last = performance.now(); }
       inputAt = performance.now();
       wake();
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || !SCROLL_KEYS.has(event.key) || overPage(event)) return;
       inputAt = performance.now();
-      const way = event.key === " " && event.shiftKey ? -1 : DIVE_KEYS[event.key];
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      if (way && ours(way) && !target?.closest("input, textarea, select, button, [contenteditable], [role='application']")) {
-        event.preventDefault();
-        if (!event.repeat) settle(way > 0 ? 1 : 0);
-        return;
-      }
       settling = null;
       wake();
     };
@@ -570,7 +487,6 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
-      document.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
@@ -591,7 +507,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     // Straight after this task rather than at the next quiet moment, since a visitor may scroll at once.
     tuning = window.setTimeout(tune, 0);
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
     window.addEventListener("touchcancel", onTouchEnd, { passive: true });
@@ -603,7 +519,6 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     motion.addEventListener("change", onMotion);
     resizer.observe(stage);
     resizer.observe(section);
-    listenToTouches();
     wake();
     return stop;
   }, [graph, exits, start]);
