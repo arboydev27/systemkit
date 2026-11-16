@@ -399,6 +399,37 @@
 @media (max-width: 959px) and (min-height: 600px) and (prefers-color-scheme: dark) {
   .poleScene { --cast: rgb(255 255 255 / 6%); --cast-x: 0px; --cast-y: 0px; }
 }
+/* The menu button that opens the sections' wheel, only on a phone held upright (WHEEL_MEDIA in SectionWheel.tsx). */
+.menu { display: none; }
+@media (max-width: 639px) and (min-height: 600px) {
+  .moons { display: none; }
+  /* The same glass as the brand's, level with it across the top, two short lines that turn into the wheel's cross. */
+  .menu {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--glass-line);
+    border-radius: 12px;
+    background: var(--glass);
+    box-shadow: inset 0 1px 0 var(--glass-sheen);
+    color: var(--ink);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    transition: scale .3s cubic-bezier(.22, 1, .36, 1);
+  }
+  .menu i { width: 16px; height: 1.75px; border-radius: 2px; background: currentColor; }
+  .menu i + i { width: 10px; justify-self: end; margin-right: 13px; }
+  .menu:active { scale: .94; }
+  .menu:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+}
 /* Phones: the counts go, so the four names fit beside the brand. */
 @media (max-width: 479px) and (min-height: 600px) {
   .moonCount { display: none; }

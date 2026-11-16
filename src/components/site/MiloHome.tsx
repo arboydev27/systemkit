@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Play, X } from "lucide-react";
@@ -15,6 +15,7 @@ import { ChapterLessons, nextIsOutOfSight, useCourseNav } from "./CourseNav";
 import { ROD_MEDIA } from "@/lib/milo-pose";
 import { CourseLedge, CoursePole, MiloFigure, partLessons, useMiloLife, type MiloFocus } from "./Milo";
 import type { NeuronFlightProps } from "./NeuronFlight";
+import { SectionWheel } from "./SectionWheel";
 import { DueReviewBadge } from "./SiteClient";
 import { PaintDab, WallPaint } from "./WallPaint";
 import styles from "./MiloHome.module.css";
@@ -35,7 +36,7 @@ const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(48vh, 34vw)
 const HANG_SIZES = "(min-width: 600px) 345px, min(250px, 62vw)";
 
 // When the course line can't run, or without JavaScript, everything below the words lies flat and the chapter list shows.
-const FLAT_PAGE = "[data-home-scene],[data-home-pole],[data-home-wall],[data-home-goal],[data-home-bubble]{display:none!important}"
+const FLAT_PAGE = "[data-home-scene],[data-home-pole],[data-home-wall],[data-home-goal],[data-home-bubble],[data-home-menu]{display:none!important}"
   + "[data-home-stage]{position:relative!important;height:auto!important;min-height:0!important;display:block!important;padding:24px clamp(16px,4vw,40px)!important}"
   + "[data-home-words],[data-home-foot]{position:static!important;width:auto!important;max-width:none!important;margin:0 0 16px!important}"
   + "[data-home-moons]{position:static!important;display:flex!important;flex-wrap:wrap!important;width:auto!important;height:auto!important;gap:8px!important;padding:76px clamp(16px,4vw,40px) 0!important;background:none!important;border:0!important;box-shadow:none!important}"
@@ -103,6 +104,10 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   const ledge = useMemo(() => ledgeOf(graph), [graph]);
   const [dive, setDive] = useState(false);
   const [side, setSide] = useState<"left" | "right">("right");
+  // On a phone held upright the sections wait behind a menu button, on a wheel, rather than crowd the top of the screen.
+  const [wheel, setWheel] = useState(false);
+  const wheelId = useId();
+  const closeWheel = useCallback(() => setWheel(false), []);
   const stage = useRef<HTMLDivElement>(null);
   const figure = useRef<HTMLDivElement>(null);
   const hanging = useRef<HTMLDivElement>(null);
@@ -297,6 +302,22 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
       <Link className={styles.moon} href="/practice/">Practice <span className={styles.moonCount}>{counts.challenges}</span></Link>
       <Link className={styles.moon} href="/review/">Review <DueReviewBadge /></Link>
     </nav>
+    <button
+      type="button"
+      className={styles.menu}
+      aria-label="Sections"
+      aria-haspopup="dialog"
+      aria-expanded={wheel}
+      aria-controls={wheelId}
+      onClick={() => { trackEvent("home_wheel_open"); setWheel(true); }}
+      data-home-menu
+    ><i /><i /></button>
+    <SectionWheel id={wheelId} open={wheel} onClose={closeWheel} sections={[
+      { href: "/learn/", label: "Learn", detail: `${total || graph.titles.length} lessons`, onSelect: openLearn },
+      { href: "/labs/", label: "Labs", detail: `${counts.labs} labs to break` },
+      { href: "/practice/", label: "Practice", detail: `${counts.challenges} challenges` },
+      { href: "/review/", label: "Review", detail: <>Five minutes a day <DueReviewBadge /></> },
+    ]} />
 
     <div id="path" ref={stage} className={`${styles.stage} ${open ? styles.exploring : ""}`} data-home-stage>
       <WallPaint />
