@@ -387,4 +387,14 @@ test('the rod layout places him with the renders\' own proportions, fist on the 
   near(+sheet.match(/left: calc\(var\(--rod-x\) - var\(--hang-w\) \* ([\d.]+)\)/)[1], MILO_HANG.rod, 'his fist on the rod');
   near(+sheet.match(/--rod-w: calc\(var\(--hang-w\) \* ([\d.]+)\)/)[1], MILO_HANG.rodWidth, 'the rod as wide as the one cut out of him');
   assert.ok(sheet.includes(`@media ${ROD_MEDIA} {`), 'the stylesheet switches to the rod where the code does');
+  const rod = fs.readFileSync('src/components/site/Milo.module.css', 'utf8');
+  near(+rod.match(/\.rail \{[^}]*top: calc\(var\(--grip-y\) - var\(--hang-h\) \* ([\d.]+)\)/)[1], MILO_HANG.hold[1], 'the course in small starts level with the top of his head');
+});
+
+test('the course in small gives each part a stretch as long as its share of the lessons, first at the foot', () => {
+  const rod = fs.readFileSync('src/components/site/Milo.module.css', 'utf8');
+  const code = fs.readFileSync('src/components/site/Milo.tsx', 'utf8');
+  assert.match(rod, /\.railParts \{[^}]*flex-direction: column-reverse;/, 'the first part at the foot, as on the big rod');
+  assert.match(rod, /\.railParts li \{[^}]*flex: var\(--lessons\) 1 0;[^}]*min-height: 0;/, 'stretches grow by lesson count alone');
+  assert.match(code, /"--lessons": count/, 'each part passes its own lesson count');
 });
