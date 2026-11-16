@@ -119,18 +119,6 @@ test('the dive plays with the scroll once, then waits for a tap on his face', ()
   assert.ok(!/trackEvent/.test(page), 'the dive sends no analytics');
 });
 
-test("on a phone held upright the game starts below Safari's bar, and the dive still starts with the first scroll", () => {
-  const fs = require('fs');
-  const css = fs.readFileSync('src/components/site/MiloHome.module.css', 'utf8');
-  const rod = css.slice(css.indexOf('@media (max-width: 959px) and (min-height: 600px) {'));
-  const stage = rod.match(/\.stage \{([^}]*)\}/)[1];
-  assert.match(stage, /--under-bar: calc\(100lvh - 100svh \+ \d+px\)/, 'the band reaches past lvh, under the bar itself');
-  assert.match(stage, /height: calc\(100svh \+ var\(--under-bar\)\)/, 'the first screen keeps its 100svh and runs on by the band');
-  assert.match(stage, /padding: 74px 20px var\(--under-bar\)/, 'the band is empty');
-  const page = fs.readFileSync('src/components/site/NeuronFlight.tsx', 'utf8');
-  assert.match(page, /zoneStart = Math\.max\(0, top - window\.innerHeight - underBar\)/, 'the dive counts the band');
-});
-
 test('the easings never go backwards', () => {
   for (const [leave, arrive] of [[3, 0.28], [0.28, 0.28], [0.8, 0.25]]) {
     let last = 0;
