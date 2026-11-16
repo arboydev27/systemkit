@@ -347,10 +347,7 @@
 }
 
 @media (max-width: 959px) and (min-height: 600px) {
-  /* Safari draws the page on under its bar, down to the bottom of the screen, past what it counts as the screen (svh,
-     and past lvh by the bar's own height). So the first screen ends in an empty band that runs on past the bar, and the
-     game's heading starts out of sight instead of showing through it; what's on the first screen keeps its 100svh. */
-  .stage { --under-bar: calc(100lvh - 100svh + 64px); height: calc(100svh + var(--under-bar)); min-height: calc(540px + var(--under-bar)); padding: 74px 20px var(--under-bar); }
+  .stage { height: 100svh; min-height: 540px; padding: 74px 20px 0; }
   .words h1 { font-size: clamp(2.25rem, 10.2vw, 3.6rem); }
   .words { order: 1; }
   .foot { order: 2; margin-top: 10px; }
@@ -539,6 +536,12 @@
 @keyframes float { to { translate: 0 var(--float-by); } }
 
 @supports (animation-timeline: scroll()) {
+  /* Held upright, Safari draws the page on under its bar, down past what it counts as the screen, so at the very top the
+     game's heading would show through the bar. The game comes in with the first few pixels of scroll instead, while
+     it's still behind the bar, and keeps its place close under the first screen. */
+  @media (max-width: 959px) and (min-height: 600px) {
+    .try { animation: outFromUnderBar linear both; animation-timeline: scroll(root); animation-range: 0 64px; }
+  }
   @media (min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
     .seat, .cast, .shelf, .wall, .ledge, .parts { animation: recede linear both; animation-timeline: scroll(root); animation-range: 0 95vh; }
     .words, .foot, .goalBlock, .bubble { animation: fallAway linear both; animation-timeline: scroll(root); animation-range: 0 45vh; }
@@ -552,6 +555,7 @@
 
 @keyframes recede { 58% { opacity: .2; } to { opacity: 0; } }
 @keyframes fallAway { to { opacity: 0; translate: 0 -5vh; } }
+@keyframes outFromUnderBar { from, 25% { opacity: 0; } }
 
 @media (hover: none), (pointer: coarse) {
   .hintPointer { display: none; }

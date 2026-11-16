@@ -408,3 +408,12 @@ test('the sections wheel opens where the code says, and only there the row of se
   assert.match(block, /^@media[^{]*\{\s*\.moons \{ display: none; \}/, 'the row goes, and the menu button shows, in that one block');
   assert.ok(site.includes('@media (min-width: 640px) and (max-width: 959px) and (min-height: 600px), (max-height: 599px) and (min-width: 640px) {'), 'the brand keeps its name on a phone held upright');
 });
+
+test("held upright, the game stays close under the first screen, and comes in with the first scroll instead of showing through Safari's bar", () => {
+  const home = fs.readFileSync('src/components/site/MiloHome.module.css', 'utf8');
+  const rod = home.slice(home.indexOf('@media (max-width: 959px) and (min-height: 600px) {'));
+  assert.match(rod.match(/\.stage \{([^}]*)\}/)[1], /height: 100svh; min-height: 540px; padding: 74px 20px 0;/, 'the first screen ends where it always did, with no band under it');
+  const scrolled = home.slice(home.indexOf('@supports (animation-timeline: scroll()) {'));
+  assert.match(scrolled, /@media \(max-width: 959px\) and \(min-height: 600px\) \{\s*\.try \{ animation: outFromUnderBar linear both; animation-timeline: scroll\(root\); animation-range: 0 64px; \}/, 'the game fades in over the first scroll');
+  assert.match(home, /@keyframes outFromUnderBar \{ from, 25% \{ opacity: 0; \} \}/, 'from out of sight at the very top');
+});

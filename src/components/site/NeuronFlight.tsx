@@ -4,7 +4,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { makeFilm, shoot, type Film } from "@/lib/neuron-film";
 import { createNeuronGl, type NeuronGl } from "@/lib/neuron-gl";
 import { FLIGHT, hermite, onFace, ramp, settleTo } from "@/lib/neuron-route";
-import { figureOf, ROD_MEDIA } from "@/lib/milo-pose";
+import { figureOf } from "@/lib/milo-pose";
 import { createNeuronScene, holeAt, type FigureCopy, type NeuronPlace } from "@/lib/neuron-scene";
 import type { OrbGraph } from "@/lib/orb-layout";
 import { linkDegrees } from "@/lib/orb-view";
@@ -227,10 +227,7 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     function measure() {
       const top = section!.getBoundingClientRect().top + window.scrollY;
       zoneEnd = top;
-      // On a phone held upright the first screen runs on under Safari's bar, in an empty band past what the browser
-      // counts as the screen, so the game starts lower; the dive still starts with the first scroll.
-      const underBar = window.matchMedia(ROD_MEDIA).matches ? parseFloat(getComputedStyle(stage!).paddingBottom) || 0 : 0;
-      zoneStart = Math.max(0, top - window.innerHeight - underBar);
+      zoneStart = Math.max(0, top - window.innerHeight);
       dive.resize();
     }
 
