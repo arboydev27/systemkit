@@ -22,14 +22,30 @@ const TOUCH_FRAME = 30;
 const MAX_DOTS = 140;
 const SPARKS_PER_SECOND = 34;
 
-function wirePoint(a: ScalePlace, b: ScalePlace, t: number) {
+/**
+ * A wire's curve from one tier's node to the next: out of one node's rim and into the next's, leaving and arriving
+ * along the way the map runs, left to right on a wide map and top to bottom where it stands up on a phone.
+ */
+function wireCurve(a: ScalePlace, b: ScalePlace) {
+  if (Math.abs(b.y - a.y) > Math.abs(b.x - a.x)) {
+    const way = Math.sign(b.y - a.y);
+    const y0 = a.y + a.r * way;
+    const y3 = b.y - b.r * way;
+    const middle = (y0 + y3) / 2;
+    return [a.x, y0, a.x, middle, b.x, middle, b.x, y3];
+  }
   const x0 = a.x + a.r;
   const x3 = b.x - b.r;
   const middle = (x0 + x3) / 2;
+  return [x0, a.y, middle, a.y, middle, b.y, x3, b.y];
+}
+
+function wirePoint(a: ScalePlace, b: ScalePlace, t: number) {
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = wireCurve(a, b);
   const u = 1 - t;
   return {
-    x: u * u * u * x0 + 3 * u * u * t * middle + 3 * u * t * t * middle + t * t * t * x3,
-    y: u * u * u * a.y + 3 * u * u * t * a.y + 3 * u * t * t * b.y + t * t * t * b.y,
+    x: u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+    y: u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
   };
 }
 
@@ -143,11 +159,9 @@ export function createScaleScene(canvas: HTMLCanvasElement, readPlaces: () => Ma
       const a = places.get(from);
       const b = places.get(to);
       if (!a || !b) continue;
-      const x0 = a.x + a.r;
-      const x3 = b.x - b.r;
-      const middle = (x0 + x3) / 2;
-      ctx.moveTo(x0, a.y);
-      ctx.bezierCurveTo(middle, a.y, middle, b.y, x3, b.y);
+      const [x0, y0, x1, y1, x2, y2, x3, y3] = wireCurve(a, b);
+      ctx.moveTo(x0, y0);
+      ctx.bezierCurveTo(x1, y1, x2, y2, x3, y3);
     }
     ctx.stroke();
 

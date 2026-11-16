@@ -4,7 +4,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { makeFilm, shoot, type Film } from "@/lib/neuron-film";
 import { createNeuronGl, type NeuronGl } from "@/lib/neuron-gl";
 import { FLIGHT, hermite, ramp, settleTo } from "@/lib/neuron-route";
-import { MILO } from "@/lib/milo-figure";
+import { figureOf } from "@/lib/milo-pose";
 import { createNeuronScene, holeAt, type FigureCopy, type NeuronPlace } from "@/lib/neuron-scene";
 import type { OrbGraph } from "@/lib/orb-layout";
 import { linkDegrees } from "@/lib/orb-view";
@@ -92,6 +92,8 @@ function copyOf(figure: HTMLElement, hint: { x: number; y: number } | null): Fig
   const spin = Math.atan2(roll.b, roll.a);
   const linear = new DOMMatrix([Math.cos(spin), Math.sin(spin), -Math.sin(spin), Math.cos(spin), 0, 0]).multiply(new DOMMatrix([map[0], map[1], map[2], map[3], 0, 0]));
   const turn = [linear.a, linear.b, linear.c, linear.d];
+  // His geometry in the pose the page shows him in: sitting on the ledge, or hanging on the rod.
+  const MILO = figureOf(figure.dataset.miloPose);
   const unit = box.width / MILO.width;
   const eyes = [...figure.querySelectorAll<SVGGElement>("[data-milo-eye]")].map((eye, index) => {
     const shape = eye.lastElementChild!.getBoundingClientRect();
@@ -126,8 +128,11 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     const under = deep.current;
     const world = node?.parentElement;
     const stage = world?.querySelector<HTMLElement>("[data-home-stage]");
-    const figure = stage?.querySelector<HTMLElement>("[data-milo]");
-    const seat = figure?.parentElement;
+    // The page has Milo sitting on the ledge and hanging on the rod, and shows whichever suits the screen: the dive
+    // copies the one showing when it starts.
+    const shown = () => [...(stage?.querySelectorAll<HTMLElement>("[data-milo]") ?? [])].find((one) => one.offsetWidth > 0) ?? null;
+    let figure = shown();
+    let seat = figure?.parentElement ?? null;
     const section = document.getElementById("try");
     if (!node || !under || !world || !stage || !figure || !seat || !section) return;
     const beneath: HTMLCanvasElement = under;
@@ -218,6 +223,11 @@ export default function NeuronFlight({ graph, exits, start, finished }: NeuronFl
     };
 
     function launch() {
+      const now = shown();
+      if (!now?.parentElement) return false;
+      if (now !== figure) seat!.style.visibility = "";
+      figure = now;
+      seat = now.parentElement;
       const copy = copyOf(figure!, hint);
       if (!copy) return false;
       place.orbSize = figure!.offsetWidth;

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { chapterHref } from "@/lib/links";
 import { GAZE_REACH, detent, eyesOnFace, gaze, headWeights, mixAffine, nearestLesson, nextBlink, rowWeights, turnFor, type Ledge } from "@/lib/milo";
 import { MILO } from "@/lib/milo-figure";
+import { MILO_HANG } from "@/lib/milo-hang";
+import { figureOf, type MiloPose } from "@/lib/milo-pose";
 import { MILO_TURNS } from "@/lib/milo-turns";
 import type { OrbGraph } from "@/lib/orb-layout";
 import { chapterOfLesson } from "@/lib/orb-view";
@@ -37,17 +39,23 @@ function wants3D() {
 /** A place on screen Milo should look at instead of the pointer, such as the lesson being pointed at on the line. */
 export type MiloFocus = { x: number; y: number } | null;
 
-function Layer({ name, sizes, priority }: { name: "body" | "head"; sizes: string; priority: boolean }) {
-  const set = (theme: string) => `/milo/${theme}-${name}-s.webp ${MILO.small}w, /milo/${theme}-${name}.webp ${W}w`;
+/** An empty image, for the layers of a figure the screen isn't showing, so they never download. */
+const NOTHING = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+function Layer({ name, sizes, priority, pose, hiddenOn }: { name: "body" | "head"; sizes: string; priority: boolean; pose: MiloPose; hiddenOn?: string }) {
+  const figure = figureOf(pose);
+  const folder = pose === "hang" ? "/milo/hang/" : "/milo/";
+  const set = (theme: string) => `${folder}${theme}-${name}-s.webp ${figure.small}w, ${folder}${theme}-${name}.webp ${figure.width}w`;
   return <picture>
+    {hiddenOn ? <source media={hiddenOn} srcSet={NOTHING} /> : null}
     <source media="(prefers-color-scheme: dark)" srcSet={set("dark")} sizes={sizes} />
     <img
       className={styles.layer}
-      src={`/milo/light-${name}.webp`}
+      src={`${folder}light-${name}.webp`}
       srcSet={set("light")}
       sizes={sizes}
-      width={W}
-      height={H}
+      width={figure.width}
+      height={figure.height}
       alt=""
       decoding="async"
       fetchPriority={priority ? "high" : "auto"}
@@ -65,33 +73,50 @@ const boxStyle = (box: readonly number[]) => ({ left: `${box[0] * 100}%`, top: `
  * is exactly what the page goes on to animate, so nothing shifts or swaps when it comes to life. Once the page is
  * quiet, the frames of his head turning and his torso twisting load, and a canvas over each layer crossfades them.
  */
-export function MiloFigure({ figureRef, className = "", sizes, priority = false }: {
+export function MiloFigure({ figureRef, className = "", sizes, priority = false, pose = "sit", hiddenOn }: {
   figureRef: RefObject<HTMLDivElement | null>;
   className?: string;
   sizes: string;
   priority?: boolean;
+  pose?: MiloPose;
+  /** A media query the page hides the figure on, where its images needn't download. */
+  hiddenOn?: string;
 }) {
   const glow = `milo-glow-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
-  return <div ref={figureRef} className={`${styles.figure} ${className}`} data-milo aria-hidden="true">
+  const hanging = pose === "hang";
+  const figure = figureOf(pose);
+  const fw = figure.width;
+  const fh = figure.height;
+  // Hanging, his head is tilted, so his screen is too: his eyes are drawn upright and turned with it.
+  const turn = (MILO_HANG.tilt * Math.PI) / 180;
+  const [sx, sy] = [MILO_HANG.display.x * fw, MILO_HANG.display.y * fh];
+  const screen = hanging ? `matrix(${[Math.cos(turn), Math.sin(turn), -Math.sin(turn), Math.cos(turn), sx - sx * Math.cos(turn) + sy * Math.sin(turn), sy - sx * Math.sin(turn) - sy * Math.cos(turn)].map((value) => value.toFixed(4)).join(" ")})` : undefined;
+  // Hanging, he breathes about his grip on the rod, so his fist stays on it, and his head turns on his neck.
+  const place = hanging ? {
+    aspectRatio: `${fw} / ${fh}`,
+    "--neck-x": `${(MILO_HANG.neck[0] * 100).toFixed(3)}%`, "--neck-y": `${(MILO_HANG.neck[1] * 100).toFixed(3)}%`,
+    "--hold-x": `${(MILO_HANG.hold[0] * 100).toFixed(3)}%`, "--hold-y": `${(MILO_HANG.hold[1] * 100).toFixed(3)}%`,
+  } as CSSProperties : undefined;
+  return <div ref={figureRef} className={`${styles.figure} ${className}`} style={place} data-milo data-milo-pose={pose} aria-hidden="true">
     <div className={styles.body} data-milo-body>
       <div className={styles.bodyBreath}>
-        <Layer name="body" sizes={sizes} priority={priority} />
-        <canvas className={styles.turns} style={boxStyle(T.body.box)} data-milo-turns="body" />
+        <Layer name="body" sizes={sizes} priority={priority} pose={pose} hiddenOn={hiddenOn} />
+        {hanging ? null : <canvas className={styles.turns} style={boxStyle(T.body.box)} data-milo-turns="body" />}
       </div>
     </div>
     <div className={styles.head} data-milo-head>
       <div className={styles.headBreath}>
-        <Layer name="head" sizes={sizes} priority={priority} />
-        <canvas className={styles.turns} style={boxStyle(T.head.box)} data-milo-turns="head" />
-        <svg className={styles.eyes} viewBox={`0 0 ${W} ${H}`} focusable="false">
+        <Layer name="head" sizes={sizes} priority={priority} pose={pose} hiddenOn={hiddenOn} />
+        {hanging ? null : <canvas className={styles.turns} style={boxStyle(T.head.box)} data-milo-turns="head" />}
+        <svg className={styles.eyes} viewBox={`0 0 ${fw} ${fh}`} focusable="false">
           <defs>
             <filter id={glow} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7" /></filter>
           </defs>
-          <g data-milo-screen>
+          <g data-milo-screen transform={screen}>
             <g className={styles.gaze}>
-              {MILO.eyes.map((eye, index) => <g key={index} className={styles.eye} data-milo-eye={index}>
-                <ellipse className={styles.eyeGlow} cx={eye.x * W} cy={eye.y * H} rx={eye.rx * W + 4} ry={eye.ry * H + 4} filter={`url(#${glow})`} />
-                <ellipse className={styles.eyeShape} cx={eye.x * W} cy={eye.y * H} rx={eye.rx * W} ry={eye.ry * H} />
+              {figure.eyes.map((eye, index) => <g key={index} className={styles.eye} data-milo-eye={index}>
+                <ellipse className={styles.eyeGlow} cx={eye.x * fw} cy={eye.y * fh} rx={eye.rx * fw + 4} ry={eye.ry * fh + 4} filter={`url(#${glow})`} />
+                <ellipse className={styles.eyeShape} cx={eye.x * fw} cy={eye.y * fh} rx={eye.rx * fw} ry={eye.ry * fh} />
               </g>)}
             </g>
           </g>
@@ -197,6 +222,11 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     const bodyCanvas = el.querySelector<HTMLCanvasElement>("canvas[data-milo-turns='body']");
     const screen = el.querySelector<SVGGElement>("[data-milo-screen]");
     const fine = window.matchMedia("(pointer: fine)").matches;
+    // Hanging on the rod, he has no turn frames or model: his eyes do the looking and his head tips a little toward it.
+    const hanging = el.dataset.miloPose === "hang";
+    const shape = figureOf(el.dataset.miloPose);
+    const FW = shape.width;
+    const FH = shape.height;
     let pointer: { x: number; y: number } | null = null;
     let wander: { x: number; y: number; until: number } | null = null;
     let eyes = { x: 0, y: 0 };
@@ -225,6 +255,9 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     let wanderTimer = 0;
     let shiftTimer = 0;
     let retryTimer = 0;
+    let breathTimer = 0;
+    // A figure that was hidden when it would have loaded, and loads once it shows.
+    let unseen = false;
     let idle = 0;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let still = false;
@@ -274,6 +307,8 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     // Now and then he shifts his weight: his torso leans a little to one side on still hips, and back.
     function scheduleShift() {
       window.clearTimeout(shiftTimer);
+      // Hanging, his weight is on his grip and his braced boot, so he doesn't shift it.
+      if (hanging) return;
       shiftTimer = window.setTimeout(() => {
         if (still) return;
         const side = lean.goal === 0 ? (Math.random() < 0.5 ? -1 : 1) : 0;
@@ -335,7 +370,12 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     }
 
     async function load(again = true) {
-      if (sprites || three) return;
+      if (sprites || three || hanging) return;
+      // A figure the screen isn't showing, such as the sitting one on a phone held upright, loads nothing until it shows.
+      if (!el.offsetWidth) {
+        unseen = true;
+        return;
+      }
       if (wants3D() && await load3D()) return;
       const mine = ++generation;
       const found = await loadSprites(el);
@@ -409,9 +449,13 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       const target = focus.current ?? (wander ? { x: wander.x, y: wander.y } : pointer);
       let want = { x: 0, y: 0 };
       if (target && box.width > 0) {
-        const cx = box.left + MILO.display.x * box.width;
-        const cy = box.top + MILO.display.y * box.height;
+        const cx = box.left + shape.display.x * box.width;
+        const cy = box.top + shape.display.y * box.height;
         want = gaze((target.x - cx) / box.width, (target.y - cy) / box.height);
+      }
+      if (hanging) {
+        loopHang(dt, want);
+        return;
       }
       if (three) {
         loop3D(now, dt, want);
@@ -455,6 +499,31 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       else last = 0;
     }
 
+    // Hanging, his eyes carry the whole look, and his head tips a little toward it on his neck, a beat behind: a couple
+    // of degrees toward where he looks across, and a touch up or down. His body stays put on the rod.
+    function loopHang(dt: number, want: { x: number; y: number }) {
+      const across = Math.max(-1, Math.min(1, want.x / GAZE_REACH.x));
+      const down = Math.max(-1, Math.min(1, want.y / GAZE_REACH.y));
+      yaw.goal = across * 2.4;
+      nod.goal = down * 0.5;
+      let moving = step(yaw, 6, dt);
+      moving = step(nod, 6, dt) || moving;
+      if (!moving) {
+        settle(yaw);
+        settle(nod);
+      }
+      const goal = eyesOnFace(want, { x: 0, y: 0 });
+      const quick = 1 - Math.exp(-dt / 0.07);
+      eyes = { x: eyes.x + (goal.x - eyes.x) * quick, y: eyes.y + (goal.y - eyes.y) * quick };
+      el.style.setProperty("--gx", `${(eyes.x * FW).toFixed(2)}px`);
+      el.style.setProperty("--gy", `${(eyes.y * FH).toFixed(2)}px`);
+      el.style.setProperty("--tilt", `${yaw.at.toFixed(3)}deg`);
+      el.style.setProperty("--hy", `${nod.at.toFixed(3)}%`);
+      moving = moving || Math.abs(goal.x - eyes.x) * FW > 0.05 || Math.abs(goal.y - eyes.y) * FH > 0.05;
+      if (moving && visible) frame = requestAnimationFrame(loop);
+      else last = 0;
+    }
+
     // In 3D the head follows where the eyes look continuously, a beat behind them, and the torso follows the head.
     function loop3D(now: number, dt: number, want: { x: number; y: number }) {
       const aim = turnFor(want, TURN_3D);
@@ -473,13 +542,17 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       el.style.setProperty("--gx", `${(eyes.x * W).toFixed(2)}px`);
       el.style.setProperty("--gy", `${(eyes.y * H).toFixed(2)}px`);
       moving = moving || Math.abs(goal.x - eyes.x) * W > 0.05 || Math.abs(goal.y - eyes.y) * H > 0.05;
-      // While he only breathes, twenty frames a second is plenty.
+      // While he only breathes, twenty frames a second is plenty, and the loop sleeps between them rather than waking
+      // at the screen's own rate.
       if (moving || now - drawnAt > 50) draw3D(now);
-      if (visible && (moving || !still)) frame = requestAnimationFrame(loop);
+      if (visible && moving) frame = requestAnimationFrame(loop);
+      else if (visible && !still) breathTimer = window.setTimeout(() => { breathTimer = 0; wake(); }, Math.max(0, 50 - (performance.now() - drawnAt)));
       else last = 0;
     }
 
     function wake() {
+      window.clearTimeout(breathTimer);
+      breathTimer = 0;
       if (!frame && visible) frame = requestAnimationFrame(loop);
     }
     wakeRef.current = wake;
@@ -500,6 +573,10 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       if (visible) wake();
     });
     const sizer = new ResizeObserver(() => {
+      if (unseen && el.offsetWidth) {
+        unseen = false;
+        void load();
+      }
       fit();
       painted = { head: "", body: "" };
       if (three) { three.resize(); draw3D(performance.now()); }
@@ -543,6 +620,7 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
     scheduleShift();
     return () => {
       cancelAnimationFrame(frame);
+      window.clearTimeout(breathTimer);
       window.clearTimeout(blinkTimer);
       window.clearTimeout(wanderTimer);
       window.clearTimeout(shiftTimer);
@@ -567,7 +645,8 @@ export function useMiloLife(figure: RefObject<HTMLDivElement | null>, focus: Ref
       delete el.dataset.blink;
       delete el.dataset.turnHead;
       delete el.dataset.turnBody;
-      screen?.removeAttribute("transform");
+      // The hanging figure's screen is turned by its own markup, not by this.
+      if (!hanging) screen?.removeAttribute("transform");
       for (const name of ["--hx", "--hy", "--tilt", "--lean", "--gx", "--gy"]) el.style.removeProperty(name);
     };
   }, [figure, focus, paused]);
@@ -702,6 +781,112 @@ export function CourseLedge({ graph, chapters, nav, ledge, onPart, onFocusLesson
       })}
     </ol>
   </>;
+}
+
+/** Ticks across the rod, cut into its left side out from its edge: the course runs up the rod, so a lesson's place on the line is its height on the rod. */
+function rungsPath(places: number[], length: number) {
+  return places.map((place) => `M${TICK.next + 1 - length} ${((1 - place) * 1000).toFixed(1)}H${TICK.next + 1}`).join("");
+}
+
+/**
+ * The course as the rod Milo hangs on, where a screen held upright has height to spare and little width: the same
+ * lessons and parts as the ledge, running up the rod from the first at its foot, a tick for every lesson cut into its
+ * left side, the finished ones inked in and the four parts named beside their stretches. The rod slides so the visitor's
+ * next lesson is just under his fist, so he's always where he's comfortable to see, and climbs as the visitor goes on.
+ * A tap on the rod opens the chapter there.
+ */
+export function CoursePole({ graph, chapters, nav, ledge, onPart, onFocusLesson, highlight, nextMark, children }: {
+  graph: OrbGraph;
+  chapters: CourseNavProps["chapters"];
+  nav: CourseNavState;
+  ledge: Ledge;
+  onPart?: (part: number) => void;
+  onFocusLesson?: (spot: { x: number; y: number } | null) => void;
+  highlight: { from: number; to: number } | null;
+  nextMark?: ReactNode;
+  /** Milo, and what he's thinking: held where his fist meets the rod, which doesn't slide. */
+  children?: ReactNode;
+}) {
+  const band = useRef<HTMLDivElement>(null);
+  const firsts = useMemo(() => graph.chapterStarts.slice(0, -1), [graph]);
+  const all = useMemo(() => rungsPath(ledge.lessons, TICK.lesson), [ledge]);
+  const chapterTicks = useMemo(() => rungsPath(firsts.map((lesson) => ledge.lessons[lesson]), TICK.chapter), [firsts, ledge]);
+  const done = useMemo(() => rungsPath(ledge.lessons.filter((_, lesson) => nav.finished[lesson]), TICK.lesson), [ledge, nav.finished]);
+  const doneChapters = useMemo(() => rungsPath(firsts.flatMap((start, chapter) => {
+    const end = graph.chapterStarts[chapter + 1];
+    for (let lesson = start; lesson < end; lesson++) if (!nav.finished[lesson]) return [];
+    return [ledge.lessons[start]];
+  }), TICK.chapter), [firsts, graph, ledge, nav.finished]);
+  const litPath = useMemo(() => highlight ? rungsPath(ledge.lessons.slice(highlight.from, highlight.to), TICK.lesson) : "", [ledge, highlight]);
+  const next = nav.nextLesson;
+  const at = next !== null ? ledge.lessons[next] : ledge.lessons[0];
+  const shown = nav.active;
+
+  useEffect(() => {
+    const box = band.current?.getBoundingClientRect();
+    onFocusLesson?.(shown !== null && box && box.height ? { x: box.left + box.width / 2, y: box.top + (1 - ledge.lessons[shown]) * box.height } : null);
+    // Only the lesson matters: the rod doesn't slide while one is shown.
+  }, [shown]);
+
+  function lessonAt(event: MouseEvent<HTMLDivElement>) {
+    const box = event.currentTarget.getBoundingClientRect();
+    return nearestLesson(ledge.lessons, 1 - (event.clientY - box.top) / box.height);
+  }
+
+  return <div className={styles.pole} style={{ "--next": at.toFixed(5) } as CSSProperties} data-pole>
+    {/* The rod runs on past the scene at both ends, fading out, and nothing on it can be touched out there. */}
+    <div className={styles.poleFade}><div className={styles.poleGrip}>
+      <div className={styles.poleTrack}>
+        <i className={styles.rod} aria-hidden="true" />
+        <svg className={`${styles.ticks} ${styles.rungs}`} viewBox={`0 0 ${TICK.next + 1} 1000`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path className={styles.tickAll} d={all} />
+          <path className={styles.tickChapter} d={chapterTicks} />
+          <path className={styles.tickDone} d={done} />
+          <path className={styles.tickDoneChapter} d={doneChapters} />
+          {litPath ? <path className={styles.tickLit} d={litPath} /> : null}
+          {next !== null ? <path className={`${styles.tickNext} ${nextMark ? styles.tickNextMarked : ""}`} d={rungsPath([at], TICK.next)} /> : null}
+          {shown !== null ? <path className={styles.tickShown} d={rungsPath([ledge.lessons[shown]], TICK.next)} /> : null}
+        </svg>
+        {nextMark && next !== null ? <span className={styles.poleMark} style={{ top: `${((1 - at) * 100).toFixed(3)}%` }}>{nextMark}</span> : null}
+        <div
+          ref={band}
+          className={styles.poleBand}
+          role="application"
+          tabIndex={0}
+          aria-label={`The course, ${graph.titles.length} lessons up a rod. Left and right arrows move between lessons, up and down between chapters, and Enter opens a lesson.`}
+          onKeyDown={(event) => nav.onKeyDown(event)}
+          onClick={(event) => {
+            // A tap shows the chapter there in the panel, since a finger can't point first; a key press opens the lesson.
+            if (event.detail === 0 && nav.active !== null) nav.open(nav.active, event.metaKey || event.ctrlKey);
+            else nav.onTap(lessonAt(event));
+          }}
+        />
+        <ol className={styles.poleParts} aria-label="The four parts of the course">
+          {graph.partTitles.map((title, part) => {
+            const { from, to } = partLessons(graph, part);
+            const finished = nav.finished.slice(from, to).filter(Boolean).length;
+            const first = graph.chapterParts.indexOf(part);
+            const { start, end } = ledge.parts[part];
+            return <li key={title} style={{ "--from": start.toFixed(5), "--to": end.toFixed(5) } as CSSProperties}>
+              <Link
+                href={chapterHref(chapters[first].id)}
+                className={styles.polePart}
+                onClick={(event) => {
+                  if (!onPart || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                  event.preventDefault();
+                  onPart(part);
+                }}
+              >
+                <span className={styles.partTitle}>{title}</span>
+                <span className={styles.partFacts}>{finished > 0 ? `${finished} of ${to - from}` : `${to - from} lessons`}</span>
+              </Link>
+            </li>;
+          })}
+        </ol>
+      </div>
+    </div></div>
+    <div className={styles.poleGrip}>{children}</div>
+  </div>;
 }
 
 /** The lessons of one part, as a range of lesson indexes. */

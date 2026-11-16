@@ -12,7 +12,8 @@ import { chapterOfLesson } from "@/lib/orb-view";
 import { completedCount, emptyProgress } from "@/lib/progress";
 import { CourseList, CourseState, useCoursePath, type CourseChapter, type GoalOption } from "./CourseMap";
 import { ChapterLessons, nextIsOutOfSight, useCourseNav } from "./CourseNav";
-import { CourseLedge, MiloFigure, partLessons, useMiloLife, type MiloFocus } from "./Milo";
+import { ROD_MEDIA } from "@/lib/milo-pose";
+import { CourseLedge, CoursePole, MiloFigure, partLessons, useMiloLife, type MiloFocus } from "./Milo";
 import type { NeuronFlightProps } from "./NeuronFlight";
 import { DueReviewBadge } from "./SiteClient";
 import { PaintDab, WallPaint } from "./WallPaint";
@@ -30,9 +31,11 @@ const lessons = (count: number) => `${count} ${count === 1 ? "lesson" : "lessons
 const HEAD_SHARE = 0.42;
 // His width on screen: his height times 1340/1841, from the stage's --milo-h on each layout.
 const FIGURE_SIZES = "(min-width: 960px) and (min-height: 600px) min(48vh, 34vw), (max-height: 599px) and (min-width: 640px) min(61vh, 32vw), min(31vh, 73vw, 320px)";
+// Hanging on the rod he's --hang-h times 960/1505 wide: about 250px at most on a phone, up to 345px on a tablet.
+const HANG_SIZES = "(min-width: 600px) 345px, min(250px, 62vw)";
 
 // When the course line can't run, or without JavaScript, everything below the words lies flat and the chapter list shows.
-const FLAT_PAGE = "[data-home-scene],[data-home-wall],[data-home-goal],[data-home-bubble]{display:none!important}"
+const FLAT_PAGE = "[data-home-scene],[data-home-pole],[data-home-wall],[data-home-goal],[data-home-bubble]{display:none!important}"
   + "[data-home-stage]{position:relative!important;height:auto!important;min-height:0!important;display:block!important;padding:24px clamp(16px,4vw,40px)!important}"
   + "[data-home-words],[data-home-foot]{position:static!important;width:auto!important;max-width:none!important;margin:0 0 16px!important}"
   + "[data-home-moons]{position:static!important;display:flex!important;flex-wrap:wrap!important;width:auto!important;height:auto!important;gap:8px!important;padding:76px clamp(16px,4vw,40px) 0!important;background:none!important;border:0!important;box-shadow:none!important}"
@@ -102,6 +105,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   const [side, setSide] = useState<"left" | "right">("right");
   const stage = useRef<HTMLDivElement>(null);
   const figure = useRef<HTMLDivElement>(null);
+  const hanging = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const focus = useRef<MiloFocus>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -118,22 +122,23 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   const nextPart = nav.nextLesson !== null ? graph.chapterParts[chapterOfLesson(graph, nav.nextLesson)] : 0;
   startLesson.current = nav.nextLesson ?? 0;
 
-  const wake = useMiloLife(figure, focus, path.orbFailed);
+  // He sits on the ledge or hangs on the rod, as the screen suits; each figure comes to life only while it shows.
+  const wakeSitting = useMiloLife(figure, focus, path.orbFailed);
+  const wakeHanging = useMiloLife(hanging, focus, path.orbFailed);
 
   // Where Milo sits: over the next lesson, kept on the stage. Moving him is a transform, so it never shifts the layout.
   const place = useCallback(() => {
     const node = stage.current;
     const line = node?.querySelector<HTMLElement>("[data-ledge]");
     if (!node || !line || !figure.current) return;
-    const box = node.getBoundingClientRect();
     const lineBox = line.getBoundingClientRect();
     // He and his thought are placed in the scene the line is in, which on a phone on its side starts partway across.
     const sceneBox = (line.offsetParent ?? node).getBoundingClientRect();
     const width = figure.current.offsetWidth;
     const lesson = nav.nextLesson ?? 0;
-    const edge = parseFloat(getComputedStyle(node).getPropertyValue("--edge")) || 16;
     const lineLeft = lineBox.left - sceneBox.left;
-    const right = box.right - edge - sceneBox.left;
+    // He stays within the line, which ends short of the stage's edge, and of a phone's notch when it's on its side.
+    const right = lineBox.right - sceneBox.left;
     const x = seatX(ledge.lessons[lesson], { left: lineLeft, width: lineBox.width }, width * HEAD_SHARE * 2, { left: lineLeft, right });
     node.style.setProperty("--seat-x", `${x.toFixed(1)}px`);
     setSide(bubbleSide(x, { left: lineLeft, right }));
@@ -181,8 +186,9 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   const aim = useCallback(() => {
     const box = open ? panelRef.current?.getBoundingClientRect() : null;
     focus.current = lessonSpot.current ?? (box && box.width ? { x: box.left + box.width / 2, y: box.top + Math.min(box.height, 320) / 2 } : null);
-    wake.current();
-  }, [open, wake]);
+    wakeSitting.current();
+    wakeHanging.current();
+  }, [open, wakeSitting, wakeHanging]);
   useEffect(() => {
     // The panel slides in, so wait for it to land before looking at it.
     const timer = window.setTimeout(aim, open ? 260 : 0);
@@ -233,10 +239,11 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   }
 
   function setMood(mood: string | null) {
-    const node = figure.current;
-    if (!node) return;
-    if (mood) node.dataset.mood = mood;
-    else delete node.dataset.mood;
+    for (const node of [figure.current, hanging.current]) {
+      if (!node) continue;
+      if (mood) node.dataset.mood = mood;
+      else delete node.dataset.mood;
+    }
   }
 
   const actionHref = action?.href ?? start.href;
@@ -254,6 +261,31 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   const lit = nav.preview !== null ? { from: graph.chapterStarts[nav.preview], to: graph.chapterStarts[nav.preview + 1] }
     : !open ? null : nav.selected !== null ? { from: graph.chapterStarts[nav.selected], to: graph.chapterStarts[nav.selected + 1] } : partLessons(graph, nav.part ?? 0);
   const ring = total > 0 && finished > 0 ? Math.max(1, (finished / total) * 100) : 0;
+
+  // What Milo is thinking: the page's main action, floating off his head.
+  const thought = (className: string) => <Link
+    className={className}
+    href={actionHref}
+    onClick={() => trackEvent("home_start_button")}
+    onPointerEnter={() => setMood("happy")}
+    onPointerLeave={() => setMood(null)}
+    onFocus={() => setMood("happy")}
+    onBlur={() => setMood(null)}
+    data-home-bubble
+  >
+    <span className={styles.bubblePill}>
+      <span className={styles.bubbleIcon} aria-hidden="true">
+        <svg className={styles.bubbleRing} viewBox="0 0 36 36" focusable="false">
+          <circle className={styles.bubbleTrack} cx="18" cy="18" r="16.5" pathLength="100" />
+          {ring ? <circle className={styles.bubbleDone} cx="18" cy="18" r="16.5" pathLength="100" strokeDasharray={`${ring} 100`} /> : null}
+        </svg>
+        <Play size={12} fill="currentColor" strokeWidth={0} />
+      </span>
+      <span className={styles.bubbleLabel}>{actionLabel}</span>
+    </span>
+    {/* The trail of a thought, from his head up to what he's thinking. */}
+    <span className={styles.bubbleTrail} aria-hidden="true"><i /><i /><i /></span>
+  </Link>;
 
   return <CourseState.Provider value={path.courseState}>
     {path.orbFailed ? <style>{FLAT_PAGE}</style> : <noscript><style>{FLAT_PAGE}</style></noscript>}
@@ -273,29 +305,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
       <div className={styles.scene} data-home-scene>
         <i className={styles.cast} aria-hidden="true" />
         <i className={styles.shelf} aria-hidden="true" />
-        <Link
-          className={`${styles.bubble} ${side === "left" ? styles.bubbleLeft : ""}`}
-          href={actionHref}
-          onClick={() => trackEvent("home_start_button")}
-          onPointerEnter={() => setMood("happy")}
-          onPointerLeave={() => setMood(null)}
-          onFocus={() => setMood("happy")}
-          onBlur={() => setMood(null)}
-          data-home-bubble
-        >
-          <span className={styles.bubblePill}>
-            <span className={styles.bubbleIcon} aria-hidden="true">
-              <svg className={styles.bubbleRing} viewBox="0 0 36 36" focusable="false">
-                <circle className={styles.bubbleTrack} cx="18" cy="18" r="16.5" pathLength="100" />
-                {ring ? <circle className={styles.bubbleDone} cx="18" cy="18" r="16.5" pathLength="100" strokeDasharray={`${ring} 100`} /> : null}
-              </svg>
-              <Play size={12} fill="currentColor" strokeWidth={0} />
-            </span>
-            <span className={styles.bubbleLabel}>{actionLabel}</span>
-          </span>
-          {/* The trail of a thought, from his head up to what he's thinking. */}
-          <span className={styles.bubbleTrail} aria-hidden="true"><i /><i /><i /></span>
-        </Link>
+        {thought(`${styles.bubble} ${side === "left" ? styles.bubbleLeft : ""}`)}
         <CourseLedge
           graph={graph}
           chapters={chapters}
@@ -309,8 +319,19 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
           partsClassName={styles.parts}
         />
         <div className={styles.seat}>
-          <MiloFigure figureRef={figure} className={styles.figure} sizes={FIGURE_SIZES} priority />
+          <MiloFigure figureRef={figure} className={styles.figure} sizes={FIGURE_SIZES} priority hiddenOn={ROD_MEDIA} />
         </div>
+      </div>
+
+      {/* On a screen held upright, he hangs on the side of the course's rod instead. */}
+      <div className={styles.poleScene} data-home-pole>
+        <CoursePole graph={graph} chapters={chapters} nav={nav} ledge={ledge} onPart={browse} onFocusLesson={onFocusLesson} highlight={lit} nextMark={<PaintDab />}>
+          <i className={styles.hangCast} aria-hidden="true" />
+          <div className={styles.hanger}>
+            <MiloFigure figureRef={hanging} className={styles.figure} sizes={HANG_SIZES} priority pose="hang" hiddenOn={`not all and ${ROD_MEDIA}`} />
+          </div>
+          {thought(`${styles.bubble} ${styles.bubbleHang}`)}
+        </CoursePole>
       </div>
 
       <div className={styles.foot} data-home-foot>
@@ -397,6 +418,16 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
                   </li>;
                 })}
               </ol>
+              {/* Where the course stands upright on a phone, choosing the order comes here, with the parts. */}
+              <fieldset className={`${styles.goal} ${styles.panelGoal}`}>
+                <legend>What are you here for?</legend>
+                <div className={styles.goalOptions}>
+                  {goals.map((option) => <label key={option.id} className={path.goalId === option.id ? styles.goalOn : undefined}>
+                    <input type="radio" name="home-goal-sheet" checked={path.goalId === option.id} onChange={() => path.choose(option.id)} />
+                    <span>{GOAL_NAMES[option.id] ?? option.label}</span>
+                  </label>)}
+                </div>
+              </fieldset>
             </>}
           </div>
         </> : null}
