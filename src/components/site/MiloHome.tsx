@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Play, X } from "lucide-react";
@@ -24,6 +24,15 @@ import siteStyles from "./Site.module.css";
 // The dive from Milo's eye to the game loads after the first screen, on the first sign of a visitor or the first quiet
 // moment. Until then, and if it can't load, the page scrolls with the plain fade the stylesheet gives it.
 const NeuronFlight = dynamic<NeuronFlightProps>(() => import("./NeuronFlight").catch(() => ({ default: () => null })), { ssr: false });
+// Only on a screen wide enough to read the neuron by. A phone, upright or on its side, scrolls straight from Milo to the
+// game: there the dive would take the first swipe, mostly as a blur, and its lessons are too small to read.
+const DIVE_MEDIA = "(min-width: 960px)";
+const watchDiveMedia = (change: () => void) => {
+  const query = window.matchMedia(DIVE_MEDIA);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+const diveFits = () => window.matchMedia(DIVE_MEDIA).matches;
 
 const GOAL_NAMES: Record<string, string> = { interview: "An interview", work: "Work", foundations: "Fundamentals" };
 const lessons = (count: number) => `${count} ${count === 1 ? "lesson" : "lessons"}`;
@@ -85,7 +94,7 @@ function useLast<T>(value: T | null) {
 /**
  * The opening of the home page: Milo, sitting on the course, on a ledge in front of a wall with orange paint running
  * down it. The ledge's front edge is every lesson in order, he sits at the visitor's next one, and what he says starts it. The four parts under the line open the course where they point,
- * and scrolling dives in through his eye.
+ * and on a wide screen scrolling dives in through his eye.
  */
 export function MiloHome({ chapters, goals, graph, words, foot, start, counts }: {
   chapters: CourseChapter[];
@@ -103,6 +112,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   });
   const ledge = useMemo(() => ledgeOf(graph), [graph]);
   const [dive, setDive] = useState(false);
+  const wideEnough = useSyncExternalStore(watchDiveMedia, diveFits, () => false);
   const [side, setSide] = useState<"left" | "right">("right");
   // On a phone held upright the sections wait behind a menu button, on a wheel, rather than crowd the top of the screen.
   const [wheel, setWheel] = useState(false);
@@ -159,7 +169,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
   }, [place]);
 
   useEffect(() => {
-    if (dive || path.orbFailed || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (dive || !wideEnough || path.orbFailed || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const wakeUp = ["wheel", "touchstart", "keydown", "scroll", "pointermove"] as const;
     const go = () => setDive(true);
     for (const name of wakeUp) window.addEventListener(name, go, { passive: true, once: true });
@@ -170,7 +180,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
       if (idle) window.cancelIdleCallback(idle);
       window.clearTimeout(timer);
     };
-  }, [dive, path.orbFailed]);
+  }, [dive, wideEnough, path.orbFailed]);
 
   // The dive comes out at a lesson about scaling, since that's what the game is about.
   const exits = useMemo(() => {
@@ -455,7 +465,7 @@ export function MiloHome({ chapters, goals, graph, words, foot, start, counts }:
       </aside>
     </div>
 
-    {dive && !path.orbFailed ? <NeuronFlight graph={graph} exits={exits} start={startLesson} finished={nav.finished} /> : null}
+    {dive && wideEnough && !path.orbFailed ? <NeuronFlight graph={graph} exits={exits} start={startLesson} finished={nav.finished} /> : null}
 
     <h2 className="sr-only">The learning path</h2>
     <CourseList path={path} />

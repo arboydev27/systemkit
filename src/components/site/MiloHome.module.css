@@ -383,7 +383,7 @@
     container-type: size;
   }
   .bubbleHang { font-size: 15px; }
-  /* The game's section starts close under its heading, so the game fits the screen the dive opens on. */
+  /* The game's section starts close under its heading, so the game fits one screen. */
   .try { padding-top: 28px; }
 
   /* The four sections, in a row of glass at the top beside the brand, scrolling away with the first screen as it does. */

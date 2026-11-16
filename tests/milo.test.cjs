@@ -417,3 +417,10 @@ test("held upright, the game stays close under the first screen, and comes in wi
   assert.match(scrolled, /@media \(max-width: 959px\) and \(min-height: 600px\) \{\s*\.try \{ animation: outFromUnderBar linear both; animation-timeline: scroll\(root\); animation-range: 0 64px; \}/, 'the game fades in over the first scroll');
   assert.match(home, /@keyframes outFromUnderBar \{ from, 25% \{ opacity: 0; \} \}/, 'from out of sight at the very top');
 });
+
+test('the dive loads only on a screen wide enough to read it by, so a phone scrolls straight to the game', () => {
+  const home = fs.readFileSync('src/components/site/MiloHome.tsx', 'utf8');
+  assert.match(home, /const DIVE_MEDIA = "\(min-width: 960px\)";/, 'wide screens only');
+  assert.match(home, /if \(dive \|\| !wideEnough \|\| path\.orbFailed/, 'nothing wakes it on a narrow screen');
+  assert.match(home, /\{dive && wideEnough && !path\.orbFailed \? <NeuronFlight/, 'and it goes if the window narrows');
+});
