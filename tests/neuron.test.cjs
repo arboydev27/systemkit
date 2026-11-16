@@ -90,6 +90,35 @@ test('scrolling that stops partway settles the way it was going, after the small
   assert.equal(dive.settleTo(0.6, 0), 1);
 });
 
+test("the home page's dive, following the visitor's own scrolling, springs back from a nudge and goes on from a third of the way", () => {
+  const page = require('fs').readFileSync('src/components/site/NeuronFlight.tsx', 'utf8');
+  const near = +page.match(/const NEAR = ([\d.]+);/)[1];
+  assert.equal(dive.settleTo(near - 0.05, 1, near), 0, 'a nudge down springs back to Milo');
+  assert.equal(dive.settleTo(near, 1, near), 1, 'a third of the way down goes on to the game');
+  assert.equal(dive.settleTo(1 - near + 0.05, -1, near), 1, 'a nudge up from the game springs back to it');
+  assert.equal(dive.settleTo(1 - near, -1, near), 0, 'a third of the way back goes on up to Milo');
+  assert.ok(!/passive: false/.test(page), 'the dive never stops the page scrolling');
+  assert.deepEqual(page.match(/\w+ = \(event: \w+\) => \{ event\.preventDefault\(\)/g), ['onLost = (event: Event) => { event.preventDefault()'], 'and takes no gesture for itself: only a lost WebGL context is held back');
+  assert.equal((page.match(/preventDefault\(\)/g) ?? []).length, 1);
+});
+
+test('a tap on Milo\'s face is one on the screen his eyes are on, with a little to spare', () => {
+  const box = { left: 100, top: 200, width: 300, height: 450 };
+  const display = { x: 0.5, y: 0.4, rx: 0.3, ry: 0.1 };
+  assert.ok(dive.onFace(250, 380, box, display), 'the middle of his screen');
+  assert.ok(dive.onFace(250 + 300 * 0.3 * 1.1, 380, box, display), 'just past its edge, for a finger');
+  assert.ok(!dive.onFace(250, 380 + 450 * 0.1 * 1.6, box, display), 'not his body below it');
+  assert.ok(!dive.onFace(250, 380, { ...box, width: 0 }, display), 'nor a figure that isn\'t showing');
+});
+
+test('the dive plays with the scroll once, then waits for a tap on his face', () => {
+  const page = require('fs').readFileSync('src/components/site/NeuronFlight.tsx', 'utf8');
+  assert.match(page, /let live = !seenBefore\(\);\s+if \(live\) world\.dataset\.flight = "";/, 'a first visit follows the scroll');
+  assert.match(page, /if \(played\) markSeen\(\);/, 'and only a dive that played is remembered');
+  assert.match(page, /window\.addEventListener\("click", onClick\);/, 'a tap on his face plays it after that');
+  assert.ok(!/trackEvent/.test(page), 'the dive sends no analytics');
+});
+
 test('the easings never go backwards', () => {
   for (const [leave, arrive] of [[3, 0.28], [0.28, 0.28], [0.8, 0.25]]) {
     let last = 0;

@@ -272,6 +272,15 @@ export function flightDistance(path: Pick<FlightPath, "stops">, progress: number
 }
 
 /** Where to settle once scrolling stops partway: on through with the smallest push, back with the smallest pull. */
+/** Whether a point on screen falls on Milo's face, the screen his eyes are on, from his figure's box on screen and the
+ * screen's place in it (as fractions of his width and height), with a little to spare round it for a finger. */
+export function onFace(x: number, y: number, box: { left: number; top: number; width: number; height: number }, display: { x: number; y: number; rx: number; ry: number }) {
+  if (!box.width || !box.height) return false;
+  const dx = (x - (box.left + display.x * box.width)) / (display.rx * box.width * 1.15);
+  const dy = (y - (box.top + display.y * box.height)) / (display.ry * box.height * 1.5);
+  return dx * dx + dy * dy <= 1;
+}
+
 export function settleTo(progress: number, direction: number, nudge = 0.05) {
   if (direction > 0) return progress >= nudge ? 1 : 0;
   if (direction < 0) return progress <= 1 - nudge ? 0 : 1;
