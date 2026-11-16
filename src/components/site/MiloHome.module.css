@@ -347,7 +347,10 @@
 }
 
 @media (max-width: 959px) and (min-height: 600px) {
-  .stage { height: 100svh; min-height: 540px; padding: 74px 20px 0; }
+  /* Safari draws the page on under its bar, down to the bottom of the screen, past what it counts as the screen (svh,
+     and past lvh by the bar's own height). So the first screen ends in an empty band that runs on past the bar, and the
+     game's heading starts out of sight instead of showing through it; what's on the first screen keeps its 100svh. */
+  .stage { --under-bar: calc(100lvh - 100svh + 64px); height: calc(100svh + var(--under-bar)); min-height: calc(540px + var(--under-bar)); padding: 74px 20px var(--under-bar); }
   .words h1 { font-size: clamp(2.25rem, 10.2vw, 3.6rem); }
   .words { order: 1; }
   .foot { order: 2; margin-top: 10px; }
