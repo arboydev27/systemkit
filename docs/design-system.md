@@ -45,7 +45,7 @@ Scrolling from Milo to what's below dives in through his eye. The camera goes fo
 
 Below the stage, keep words to a minimum and let the working thing make the point. A small game waits there: an app goes viral, and each call changes a live map of the system, with requests moving through it and a big number for how many are failing. Then four tiles, each with a verb for a title and a chart that draws itself: Break it, Remember it, Estimate it, Design it. A lab's chart runs that lab's own model, so its shape is what the lab really shows. Pick a sample people already wonder about, such as scaling or caching, rather than one that takes explaining.
 
-On a narrow screen the game's map stands up: requests come in at the top and fall through the tiers to the database at the foot, each tier named beside it, and the map takes whatever height is left, so the heading, the system and all its choices fit on one screen.
+On a narrow screen the game's map stands up: requests come in at the top and fall through the tiers to the database at the foot, down a line through the middle of the card with each tier named to its right. The map takes the height the screen has left beside the rest of the card, measured against Safari with its bars showing, so the system has room to read and the card and its choices still fit on one screen.
 
 On the home page, ink means working and the labs' orange means overloaded, with a darker orange for text so it stays readable. Charts sit finished for anyone who prefers reduced motion or has no JavaScript, and they only move while on screen.
 
