@@ -22,7 +22,8 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
     const a = from === undefined || typeof from === "string" ? null : typeof from === "number" ? from : from.n;
     const b = value === undefined || typeof value === "string" ? null : typeof value === "number" ? value : value.n;
     let frame = 0;
-    if (a === null || b === null || reducedMotion()) setShown(formatMetric(value));
+    const unit = (v: MetricValue | undefined) => (v !== undefined && typeof v === "object" ? v.unit ?? "" : "");
+    if (a === null || b === null || unit(from) !== unit(value) || reducedMotion()) setShown(formatMetric(value));
     else {
       const start = performance.now();
       const tick = (now: number) => {
@@ -50,7 +51,7 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   const scriptRef = useRef<HTMLDivElement>(null);
   const heads = useRef<(HTMLButtonElement | null)[]>([]);
   const refocus = useRef(false);
-  const [status, setStatus] = useState<StageStatus>({ step: -1, total: scene.steps.length, playing: false, paused: false, ended: false, settled: true });
+  const [status, setStatus] = useState<StageStatus>({ step: -1, total: scene.steps.length, playing: false, paused: false, ended: false, settled: true, hold: 0 });
   const [choices, setChoices] = useState<Choices>({});
   const [ready, setReady] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -110,7 +111,8 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
     if (event.key === " " || event.key === "k") { event.preventDefault(); s.toggle(); }
     else if (event.key === "ArrowRight") { event.preventDefault(); s.next(); }
     else if (event.key === "ArrowLeft") { event.preventDefault(); s.back(); }
-    else if (event.key === "Home" || event.key === "Escape") { event.preventDefault(); s.reset(); }
+    else if (event.key === "Escape") { event.preventDefault(); s.pause(); }
+    else if (event.key === "Home") { event.preventDefault(); s.reset(); }
     else if (/^[1-9]$/.test(event.key) && +event.key <= total) s.jump(+event.key - 1);
   }
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -131,12 +133,15 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   const PlayIcon = status.playing ? Pause : status.ended ? RotateCw : Play;
   const next = step < total - 1 ? scene.steps[step + 1] : null;
 
-  return <div className={styles.root} data-ready={ready || undefined} onKeyDown={onKeyDown}>
+  return <div className={styles.root} data-ready={ready || undefined} data-started={step >= 0 || undefined} onKeyDown={onKeyDown}>
     <div className={styles.stageCard}>
       <div
         ref={hostRef}
         className={styles.stage}
         tabIndex={0}
+        role="group"
+        aria-roledescription="lesson stage"
+        aria-label={`${title}: the system, step by step`}
         aria-describedby={`${scene.id}-stage-keys`}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
@@ -145,7 +150,8 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
       {scene.metrics?.length ? <div className={styles.chips} aria-label="Numbers for this step" role="group">
         {scene.metrics.map((metric) => <MetricChip key={metric.id} label={metric.label} value={metrics[metric.id]} />)}
       </div> : null}
-      <div className={styles.transport} role="group" aria-label="Playback">
+    </div>
+    <div className={styles.transport} role="group" aria-label="Playback">
         <button type="button" className={styles.tool} onClick={() => stage()?.reset()} aria-label="Reset"><RotateCcw size={17} aria-hidden="true" /></button>
         <button type="button" className={styles.tool} onClick={() => stage()?.back()} aria-label="Previous step"><ChevronLeft size={19} aria-hidden="true" /></button>
         <button type="button" className={styles.play} onClick={() => stage()?.toggle()} aria-label={playLabel}>
@@ -156,14 +162,17 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
           {scene.steps.map((s, i) => <button
             type="button"
             key={s.title}
+            tabIndex={-1}
             className={`${styles.pip} ${i < step ? styles.pipDone : ""} ${i === step ? styles.pipCurrent : ""}`}
             aria-label={`Step ${i + 1}: ${s.title}`}
             aria-current={i === step ? "step" : undefined}
+            data-holding={i === step && status.hold > 0 ? "" : undefined}
+            data-paused={status.paused || undefined}
+            style={i === step && status.hold > 0 ? ({ "--hold": `${status.hold}ms` } as CSSProperties) : undefined}
             onClick={() => stage()?.jump(i)}
           />)}
         </div>
         <span className={styles.count} aria-hidden="true">{step < 0 ? `${total} steps` : `${step + 1} / ${total}`}</span>
-      </div>
     </div>
 
     <div ref={scriptRef} className={`${styles.script} ${step < 0 ? styles.overview : ""}`}>

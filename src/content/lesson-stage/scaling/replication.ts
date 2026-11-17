@@ -60,7 +60,7 @@ export const replicationStage: StageScene = {
       title: "Lag makes a replica read stale",
       short: "Stale read",
       text: "The user reloads, and the read lands on replica A. It hasn’t applied the rename yet, so they see the old name.",
-      focus: ["user", "web", "replicaA"],
+      focus: ["user", "web", "primary", "replicaA"],
       changes: ["+ Read from replica A", "~ It returns the old name"],
       events: [
         { type: "packet", path: ["user", "web"], label: "GET /profile" },

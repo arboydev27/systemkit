@@ -127,6 +127,8 @@ main:focus { outline: none; }
 /* lessons that play as a stage keep the stage and its controls on the first screen */
 .lesson-heading.is-compact { margin: 30px 0 24px; }
 .lesson-heading.is-compact + .diagram-section .section-heading-row { margin-bottom: 12px; }
+/* the stage is the only thing wider than the reading column; its heading lines up with the page */
+@media (min-width: 1101px) { .diagram-section.is-stage > .section-heading-row { margin-inline: 50px; } }
 .eyebrow { display: inline-flex; align-items: center; gap: 7px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .eyebrow-line { display: inline-block; width: 20px; height: 1px; background: var(--accent); }
 .eyebrow-dot { color: var(--line-strong); }

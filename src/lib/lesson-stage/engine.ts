@@ -15,7 +15,11 @@ type Point = { x: number; y: number };
 type Route = { pts: Point[]; len: number[]; total: number };
 type Token = { dead: boolean };
 
-export type StageStatus = { step: number; total: number; playing: boolean; paused: boolean; ended: boolean; settled: boolean };
+export type StageStatus = {
+  step: number; total: number; playing: boolean; paused: boolean; ended: boolean; settled: boolean;
+  /** While autoplay waits on a step for reading time, how long it waits (ms); 0 otherwise. */
+  hold: number;
+};
 export type StageOptions = { reduce?: boolean; onStatus?: (status: StageStatus) => void; label?: string };
 export type StageHandle = {
   play(): void; pause(): void; toggle(): void; next(): void; back(): void; jump(index: number): void; reset(): void;
@@ -75,7 +79,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   function syncFrames() { for (const f of mine) { if (parked()) removeFrame(f); else addFrame(f); } }
   function setPaused(value: boolean) { clock.paused = value; syncFrames(); }
   let token: Token = { dead: false };
-  let cur = -1, autoPlay = false, ended = false, looping = false, destroyed = false, settled = true;
+  let cur = -1, autoPlay = false, ended = false, looping = false, destroyed = false, settled = true, hold = 0;
   let model: StageModel = initialModel(scene);
 
   // ---------- time that pausing freezes ----------
@@ -256,7 +260,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     focusList = list;
     for (const id of ids) {
       const dim = !!list && !list.includes(id);
-      for (const x of [nodeEls[id].lift, nodeEls[id].labelInner, nodeEls[id].pillInner]) x.classList.toggle("is-dim", dim);
+      nodeEls[id].lift.classList.toggle("is-dim", dim);
+      for (const x of [nodeEls[id].labelInner, nodeEls[id].pillInner]) x.classList.toggle("is-quiet", dim);
     }
     for (const L of linkEls) L.path.classList.toggle("is-dim", !!list && !(list.includes(L.a) && list.includes(L.b)));
   }
@@ -729,9 +734,11 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     cameraTo(frameOf(i), end, false, undefined, notesOf(i));
     report();
   }
-  const holdFor = (i: number) => Math.max(2000, Math.min(5600, steps[i].text.split(/\s+/).length * 160));
+  // Long enough to read the step and what it changed while watching it: about 240 words a minute.
+  const holdFor = (i: number) => Math.max(3000, Math.min(13000, 1000 + steps[i].text.split(/\s+/).length * 220 + (steps[i].changes?.length ?? 0) * 500));
 
   async function go(i: number, auto: boolean) {
+    hold = 0;
     token.dead = true;
     const tk = (token = { dead: false });
     setPaused(false); autoPlay = auto; looping = true;
@@ -741,14 +748,18 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         await runStep(s, tk);
         if (!autoPlay) break;
         if (s === steps.length - 1) { ended = true; break; }
-        await after(holdFor(s), tk);
+        // a step with a control waits for the learner to try it
+        if (steps[s].control) { autoPlay = false; break; }
+        hold = holdFor(s); report();
+        await after(hold, tk);
+        hold = 0;
         if (!autoPlay) break;
       }
     } catch (err) { swallow(err); return; }
     if (tk === token) { looping = false; if (ended) autoPlay = false; report(); }
   }
   function report() {
-    if (!destroyed) options.onStatus?.({ step: cur, total: steps.length, playing: autoPlay && !clock.paused, paused: clock.paused, ended, settled });
+    if (!destroyed) options.onStatus?.({ step: cur, total: steps.length, playing: autoPlay && !clock.paused, paused: clock.paused, ended, settled, hold: autoPlay ? hold : 0 });
   }
 
   // Nothing moves while the stage is off screen.

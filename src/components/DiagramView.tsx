@@ -34,7 +34,7 @@ export function DiagramView({ chapterId, diagramId, heading, hint, stage = false
   function fallback() {
     choose("static"); setNotice(`3D is unavailable on this device. You can keep exploring the ${stage ? "steps" : "static diagram"}.`);
   }
-  return <section className="diagram-section" aria-labelledby="diagram-heading">
+  return <section className={`diagram-section ${stage ? "is-stage" : ""}`} aria-labelledby="diagram-heading">
     <div className={`section-heading-row ${styles.heading}`}>
       <div><span className="section-kicker">SYSTEM VIEW</span><h2 id="diagram-heading">{heading}</h2></div>
       <fieldset className={styles.segment}>
@@ -47,6 +47,6 @@ export function DiagramView({ chapterId, diagramId, heading, hint, stage = false
     <div className={`diagram-stage ${mode === "3d" ? styles.spatialStage : stage ? styles.bare : ""}`}>
       {mode === "static" ? children : <SpatialBoundary key={`${chapterId}/${diagramId}`} onStatic={fallback}><SpatialDiagram key={`${chapterId}/${diagramId}`} chapterId={chapterId} diagramId={diagramId} onUnavailable={fallback}/></SpatialBoundary>}
     </div>
-    <div className="diagram-footnote"><span className="diagram-footnote-icon" aria-hidden="true">↗</span>{mode === "static" ? hint : `Explore the same lesson model in space. Switch back to ${stage ? "Steps to watch it work" : "Static for the full annotated drawing"}.`}</div>
+    {stage && mode === "static" ? null : <div className="diagram-footnote"><span className="diagram-footnote-icon" aria-hidden="true">↗</span>{mode === "static" ? hint : `Explore the same lesson model in space. Switch back to ${stage ? "Steps to watch it work" : "Static for the full annotated drawing"}.`}</div>}
   </section>;
 }
