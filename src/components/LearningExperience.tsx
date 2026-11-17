@@ -45,9 +45,9 @@ import type { Question, Step } from "@/content/chapter";
 import type { DesignChallengeContent } from "@/content/design-challenge";
 
 // Each lesson loads only its own chapter's drawing code.
-const diagrams: Record<string, ComponentType<{ id: string }>> = {
+const diagrams: Record<string, ComponentType<{ id: string; title?: string }>> = {
   framework: dynamic(() => import("./FrameworkDiagram").then((module) => module.FrameworkDiagram)),
-  scaling: dynamic(() => import("./ArchitectureDiagram").then((module) => module.ArchitectureDiagram)),
+  scaling: dynamic(() => import("./lesson-stage/ScalingStage").then((module) => module.ScalingStage)),
   estimation: dynamic(() => import("./EstimationDiagram").then((module) => module.EstimationDiagram)),
   url: dynamic(() => import("./UrlShortenerDiagram").then((module) => module.UrlShortenerDiagram)),
   chat: dynamic(() => import("./ChatDiagram").then((module) => module.ChatDiagram)),
@@ -60,6 +60,8 @@ const diagrams: Record<string, ComponentType<{ id: string }>> = {
   "google-drive": dynamic(() => import("./GoogleDriveDiagram").then((module) => module.GoogleDriveDiagram)),
   "web-crawler": dynamic(() => import("./WebCrawlerDiagram").then((module) => module.WebCrawlerDiagram)),
 };
+// Chapters whose lessons play as animated, step-through stages instead of static drawings.
+const stageChapters = new Set(["scaling"]);
 const SceneDiagram = dynamic(() => import("./FoundationDiagram").then((module) => module.FoundationDiagram));
 
 const lessonLabs: Record<string, ComponentType> = {
@@ -371,7 +373,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
             <CopyLessonLink path={lessonHref(chapter.id, step.id)} />
           </div>
 
-          <div className="lesson-heading">
+          <div className={`lesson-heading ${stageChapters.has(chapter.id) ? "is-compact" : ""}`}>
             <div className="lesson-heading-main">
               <span className="eyebrow"><span className="eyebrow-line" /> LESSON {padded(activeIndex)} <span className="eyebrow-dot">·</span> {step.eyebrow.replace(/^\d+\s*·\s*/, "")}</span>
               <h1 ref={headingRef} tabIndex={-1}>{step.title}</h1>
@@ -380,8 +382,8 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
             <div className="lesson-number" aria-hidden="true">{padded(activeIndex)}</div>
           </div>
 
-          <DiagramView chapterId={chapter.id} diagramId={step.diagramId} heading={chapter.diagramHeading} hint={chapter.diagramHint}>
-            <Diagram id={step.diagramId} />
+          <DiagramView chapterId={chapter.id} diagramId={step.diagramId} heading={chapter.diagramHeading} hint={stageChapters.has(chapter.id) ? "Press play to watch it run, or step through it at your own pace." : chapter.diagramHint} stage={stageChapters.has(chapter.id)}>
+            <Diagram id={step.diagramId} title={step.title} />
           </DiagramView>
 
           {Lab ? <Lab /> : null}

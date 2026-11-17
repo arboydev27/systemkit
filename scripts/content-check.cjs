@@ -116,6 +116,15 @@ function checkChapter(id) {
     }
   }
 
+  // Animated lesson stages: when a chapter has them, every lesson needs one and each must validate.
+  const stagePath = path.join(root, "src/content/lesson-stage", id, "index.ts");
+  if (fs.existsSync(stagePath)) {
+    const { validateScene } = require(path.join(root, "src/lib/lesson-stage/validate.ts"));
+    const stages = exportEndingWith(require(stagePath), "stages");
+    for (const step of steps) if (!stages[step.diagramId]) problems.push(`${step.id}: no lesson stage for diagram ${step.diagramId}`);
+    for (const scene of Object.values(stages)) for (const issue of validateScene(scene)) problems.push(`stage ${issue}`);
+  }
+
   console.log(`${id}: ${steps.length} lessons, ${questions.length} questions, ${Math.round(mean)} mean body words (${Math.min(...words)}-${Math.max(...words)}), correct option longest in ${Math.round(share * 100)}%`);
   return problems;
 }
