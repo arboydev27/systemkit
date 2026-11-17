@@ -1,11 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "./HomeVisuals.module.css";
 
 const DIGITS = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9"; // One text node rather than ten elements a digit.
-const quantity = new Intl.NumberFormat("en-US", { maximumSignificantDigits: 3 });
 
 /** A value whose digits roll to their new place, like a mechanical counter. Screen readers get the value from nearby text. */
 export function Rolling({ value, className = "" }: { value: string; className?: string }) {
@@ -21,58 +20,27 @@ export function Rolling({ value, className = "" }: { value: string; className?: 
   </span>;
 }
 
-/** Marks its contents as on screen, which is what starts the charts inside moving and stops them again. */
-export function Live({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const node = useRef<HTMLDivElement>(null);
-  const [on, setOn] = useState(false);
+/**
+ * A tile whose picture plays once, the first time most of it comes on screen, and then stays put. Until then it waits
+ * on the picture's first frame. A tile that's already on screen when the page loads, or any tile for someone who
+ * prefers reduced motion, is simply left finished, so nothing jumps back to play.
+ */
+export function PlayOnce({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  const node = useRef<HTMLLIElement>(null);
   useEffect(() => {
-    if (!node.current) return;
-    const watcher = new IntersectionObserver(([entry]) => setOn(entry.isIntersecting), { rootMargin: "60px 0px" });
-    watcher.observe(node.current);
+    const element = node.current;
+    if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (element.getBoundingClientRect().top < window.innerHeight) return;
+    element.dataset.armed = "";
+    const watcher = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      element.dataset.on = "";
+      watcher.disconnect();
+    }, { threshold: 0.55 });
+    watcher.observe(element);
     return () => watcher.disconnect();
   }, []);
-  return <div ref={node} className={className} data-on={on || undefined}>{children}</div>;
-}
-
-const SAMPLES = [
-  { users: 2, actions: 4, peak: 5 },
-  { users: 10, actions: 20, peak: 2 },
-  { users: 50, actions: 10, peak: 3 },
-  { users: 100, actions: 40, peak: 3 },
-];
-const SAMPLE_MS = 3_600;
-
-/** The estimation drill's own arithmetic, with new numbers rolling in while it's on screen. */
-export function EstimateRoll() {
-  const node = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    if (!node.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let timer = 0;
-    const watcher = new IntersectionObserver(([entry]) => {
-      window.clearInterval(timer);
-      if (entry.isIntersecting) timer = window.setInterval(() => setIndex((current) => (current + 1) % SAMPLES.length), SAMPLE_MS);
-    });
-    watcher.observe(node.current);
-    return () => {
-      watcher.disconnect();
-      window.clearInterval(timer);
-    };
-  }, []);
-  const { users, actions, peak } = SAMPLES[index];
-  const answer = (users * 1e6 * actions / 86_400) * peak;
-  return <div ref={node} className={styles.estimate} role="img" aria-label={`For example, ${users} million users making ${actions} requests a day, divided by the seconds in a day, at ${peak} times the average: about ${quantity.format(answer)} requests per second.`}>
-    <div className={styles.estimateRow}>
-      <span><Rolling value={`${users}M`} /><small>users</small></span>
-      <i>×</i>
-      <span><Rolling value={String(actions)} /><small>requests</small></span>
-      <i>÷</i>
-      <span>86,400<small>seconds</small></span>
-      <i>×</i>
-      <span><Rolling value={String(peak)} /><small>peak</small></span>
-    </div>
-    <div className={styles.estimateAnswer}><span>≈</span> <Rolling value={quantity.format(answer)} /> <small>requests a second</small></div>
-  </div>;
+  return <li ref={node} className={className} style={style}>{children}</li>;
 }
 
 const ScaleGame = dynamic(() => import("./ScaleGame"), { ssr: false });
