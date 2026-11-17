@@ -26,7 +26,7 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
     else {
       const start = performance.now();
       const tick = (now: number) => {
-        const p = Math.min(1, (now - start) / 900);
+        const p = Math.max(0, Math.min(1, (now - start) / 900));
         setShown(formatMetric(value, a + (b - a) * (1 - Math.pow(1 - p, 3))));
         if (p < 1) frame = requestAnimationFrame(tick);
       };
@@ -50,7 +50,7 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   const scriptRef = useRef<HTMLDivElement>(null);
   const heads = useRef<(HTMLButtonElement | null)[]>([]);
   const refocus = useRef(false);
-  const [status, setStatus] = useState<StageStatus>({ step: -1, total: scene.steps.length, playing: false, paused: false, ended: false });
+  const [status, setStatus] = useState<StageStatus>({ step: -1, total: scene.steps.length, playing: false, paused: false, ended: false, settled: true });
   const [choices, setChoices] = useState<Choices>({});
   const [ready, setReady] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -124,7 +124,9 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) stage()?.next(); else stage()?.back(); }
   }
 
-  const metrics = step >= 0 ? metricsAt(scene, step, choices) : {};
+  // The numbers change once the step has played what changes them.
+  const shownStep = status.settled ? step : step - 1;
+  const metrics = shownStep >= 0 ? metricsAt(scene, shownStep, choices) : {};
   const playLabel = status.playing ? "Pause" : status.ended ? "Replay" : "Play";
   const PlayIcon = status.playing ? Pause : status.ended ? RotateCw : Play;
   const next = step < total - 1 ? scene.steps[step + 1] : null;

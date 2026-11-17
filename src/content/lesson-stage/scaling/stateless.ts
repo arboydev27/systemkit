@@ -7,11 +7,11 @@ export const statelessStage: StageScene = {
   intro: "Watch a login get lost between two servers, then survive a restart once sessions live in a shared store.",
   metrics: [{ id: "loggedOut", label: "Times logged out" }, { id: "session", label: "Session" }, { id: "lookups", label: "Lookups" }],
   nodes: [
-    { id: "user", role: "client", label: "User", detail: "browser", at: [0, 0] },
+    { id: "user", role: "client", label: "User", detail: "browser", at: [-0.3, 0] },
     { id: "lb", role: "balancer", label: "Load balancer", detail: "picks a server", at: [1, 0] },
-    { id: "webA", role: "web", label: "Web A", detail: "web server", at: [2, -1.1] },
-    { id: "webB", role: "web", label: "Web B", detail: "web server", at: [2, 1.1] },
-    { id: "store", role: "cache", label: "Session store", detail: "Redis or database", at: [3, 0], appear: 4 },
+    { id: "webA", role: "web", label: "Web A", detail: "web server", at: [2.25, -1.4] },
+    { id: "webB", role: "web", label: "Web B", detail: "web server", at: [2.25, 1.4] },
+    { id: "store", role: "cache", label: "Session store", detail: "Redis or database", at: [3.8, 0], appear: 4 },
   ],
   links: [
     { from: "user", to: "lb" },
@@ -89,7 +89,7 @@ export const statelessStage: StageScene = {
       changes: ["+ Shared session store", "~ Browser holds only a session ID"],
       events: [
         { type: "show", nodes: ["store"] },
-        { type: "state", nodes: ["webA", "webB"], detail: "no local sessions", with: true },
+        { type: "state", nodes: ["webA", "webB"], detail: "no sessions", with: true },
         { type: "packet", path: ["user", "lb", "webA"], label: "POST /login" },
         { type: "packet", path: ["webA", "store"], label: "SET session" },
         { type: "state", node: "store", light: "work" },
@@ -105,12 +105,12 @@ export const statelessStage: StageScene = {
       metrics: { lookups: 1 },
       changes: ["~ Balancer no longer sticky", "+ 1 store lookup, about 1 ms"],
       events: [
-        { type: "state", node: "webA", down: true, detail: "restarting (deploy)" },
+        { type: "state", node: "webA", down: true, detail: "restarting" },
         { type: "state", node: "lb", detail: "picks a server", with: true },
         { type: "packet", path: ["user", "lb", "webB"], label: "GET /account" },
         { type: "state", node: "webB", light: "on", with: true },
         { type: "packet", path: ["webB", "store"], label: "GET session" },
-        { type: "state", node: "store", readout: "~1 ms lookup" },
+        { type: "state", node: "store", detail: "~1 ms lookup" },
         { type: "packet", path: ["store", "webB"], label: "session", kind: "response" },
         { type: "packet", path: ["webB", "lb", "user"], label: "200 OK · logged in", kind: "response" },
       ],
@@ -119,7 +119,7 @@ export const statelessStage: StageScene = {
       title: "The web tier holds no sessions",
       short: "Store or token",
       text: "Any healthy server can now serve the next request. A shared store costs a lookup but can log someone out at once; a signed token skips the lookup but stays valid until it expires.",
-      events: [{ type: "state", node: "webA", down: false, light: "on", detail: "no local sessions" }],
+      events: [{ type: "state", node: "webA", down: false, light: "on", detail: "no sessions" }],
       control: {
         label: "Sessions kept in",
         options: [
@@ -128,9 +128,9 @@ export const statelessStage: StageScene = {
             metrics: { session: "in the store", lookups: { n: 1, unit: "/request" } },
             events: [
               { type: "show", nodes: ["store"] },
-              { type: "state", node: "store", light: "work", readout: "~1 ms lookup", detail: "delete = logged out", with: true },
+              { type: "state", node: "store", light: "work", detail: "delete = logout", with: true },
               { type: "state", node: "user", detail: "holds session ID", with: true },
-              { type: "state", nodes: ["webA", "webB"], detail: "no local sessions", with: true },
+              { type: "state", nodes: ["webA", "webB"], detail: "no sessions", with: true },
               { type: "stream", every: 260, routes: [{ path: ["user", "lb", "webA", "store"], kind: "work" }, { path: ["user", "lb", "webB", "store"], kind: "work" }] },
             ],
           },

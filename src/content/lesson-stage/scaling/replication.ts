@@ -8,9 +8,9 @@ export const replicationStage: StageScene = {
   nodes: [
     { id: "user", role: "client", label: "User", detail: "browser", at: [0, 0] },
     { id: "web", role: "web", label: "Web server", detail: "runs the app", at: [1, 0] },
-    { id: "replicaA", role: "database", label: "Replica A", detail: "serves reads", at: [2, -1.5], opts: { replica: true } },
-    { id: "replicaB", role: "database", label: "Replica B", detail: "serves reads", at: [2, 1.5], opts: { replica: true } },
-    { id: "primary", role: "database", label: "Primary", detail: "takes every write", at: [3, 0] },
+    { id: "replicaA", role: "database", label: "Replica A", detail: "serves reads", at: [2.1, -1.25], opts: { replica: true } },
+    { id: "replicaB", role: "database", label: "Replica B", detail: "serves reads", at: [2.1, 1.25], opts: { replica: true } },
+    { id: "primary", role: "database", label: "Primary", detail: "takes every write", at: [3.45, 0] },
   ],
   links: [
     { from: "user", to: "web" },
@@ -92,7 +92,9 @@ export const replicationStage: StageScene = {
       metrics: { replicas: 1 },
       changes: ["− Primary unreachable", "+ Replica A promoted", "~ Writes go to A"],
       events: [
-        { type: "packet", path: ["web", "primary"], label: "UPDATE …", kind: "hot", lost: true },
+        // The stale read is over, but A is still 2 s behind when the primary goes: that lag is what failover loses.
+        { type: "state", node: "replicaA", readout: "2 s lag" },
+        { type: "packet", path: ["web", "primary"], label: "UPDATE …", kind: "hot", lost: true, with: true },
         { type: "state", node: "primary", down: true, light: "idle", label: "Old primary", detail: "unreachable" },
         { type: "state", node: "web", detail: "runs the app", with: true },
         { type: "state", node: "replicaA", label: "New primary", detail: "was replica A", opts: { replica: false }, readout: "", light: "work" },

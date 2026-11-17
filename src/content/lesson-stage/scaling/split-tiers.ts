@@ -57,8 +57,12 @@ export const splitTiersStage: StageScene = {
       short: "Network hop",
       text: "Each query now travels between machines. A round trip inside one data center is very roughly 0.5 ms, so a page that makes 20 queries gains about 10 ms, and one with 500 accidental queries gains 250 ms.",
       focus: ["web", "db"],
+      frame: ["visitor", "web", "db"],
       changes: ["+ One network round trip per query", "~ Page time grows with query count"],
-      events: [],
+      events: [
+        { type: "state", node: "visitor", detail: "" },
+        { type: "state", nodes: ["web", "db"], detail: "", with: true },
+      ],
       control: {
         label: "Queries per page",
         options: [
@@ -66,10 +70,9 @@ export const splitTiersStage: StageScene = {
             label: "20",
             metrics: { queries: 20, network: { n: 10, unit: " ms" } },
             events: [
-              { type: "state", node: "web", readout: "20 queries/page", tone: "" },
+              { type: "state", node: "web", readout: "20 × ≈0.5 ms", tone: "" },
               { type: "packet", path: ["web", "db"], label: "SELECT …" },
               { type: "packet", path: ["db", "web"], label: "rows", kind: "response" },
-              { type: "note", node: "db", text: "≈0.5 ms per round trip" },
               { type: "stream", every: 300, routes: [{ path: ["web", "db"] }, { path: ["db", "web"], kind: "response" }] },
             ],
           },
@@ -77,10 +80,9 @@ export const splitTiersStage: StageScene = {
             label: "500",
             metrics: { queries: 500, network: { n: 250, unit: " ms" } },
             events: [
-              { type: "state", node: "web", readout: "500 queries/page", tone: "" },
+              { type: "state", node: "web", readout: "500 × ≈0.5 ms", tone: "" },
               { type: "packet", path: ["web", "db"], label: "SELECT …" },
               { type: "packet", path: ["db", "web"], label: "rows", kind: "response" },
-              { type: "note", node: "db", text: "≈0.5 ms per round trip" },
               { type: "stream", every: 110, routes: [{ path: ["web", "db"] }, { path: ["db", "web"], kind: "response" }] },
             ],
           },
@@ -92,14 +94,13 @@ export const splitTiersStage: StageScene = {
       short: "Link fails",
       text: "The network between the tiers can fail by itself, even with both machines healthy. There are also two machines to patch and secure; managed services such as Amazon RDS take over some of that work for a fee.",
       focus: ["web", "db"],
+      frame: ["visitor", "web", "db"],
       changes: ["+ A network link that can fail", "+ Two machines to patch and secure"],
       events: [
-        { type: "state", node: "web", readout: "", tone: "" },
         { type: "packet", path: ["web", "db"], label: "SELECT …" },
         { type: "packet", path: ["db", "web"], label: "rows", kind: "hot", lost: true },
-        { type: "state", node: "web", readout: "no reply from DB", tone: "", detail: "web tier, healthy" },
-        { type: "state", node: "db", detail: "data tier, healthy", with: true },
-        { type: "note", node: "db", text: "patch + secure it too" },
+        { type: "state", node: "web", readout: "no reply from DB", tone: "", detail: "healthy · patch + secure" },
+        { type: "state", node: "db", detail: "healthy · patch + secure", with: true },
       ],
     },
     {
@@ -152,8 +153,9 @@ export const splitTiersStage: StageScene = {
       short: "Pick a store",
       text: "A relational database such as Postgres or MySQL is a practical default when records relate and queries need joins. Cassandra is built for very high write volumes read by a known key, but has no joins. Real queries decide, not scale alone.",
       focus: ["web", "db"],
+      frame: ["visitor", "web", "db"],
       changes: ["~ Related records and joins: relational", "~ Writes read by a known key: Cassandra"],
-      events: [{ type: "state", node: "web", detail: "web tier" }],
+      events: [{ type: "state", nodes: ["web", "visitor"], detail: "" }],
       control: {
         label: "Data shape",
         options: [

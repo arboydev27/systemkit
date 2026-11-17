@@ -29,6 +29,8 @@ export const cdnStage: StageScene = {
         { type: "state", node: "origin", light: "on" },
         { type: "packet", path: ["origin", "visitor"], label: "photo.jpg · 200 KB", kind: "response" },
         { type: "note", node: "origin", text: "about 200 ms round trip" },
+        // The origin rests once it has answered, while it's in focus, so the next step doesn't open on it.
+        { type: "state", node: "origin", light: "idle" },
       ],
     },
     {
@@ -36,10 +38,11 @@ export const cdnStage: StageScene = {
       short: "Add an edge",
       text: "A content delivery network keeps copies of assets at edge locations, servers close to users. The visitor now asks a nearby edge, which doesn’t hold this image yet: a miss.",
       focus: ["visitor", "edge"],
+      // Keep the origin in the picture on a phone, so the direct line to it doesn't run off under the controls.
+      frame: ["visitor", "edge", "origin"],
       metrics: { hits: 0 },
       changes: ["+ CDN edge close to users", "~ Edge lookup: miss"],
       events: [
-        { type: "state", node: "origin", light: "idle" },
         { type: "show", nodes: ["edge"] },
         { type: "packet", path: ["visitor", "edge"], label: "GET /photo.jpg" },
         { type: "state", node: "edge", light: "on" },
@@ -57,6 +60,7 @@ export const cdnStage: StageScene = {
         { type: "state", node: "origin", light: "on" },
         { type: "packet", path: ["origin", "edge"], label: "photo.jpg · 200 KB", kind: "response" },
         { type: "note", node: "edge", text: "cached", tone: "work" },
+        { type: "state", node: "origin", light: "idle", with: true },
         { type: "state", node: "edge", light: "work" },
         { type: "packet", path: ["edge", "visitor"], label: "photo.jpg", kind: "response" },
       ],
@@ -70,7 +74,6 @@ export const cdnStage: StageScene = {
       metrics: { wait: { n: 20, unit: " ms" }, hits: 1 },
       changes: ["+ Edge hit in about 20 ms", "~ Origin not asked"],
       events: [
-        { type: "state", node: "origin", light: "idle" },
         { type: "packet", path: ["visitor", "edge"], label: "GET /photo.jpg" },
         { type: "note", node: "edge", text: "hit · about 20 ms", tone: "work" },
         { type: "note", node: "origin", text: "not asked", with: true },
@@ -138,11 +141,12 @@ export const cdnStage: StageScene = {
       short: "Dynamic page",
       text: "A CDN shortens the path for cached assets, but it doesn’t automatically speed up a dynamic request. The page’s HTML still crosses the world to the application and database, so if it takes 800 ms, a faster image won’t fix it. Measure the slow request first.",
       focus: ["visitor", "origin", "db"],
+      frame: ["visitor", "edge", "origin", "db"],
       metrics: { wait: { n: 800, unit: " ms" }, hits: "—", origin: "—" },
       changes: ["+ GET / to the app in Virginia", "~ The edge doesn’t automatically speed it up"],
       events: [
         { type: "state", node: "origin", light: "idle", detail: "app in Virginia" },
-        { type: "state", node: "edge", light: "idle", at: [1.25, -1.5], with: true },
+        { type: "state", node: "edge", light: "idle", at: [1.25, -2], with: true },
         { type: "show", nodes: ["db"] },
         { type: "packet", path: ["visitor", "origin"], label: "GET /" },
         { type: "note", node: "edge", text: "no speed-up", with: true },

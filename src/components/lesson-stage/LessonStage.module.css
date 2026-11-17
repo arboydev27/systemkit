@@ -121,6 +121,7 @@
 .stage :global(.link.is-down) { stroke-dasharray: 3 5; }
 .stage :global(.is-dim) { opacity: .36; }
 .stage :global(.link.is-dim) { opacity: 1; stroke-opacity: .36; }
+.stage :global(.is-out) { opacity: .06; }
 .stage :global(.node > g), .stage :global(.node-label > g), .stage :global(.pill > g) { transition: opacity .35s; }
 .stage :global(.trail) { fill: none; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .stage :global(.trail.k-request), .stage :global(.trail.k-quiet) { stroke: var(--ink); }
@@ -235,7 +236,7 @@
   .keys { display: none; }
 }
 @media (max-width: 700px) {
-  .root { --stage-height: clamp(400px, 62svh, 540px); }
+  .root { --stage-height: clamp(420px, 70svh, 600px); }
   .stageCard { border-radius: 16px; }
   .transport { left: 10px; right: 10px; justify-content: space-between; transform: none; }
   .play { flex: 1; }

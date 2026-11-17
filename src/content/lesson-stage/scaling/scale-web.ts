@@ -9,11 +9,11 @@ export const scaleWebStage: StageScene = {
   metrics: [{ id: "peak", label: "Peak load" }, { id: "servers", label: "Healthy servers" }, { id: "each", label: "Per server" }],
   nodes: [
     { id: "visitors", role: "crowd", label: "Visitors", detail: "browsers", at: [0, 0] },
-    { id: "lb", role: "balancer", label: "Load balancer", detail: "public address", at: [1, 0], appear: 2 },
+    { id: "lb", role: "balancer", label: "Load balancer", detail: "public address", at: [0.95, 0], appear: 2 },
     { id: "a", role: "web", label: "Web server", detail: "one machine", at: [1, 0] },
-    { id: "b", role: "web", label: "Web B", at: [2, 0], appear: 2 },
-    { id: "c", role: "web", label: "Web C", at: [2, 1], appear: 2 },
-    { id: "d", role: "web", label: "Web D", at: [2, 1.5], appear: 5 },
+    { id: "b", role: "web", label: "Web B", at: [2.3, 0], appear: 2 },
+    { id: "c", role: "web", label: "Web C", at: [2.3, 1], appear: 2 },
+    { id: "d", role: "web", label: "Web D", at: [2.3, 1.5], appear: 5 },
   ],
   links: [
     { from: "visitors", to: "a", unless: "lb" },
@@ -56,7 +56,9 @@ export const scaleWebStage: StageScene = {
       changes: ["~ Peak grows to 900 req/s", "+ Load balancer, Web B and Web C", "~ Web A, standard size like B and C"],
       events: [
         { type: "state", node: "a", opts: { big: false }, label: "Web A", detail: "" },
-        { type: "show", nodes: ["lb", "b", "c"], at: { a: [2, -1], b: [2, 0], c: [2, 1] } },
+        // A slides into the pool still linked to the visitors; the balancer then takes its place between them.
+        { type: "move", at: { a: [2.3, -1] } },
+        { type: "show", nodes: ["lb", "b", "c"], at: { b: [2.3, 0], c: [2.3, 1] } },
         { type: "state", node: "lb", light: "on" },
         { type: "state", nodes: ["a", "b", "c"], light: "on", readout: "300 req/s", meter: 1 },
         { type: "stream", every: 220, routes: pool(["a", "b", "c"]) },
@@ -110,7 +112,7 @@ export const scaleWebStage: StageScene = {
       changes: ["+ Web D, registered", "~ 225 req/s each, 300 after a loss"],
       events: [
         { type: "state", node: "c", down: false },
-        { type: "show", nodes: ["d"], at: { a: [2, -1.5], b: [2, -0.5], c: [2, 0.5], d: [2, 1.5] } },
+        { type: "show", nodes: ["d"], at: { a: [2.3, -1.5], b: [2.3, -0.5], c: [2.3, 0.5], d: [2.3, 1.5] } },
         { type: "note", node: "lb", text: "needs redundancy too" },
       ],
       control: {

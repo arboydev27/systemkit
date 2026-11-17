@@ -5,6 +5,9 @@ const through = (to: string, kind?: "work" | "hot") => webs.map((id) => ({ path:
 
 // Lesson "Scale in response to evidence": one illustrative history, each signal answered by one change, then the cost of what was added.
 // On a phone, step 3 frames the database so it isn’t half under the play bar, and Users leave the stage from step 4 (the chip keeps their count) so they don’t peek out under the chips.
+// The tiers stand wide apart (web servers at 2.3, the data tier at 3.7) so links between them run clear of the parts' names on a wide screen,
+// and the names stay short enough for three to sit side by side on a phone. Step 3 has no note: the servers' "stateless" already says it,
+// and a note over the top server sat under the counters on a wide screen.
 export const synthesisStage: StageScene = {
   id: "synthesis",
   intro: "Watch a site grow to a million daily users in one illustrative history, each change answering one signal.",
@@ -13,11 +16,11 @@ export const synthesisStage: StageScene = {
     { id: "users", role: "crowd", label: "Users", detail: "5,000 a day", at: [0, 0] },
     { id: "lb", role: "balancer", label: "Load balancer", detail: "web redundancy", at: [1, 0], appear: 2 },
     { id: "web", role: "web", label: "Server", detail: "app + database", at: [1, 0] },
-    { id: "web2", role: "web", label: "Web server", detail: "stateless", at: [2, 0], appear: 2 },
-    { id: "web3", role: "web", label: "Web server", detail: "stateless", at: [2, 1.7], appear: 2 },
-    { id: "cache", role: "cache", label: "Cache", detail: "repeated reads", at: [3.1, -1.7], appear: 3 },
+    { id: "web2", role: "web", label: "Web server", detail: "stateless", at: [2.3, 0], appear: 2 },
+    { id: "web3", role: "web", label: "Web server", detail: "stateless", at: [2.3, 1.7], appear: 2 },
+    { id: "cache", role: "cache", label: "Cache", detail: "repeated reads", at: [3.7, -1.7], appear: 3 },
     { id: "db", role: "database", label: "Database", detail: "its own server", at: [2, 0], appear: 1 },
-    { id: "replicas", role: "database", label: "Replicas", detail: "two, for reads", at: [3.1, 1.7], appear: 3, opts: { replica: true } },
+    { id: "replicas", role: "database", label: "Replicas", detail: "two, for reads", at: [3.7, 1.7], appear: 3, opts: { replica: true } },
   ],
   links: [
     { from: "users", to: "web", unless: "lb" },
@@ -74,10 +77,9 @@ export const synthesisStage: StageScene = {
         { type: "packet", path: ["users", "web"], label: "GET /" },
         { type: "state", node: "web", readout: "CPU 85%", meter: 0.85 },
         { type: "pause", ms: 900 },
-        { type: "show", nodes: ["lb", "web2", "web3"], at: { users: [0.15, 0], web: [2, -1.7], db: [3.1, 0] } },
+        { type: "show", nodes: ["lb", "web2", "web3"], at: { users: [0.15, 0], web: [2.3, -1.7], db: [3.3, 0] } },
         { type: "state", node: "web", detail: "stateless", readout: "", meter: null },
         { type: "state", nodes: ["lb", "web2", "web3"], light: "on" },
-        { type: "note", node: "web", text: "no sessions kept" },
         { type: "stream", every: 260, routes: webs.map((id) => ({ path: ["users", "lb", id] })) },
       ],
     },
@@ -93,8 +95,8 @@ export const synthesisStage: StageScene = {
         { type: "packet", path: ["web2", "db"], label: "SELECT …" },
         { type: "state", node: "db", readout: "reads 70%", meter: 0.7 },
         { type: "pause", ms: 900 },
-        { type: "show", nodes: ["cache", "replicas"] },
-        { type: "state", node: "db", label: "Primary", detail: "takes every write", readout: "", meter: null },
+        { type: "show", nodes: ["cache", "replicas"], at: { db: [3.7, 0] } },
+        { type: "state", node: "db", label: "Primary", detail: "every write", readout: "", meter: null },
         { type: "packet", path: ["web", "cache"], label: "GET …" },
         { type: "packet", path: ["web3", "replicas"], label: "SELECT …", with: true },
         { type: "state", node: "cache", light: "work" },
@@ -114,7 +116,7 @@ export const synthesisStage: StageScene = {
       metrics: { signal: "no new signal" },
       changes: ["~ 8 parts to patch and monitor", "~ More ways for data to go stale"],
       events: [
-        { type: "state", nodes: ["lb", ...webs, "db"], detail: "patch · monitor" },
+        { type: "state", nodes: ["lb", ...webs, "db"], detail: "running cost" },
         { type: "state", nodes: ["cache", "replicas"], detail: "can be stale", gap: 700 },
       ],
     },
@@ -126,7 +128,7 @@ export const synthesisStage: StageScene = {
       events: [
         { type: "state", node: "lb", detail: "web redundancy" },
         { type: "state", nodes: webs, detail: "stateless", with: true },
-        { type: "state", node: "db", detail: "takes every write", with: true },
+        { type: "state", node: "db", detail: "every write", with: true },
       ],
       control: {
         label: "Symptom",
@@ -136,8 +138,9 @@ export const synthesisStage: StageScene = {
             label: "Slow reads",
             metrics: { signal: "slow reads" },
             events: [
-              { type: "state", node: "cache", light: "work", detail: "inspect behavior" },
-              { type: "state", node: "replicas", light: "on", detail: "inspect queries", readout: "slow reads", with: true },
+              { type: "state", node: "cache", light: "work", detail: "check behavior" },
+              // No load pill here: the Evidence chip already says "slow reads", and a pill over Replicas bent the Primary → Replicas link into a hook.
+              { type: "state", node: "replicas", light: "on", detail: "check queries", with: true },
               { type: "state", node: "db", light: "on", readout: "", meter: null, tone: "", with: true },
               {
                 type: "stream", every: 220,

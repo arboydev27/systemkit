@@ -7,8 +7,8 @@ export const singleServerStage: StageScene = {
   metrics: [{ id: "users", label: "Users" }, { id: "served", label: "Requests served" }, { id: "up", label: "Servers up" }],
   nodes: [
     { id: "visitor", role: "client", label: "Visitor", detail: "browser", at: [0, 0] },
-    { id: "dns", role: "dns", label: "DNS", detail: "domain → IP", at: [1, 0.62] },
-    { id: "server", role: "web", label: "Server", detail: "app, DB, cache", at: [1, -0.62], opts: { big: true } },
+    { id: "dns", role: "dns", label: "DNS", detail: "domain → IP", at: [1, 0.8] },
+    { id: "server", role: "web", label: "Server", detail: "app, DB, cache", at: [1, -0.8], opts: { big: true } },
   ],
   links: [{ from: "visitor", to: "dns" }, { from: "visitor", to: "server" }],
   steps: [
@@ -23,7 +23,7 @@ export const singleServerStage: StageScene = {
       events: [
         { type: "packet", path: ["visitor", "dns"], label: "shop.example?" },
         { type: "packet", path: ["dns", "visitor"], label: "203.0.113.10", kind: "response" },
-        { type: "note", node: "dns", text: "TTL 300 s", tone: "work" },
+        { type: "state", node: "dns", readout: "TTL 300 s" },
       ],
     },
     {
@@ -34,9 +34,9 @@ export const singleServerStage: StageScene = {
       focus: ["visitor", "server"],
       changes: ["+ Connection to 203.0.113.10", "+ GET /"],
       events: [
+        { type: "state", node: "dns", readout: "" },
         { type: "packet", path: ["visitor", "server"], label: "GET /" },
-        { type: "state", node: "server", light: "on" },
-        { type: "note", node: "server", text: "203.0.113.10" },
+        { type: "state", node: "server", light: "on", readout: "203.0.113.10" },
       ],
     },
     {
@@ -90,7 +90,6 @@ export const singleServerStage: StageScene = {
             metrics: { served: { n: 0, unit: "/s", tone: "hot" }, up: { n: 0, tone: "hot" } },
             events: [
               { type: "state", node: "server", down: true, light: "hot", tone: "hot", detail: "disk dead · data at risk" },
-              { type: "note", node: "server", text: "data lost unless backed up", tone: "hot" },
               { type: "packet", path: ["visitor", "server"], label: "GET /", kind: "hot", lost: true },
             ],
           },

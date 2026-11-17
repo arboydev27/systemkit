@@ -2,19 +2,23 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 
 // Lesson "Partition a growing database": one database outgrows its machine, the rows split by user_id % 3,
 // one user routed by the key, hot spots, the cost of going to four shards, and Finance’s report that has to ask every shard.
+// The data tier stands at 2.2, not 2, so on a short phone the database's and shards' load pills clear the web server's name; from
+// step 5 the four shards sit at 2.1, far enough out for the link to Shard 0 to clear its name on a wide screen, close enough for their
+// names to fit side by side on a phone. Finance takes the users' place for its report (two clients side by side ran Finance's link
+// behind the web server's name on a wide screen).
 export const shardingStage: StageScene = {
   id: "sharding",
   intro: "Watch one database split into shards by user ID, then meet hot spots and resharding.",
   metrics: [{ id: "shards", label: "Shards" }, { id: "queried", label: "Shards per query" }, { id: "moved", label: "Users moved" }],
   nodes: [
     { id: "users", role: "crowd", label: "Users", detail: "each has a user_id", at: [0, 0] },
-    { id: "finance", role: "client", label: "Finance", detail: "daily report", at: [0, 1.2], appear: 5 },
+    { id: "finance", role: "client", label: "Finance", detail: "daily report", at: [0, 0], appear: 5 },
     { id: "app", role: "web", label: "Web server", detail: "runs the app", at: [1, 0] },
-    { id: "db", role: "database", label: "Database", detail: "every user", at: [2, 0] },
-    { id: "s0", role: "database", label: "Shard 0", at: [2, -1.2], appear: 1 },
-    { id: "s1", role: "database", label: "Shard 1", at: [2, 0], appear: 1 },
-    { id: "s2", role: "database", label: "Shard 2", at: [2, 1.2], appear: 1 },
-    { id: "s3", role: "database", label: "Shard 3", at: [2, 1.8], appear: 4 },
+    { id: "db", role: "database", label: "Database", detail: "every user", at: [2.2, 0] },
+    { id: "s0", role: "database", label: "Shard 0", at: [2.2, -1.4], appear: 1 },
+    { id: "s1", role: "database", label: "Shard 1", at: [2.2, 0], appear: 1 },
+    { id: "s2", role: "database", label: "Shard 2", at: [2.2, 1.4], appear: 1 },
+    { id: "s3", role: "database", label: "Shard 3", at: [2.1, 1.8], appear: 4 },
   ],
   links: [
     { from: "users", to: "app" },
@@ -118,7 +122,7 @@ export const shardingStage: StageScene = {
       changes: ["+ Shard 3", "~ Rule: user_id % 3 → % 4", "~ About ¾ of users move"],
       events: [
         { type: "state", nodes: ["s0", "s1", "s2"], light: "idle", meter: null, readout: "", tone: "", opts: { level: 0.4 } },
-        { type: "show", nodes: ["s3"], at: { s0: [2, -1.8], s1: [2, -0.6], s2: [2, 0.6], s3: [2, 1.8] }, with: true },
+        { type: "show", nodes: ["s3"], at: { s0: [2.1, -1.8], s1: [2.1, -0.6], s2: [2.1, 0.6], s3: [2.1, 1.8] }, with: true },
         { type: "state", node: "app", detail: "shard = user_id % 4", with: true },
         { type: "state", node: "s3", detail: "7 % 4 = 3" },
         { type: "packet", path: ["s1", "app", "s3"], label: "user 7’s rows", kind: "work" },
@@ -133,12 +137,12 @@ export const shardingStage: StageScene = {
       title: "Some queries must ask every shard",
       short: "Cross-shard",
       text: "No single shard sees all the data, so cross-shard joins and transactions get harder. A report across all users has no one user ID, so it asks every shard and merges the answers.",
-      focus: ["finance", "app", "s0", "s1", "s2", "s3"],
       metrics: { queried: 4 },
       changes: ["+ Finance asks for a report", "+ Fan out to all 4 shards", "~ Merge the results"],
       events: [
         { type: "state", nodes: ["s0", "s1", "s2", "s3"], light: "idle", detail: "" },
-        { type: "show", nodes: ["finance"], at: { users: [0, -1.2], finance: [0, 1.2] }, with: true },
+        { type: "hide", nodes: ["users"], with: true },
+        { type: "show", nodes: ["finance"], with: true },
         { type: "packet", path: ["finance", "app"], label: "report: all users" },
         { type: "state", node: "app", light: "on" },
         // Four messages leave the web server together, so only one carries a label; it goes last so it draws on top of the bare ones.
@@ -162,6 +166,8 @@ export const shardingStage: StageScene = {
       metrics: { queried: 1 },
       changes: ["~ A key that fits the access pattern", "~ Sharding comes last, after simpler fixes"],
       events: [
+        { type: "hide", nodes: ["finance"] },
+        { type: "show", nodes: ["users"], with: true },
         { type: "state", node: "app", light: "on", detail: "shard = user_id % 4" },
         { type: "state", nodes: ["s0", "s1", "s2", "s3"], light: "work", with: true },
         { type: "stream", every: 240, routes: [

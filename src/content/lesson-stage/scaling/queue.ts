@@ -10,8 +10,8 @@ export const queueStage: StageScene = {
     { id: "user", role: "client", label: "User", detail: "uploads a photo", at: [0, 0] },
     { id: "web", role: "web", label: "Web server", detail: "runs the filters", at: [1, 0] },
     { id: "queue", role: "queue", label: "Message queue", detail: "durable", at: [2, 0], appear: 1, opts: { items: 0 } },
-    { id: "worker1", role: "worker", label: "Worker", detail: "pulls jobs", at: [3, 0], appear: 2 },
-    { id: "worker2", role: "worker", label: "Worker 2", detail: "pulls jobs", at: [3, 1.5], appear: 3 },
+    { id: "worker1", role: "worker", label: "Worker", detail: "pulls jobs", at: [3.4, 0], appear: 2 },
+    { id: "worker2", role: "worker", label: "Worker 2", detail: "pulls jobs", at: [3.4, 1.5], appear: 3 },
   ],
   links: [
     { from: "user", to: "web" },
@@ -83,7 +83,7 @@ export const queueStage: StageScene = {
       metrics: { uploads: 3 },
       changes: ["+ Second worker", "− Worker 1 crashes before its ack", "~ Job delivered again"],
       events: [
-        { type: "show", nodes: ["worker2"], at: { worker1: [3, -1.5] } },
+        { type: "show", nodes: ["worker2"], at: { worker1: [3.4, -1.5] } },
         { type: "state", node: "worker1", label: "Worker 1", light: "idle", with: true },
         { type: "state", node: "user", detail: "uploads a photo", with: true },
         { type: "packet", path: ["user", "web"], label: "POST /photos" },
@@ -111,7 +111,7 @@ export const queueStage: StageScene = {
       changes: ["~ 20 uploads a second", "+ 160 workers busy (20 × 8)", "~ Jobs finish as fast as they arrive"],
       events: [
         { type: "hide", nodes: ["worker2"] },
-        { type: "move", at: { worker1: [3, 0] }, with: true },
+        { type: "move", at: { worker1: [3.4, 0] }, with: true },
         { type: "state", node: "worker1", label: "160 workers", detail: "8 s per job", light: "on", tone: "", down: false, with: true },
         { type: "state", node: "user", label: "Users", detail: "20 uploads/s", opts: { many: true }, with: true },
         { type: "state", node: "queue", light: "on", opts: { items: 0 }, with: true },
@@ -138,9 +138,10 @@ export const queueStage: StageScene = {
             events: [
               { type: "state", node: "user", detail: "50 uploads/s" },
               { type: "state", node: "worker1", detail: "finish 20/s", light: "on", tone: "", down: false, with: true },
-              { type: "state", node: "queue", light: "hot", tone: "hot", readout: "job age rising", opts: { items: 4 }, with: true },
+              { type: "state", node: "queue", light: "hot", tone: "hot", opts: { items: 4 }, with: true },
               { type: "state", node: "web", detail: "still responsive", light: "work", with: true },
               { type: "state", node: "queue", detail: "30/s for 10 min", with: true },
+              { type: "note", node: "queue", text: "job age rising", tone: "hot", with: true },
               {
                 type: "stream", every: 140, routes: [
                   { path: ["user", "web", "queue"], w: 5 },
@@ -155,9 +156,10 @@ export const queueStage: StageScene = {
             events: [
               { type: "state", node: "user", detail: "20 uploads/s" },
               { type: "state", node: "worker1", detail: "unhealthy", light: "hot", tone: "hot", down: true, with: true },
-              { type: "state", node: "queue", light: "hot", tone: "hot", readout: "job age rising", opts: { items: 4 }, with: true },
+              { type: "state", node: "queue", light: "hot", tone: "hot", opts: { items: 4 }, with: true },
               { type: "state", node: "web", detail: "still responsive", light: "work", with: true },
               { type: "state", node: "queue", detail: "work retained", with: true },
+              { type: "note", node: "queue", text: "job age rising", tone: "hot", with: true },
               { type: "stream", every: 240, routes: [{ path: ["user", "web", "queue"] }] },
             ],
           },
@@ -168,14 +170,14 @@ export const queueStage: StageScene = {
       title: "Add or repair workers to drain it",
       short: "Add workers",
       text: "Check the cause, then add or repair workers. The backlog drains while the web tier stays unchanged: the queue decouples the producer from the workers, so each scales on its own.",
-      focus: ["user", "web", "queue", "worker1", "worker2"],
+      focus: ["web", "queue", "worker1", "worker2"],
       metrics: { uploads: { n: 20, unit: "/s" }, workers: "160+", backlog: "draining" },
       changes: ["+ More workers", "~ Backlog drains", "~ Web tier unchanged"],
       events: [
         { type: "state", node: "worker2", label: "More workers", detail: "added", light: "on", tone: "", down: false },
-        { type: "show", nodes: ["worker2"], at: { worker1: [3, -1.5] }, with: true },
+        { type: "show", nodes: ["worker2"], at: { worker1: [3.4, -1.5] }, with: true },
         { type: "state", node: "worker1", detail: "8 s per job", light: "on", tone: "", down: false, with: true },
-        { type: "state", node: "queue", light: "on", tone: "", readout: "", opts: { items: 2 }, with: true },
+        { type: "state", node: "queue", light: "on", tone: "", opts: { items: 2 }, with: true },
         { type: "state", node: "user", detail: "20 uploads/s", with: true },
         { type: "state", node: "web", detail: "unchanged", light: "work", with: true },
         { type: "state", node: "queue", detail: "draining", with: true },
