@@ -38,7 +38,7 @@ const scenes: Record<string, Scene> = {
     nodes: [
       { id: "visitor", x: 55, y: 193, width: 138, title: "Visitor", detail: "browser", kind: "browser" },
       { id: "dns", x: 288, y: 86, width: 145, title: "DNS", detail: "domain → IP", kind: "dns" },
-      { id: "server", x: 592, y: 193, width: 235, title: "One server", detail: "web app + database", kind: "combined" },
+      { id: "server", x: 592, y: 193, width: 235, title: "Server", detail: "web app + database", kind: "combined" },
     ],
     connections: [
       { points: [[193, 221], [249, 221], [249, 114], [288, 114]], label: "look up", labelAt: [220, 150] },
@@ -88,7 +88,7 @@ const scenes: Record<string, Scene> = {
     summary:
       "The web tier sends writes to the primary database and reads to replicas. The primary copies changes to the replicas. Replicas hold copies of the same data, not different partitions.",
     nodes: [
-      { id: "web", x: 38, y: 198, width: 175, title: "Web tier", detail: "application", kind: "server" },
+      { id: "web", x: 38, y: 198, width: 175, title: "Web server", detail: "application", kind: "server" },
       { id: "primary", x: 362, y: 198, width: 180, title: "Primary", detail: "accepts writes", kind: "database" },
       { id: "replica-a", x: 746, y: 98, width: 185, title: "Replica A", detail: "serves reads", kind: "database" },
       { id: "replica-b", x: 746, y: 303, width: 185, title: "Replica B", detail: "serves reads", kind: "database" },
@@ -109,9 +109,9 @@ const scenes: Record<string, Scene> = {
     nodes: [
       { id: "visitors", x: 24, y: 205, width: 145, title: "Visitors", detail: "browser", kind: "browser" },
       { id: "cdn", x: 242, y: 88, width: 164, title: "CDN edge", detail: "static assets", kind: "cdn" },
-      { id: "web", x: 242, y: 302, width: 164, title: "Web tier", detail: "dynamic pages", kind: "server" },
+      { id: "web", x: 242, y: 302, width: 164, title: "Web server", detail: "dynamic pages", kind: "server" },
       { id: "origin", x: 677, y: 88, width: 190, title: "Origin", detail: "source assets", kind: "storage" },
-      { id: "cache", x: 487, y: 302, width: 166, title: "App cache", detail: "hot data", kind: "cache" },
+      { id: "cache", x: 487, y: 302, width: 166, title: "Cache", detail: "hot data", kind: "cache" },
       { id: "db", x: 755, y: 302, width: 160, title: "Database", detail: "source of truth", kind: "database" },
     ],
     connections: [
@@ -130,7 +130,7 @@ const scenes: Record<string, Scene> = {
     summary:
       "The load balancer can send each request to any web server. Both web servers use a shared session store, so a visitor stays signed in even when requests move between servers.",
     nodes: [
-      { id: "visitor", x: 20, y: 205, width: 135, title: "Visitor", detail: "signed in", kind: "browser" },
+      { id: "visitor", x: 20, y: 205, width: 135, title: "User", detail: "signed in", kind: "browser" },
       { id: "balancer", x: 213, y: 205, width: 168, title: "Load balancer", kind: "balancer" },
       { id: "web-a", x: 460, y: 94, width: 153, title: "Web A", detail: "stateless", kind: "server" },
       { id: "web-b", x: 460, y: 310, width: 153, title: "Web B", detail: "stateless", kind: "server" },
@@ -150,12 +150,12 @@ const scenes: Record<string, Scene> = {
     summary:
       "GeoDNS directs a visitor toward a healthy, nearby region. This example shows Region A as the writer and one-way data replication to Region B. Failover requires traffic rerouting and a data promotion plan.",
     nodes: [
-      { id: "visitors", x: 22, y: 203, width: 132, title: "Visitors", detail: "worldwide", kind: "browser" },
+      { id: "visitors", x: 22, y: 203, width: 132, title: "Users", detail: "worldwide", kind: "browser" },
       { id: "geodns", x: 212, y: 203, width: 150, title: "GeoDNS", detail: "region routing", kind: "dns" },
       { id: "us-web", x: 474, y: 83, width: 170, title: "Web A", detail: "regional tier", kind: "region" },
-      { id: "us-db", x: 746, y: 83, width: 172, title: "Data A", detail: "regional data", kind: "database" },
+      { id: "us-db", x: 746, y: 83, width: 172, title: "Database A", detail: "regional data", kind: "database" },
       { id: "eu-web", x: 474, y: 320, width: 170, title: "Web B", detail: "regional tier", kind: "region" },
-      { id: "eu-db", x: 746, y: 320, width: 172, title: "Data B", detail: "regional data", kind: "database" },
+      { id: "eu-db", x: 746, y: 320, width: 172, title: "Database B", detail: "regional data", kind: "database" },
     ],
     connections: [
       { points: [[154, 231], [212, 231]] },
@@ -172,11 +172,11 @@ const scenes: Record<string, Scene> = {
     summary:
       "The web tier stores the original upload durably, then enqueues its object key. A worker reads that original asynchronously, resizes it, and writes a processed image to object storage. The queue absorbs bursts.",
     nodes: [
-      { id: "visitor", x: 15, y: 205, width: 138, title: "Visitor", detail: "uploads photo", kind: "browser" },
-      { id: "web", x: 209, y: 205, width: 155, title: "Web tier", detail: "accept upload", kind: "server" },
-      { id: "queue", x: 425, y: 205, width: 155, title: "Job queue", detail: "pending work", kind: "queue" },
-      { id: "worker-a", x: 647, y: 101, width: 147, title: "Worker A", detail: "resize", kind: "worker" },
-      { id: "worker-b", x: 647, y: 309, width: 147, title: "Worker B", detail: "resize", kind: "worker" },
+      { id: "visitor", x: 15, y: 205, width: 138, title: "User", detail: "uploads photo", kind: "browser" },
+      { id: "web", x: 209, y: 205, width: 155, title: "Web server", detail: "accept upload", kind: "server" },
+      { id: "queue", x: 425, y: 205, width: 155, title: "Message queue", detail: "pending work", kind: "queue" },
+      { id: "worker-a", x: 647, y: 101, width: 147, title: "Worker 1", detail: "resize", kind: "worker" },
+      { id: "worker-b", x: 647, y: 309, width: 147, title: "Worker 2", detail: "resize", kind: "worker" },
       { id: "storage", x: 831, y: 205, width: 150, title: "Storage", detail: "images", kind: "storage" },
     ],
     connections: [
@@ -197,7 +197,7 @@ const scenes: Record<string, Scene> = {
     summary:
       "The application uses a user's ID to choose one of three database shards. Each shard stores a different portion of users and accepts reads and writes for that portion. Shards are partitions, unlike replicas, which copy the same data.",
     nodes: [
-      { id: "web", x: 32, y: 208, width: 165, title: "Web tier", detail: "request", kind: "server" },
+      { id: "web", x: 32, y: 208, width: 165, title: "Web server", detail: "request", kind: "server" },
       { id: "router", x: 274, y: 208, width: 185, title: "Shard router", detail: "user_id % 3", kind: "router" },
       { id: "shard-0", x: 721, y: 60, width: 202, title: "Shard 0", detail: "users 0, 3, 6…", kind: "database" },
       { id: "shard-1", x: 721, y: 206, width: 202, title: "Shard 1", detail: "users 1, 4, 7…", kind: "database" },
@@ -216,8 +216,8 @@ const scenes: Record<string, Scene> = {
     summary: "The web server checks the application cache first. A hit returns quickly. On a miss, the web server reads the database, responds to the visitor, and fills the cache for later requests.",
     nodes: [
       { id: "visitor", x: 32, y: 205, width: 145, title: "Visitor", detail: "browser", kind: "browser" },
-      { id: "web", x: 285, y: 205, width: 170, title: "Web tier", detail: "owns miss path", kind: "server" },
-      { id: "cache", x: 697, y: 93, width: 180, title: "App cache", detail: "hot data", kind: "cache" },
+      { id: "web", x: 285, y: 205, width: 170, title: "Web server", detail: "owns miss path", kind: "server" },
+      { id: "cache", x: 697, y: 93, width: 180, title: "Cache", detail: "hot data", kind: "cache" },
       { id: "db", x: 697, y: 307, width: 180, title: "Database", detail: "source of truth", kind: "database" },
     ],
     connections: [
@@ -250,12 +250,12 @@ const scenes: Record<string, Scene> = {
     title: "See what the system is doing",
     summary: "Requests pass through the load balancer to the web tier and its dependencies. The web tier, database, and cache send metrics, logs, and traces to a monitor, which can alert operators when service health degrades.",
     nodes: [
-      { id: "visitor", x: 12, y: 205, width: 135, title: "Visitor", detail: "browser", kind: "browser" },
-      { id: "balancer", x: 172, y: 205, width: 154, title: "Balancer", detail: "traffic", kind: "balancer" },
-      { id: "web", x: 353, y: 205, width: 160, title: "Web tier", detail: "requests", kind: "server" },
+      { id: "visitor", x: 12, y: 205, width: 135, title: "Users", detail: "browsers", kind: "browser" },
+      { id: "balancer", x: 172, y: 205, width: 154, title: "Load balancer", detail: "traffic", kind: "balancer" },
+      { id: "web", x: 353, y: 205, width: 160, title: "Web servers", detail: "requests", kind: "server" },
       { id: "db", x: 580, y: 82, width: 170, title: "Database", detail: "query health", kind: "database" },
-      { id: "cache", x: 580, y: 325, width: 170, title: "App cache", detail: "hit rate", kind: "cache" },
-      { id: "monitor", x: 802, y: 205, width: 175, title: "Monitor", detail: "signals + alerts", kind: "telemetry" },
+      { id: "cache", x: 580, y: 325, width: 170, title: "Cache", detail: "hit rate", kind: "cache" },
+      { id: "monitor", x: 802, y: 205, width: 175, title: "Monitoring", detail: "signals + alerts", kind: "telemetry" },
     ],
     connections: [
       { points: [[147, 233], [172, 233]] },
@@ -272,13 +272,13 @@ const scenes: Record<string, Scene> = {
     title: "Choose components for the workload",
     summary: "Static assets can go through a CDN. Dynamic requests pass through a load balancer to the web tier. The web tier checks a cache, reads the database on a miss, and sends slow work through a queue to workers. Add each component only for a clear bottleneck or reliability need.",
     nodes: [
-      { id: "visitor", x: 20, y: 205, width: 142, title: "Visitor", detail: "browser", kind: "browser" },
+      { id: "visitor", x: 20, y: 205, width: 142, title: "Users", detail: "browsers", kind: "browser" },
       { id: "cdn", x: 215, y: 89, width: 155, title: "CDN edge", detail: "static assets", kind: "cdn" },
-      { id: "balancer", x: 215, y: 307, width: 170, title: "Balancer", detail: "dynamic traffic", kind: "balancer" },
-      { id: "web", x: 442, y: 307, width: 155, title: "Web tier", detail: "application", kind: "server" },
-      { id: "queue", x: 653, y: 89, width: 155, title: "Job queue", detail: "slow tasks", kind: "queue" },
+      { id: "balancer", x: 215, y: 307, width: 170, title: "Load balancer", detail: "dynamic traffic", kind: "balancer" },
+      { id: "web", x: 442, y: 307, width: 155, title: "Web server", detail: "application", kind: "server" },
+      { id: "queue", x: 653, y: 89, width: 155, title: "Message queue", detail: "slow tasks", kind: "queue" },
       { id: "worker", x: 835, y: 89, width: 150, title: "Worker", detail: "async work", kind: "worker" },
-      { id: "cache", x: 653, y: 307, width: 155, title: "App cache", detail: "hot data", kind: "cache" },
+      { id: "cache", x: 653, y: 307, width: 155, title: "Cache", detail: "hot data", kind: "cache" },
       { id: "db", x: 835, y: 307, width: 150, title: "Database", detail: "durable data", kind: "database" },
     ],
     connections: [
