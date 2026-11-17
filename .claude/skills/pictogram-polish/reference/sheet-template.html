@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pictogram comparison</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #777; }
+  .sheet { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel { padding: 30px 30px 34px; background: var(--canvas); color: var(--ink); }
+  .light { --canvas: #fafafa; --surface: #fff; --surface-soft: #f5f5f5; --ink: #171717; --ink-soft: #404040; --muted: #595959; --line: #e5e5e5; --line-strong: #bdbdbd; --accent-tint: #f2f2f2; --accent-line: #d6d6d6; --control-border: #8a8a8a; --diagram: #f7f7f7; --hot: #eb6834; --work: #2a78d6;
+    --pk-top: var(--surface); --pk-left: var(--accent-tint); --pk-right: var(--line); --pk-line: var(--ink); --pk-detail: var(--muted); --pk-recess: var(--accent-line); --pk-shadow: rgb(0 0 0 / 5%); --pk-bevel: rgb(0 0 0 / 7%);
+    --q-top: #fff; --q-s3: #f5f5f5; --q-s2: #f2f2f2; --q-s1: #e5e5e5; --q-s0: #d6d6d6; --q-bevel: #fff; --q-bevel-r: #f2f2f2; --q-edge: #171717; --q-crease: rgb(23 23 23 / 22%); --q-rule: #8a8a8a; --q-recess: #d6d6d6; --q-wall: #a8a8a8; --q-screw: #8a8a8a; --q-slot: #bdbdbd; --q-plate: #fff; --q-halo: #000; --q-halo-a: .2; --q-tape: #bdbdbd; --q-finger: #bdbdbd; }
+  .dark { --canvas: #0b0b0b; --surface: #151515; --surface-soft: #222; --ink: #f5f5f5; --ink-soft: #d0d0d0; --muted: #b5b5b5; --line: #303030; --line-strong: #5a5a5a; --accent-tint: #262626; --accent-line: #484848; --control-border: #777; --diagram: #191919; --hot: #f0733f; --work: #3987e5;
+    --pk-top: var(--line); --pk-left: var(--surface-soft); --pk-right: var(--surface); --pk-line: var(--ink-soft); --pk-detail: var(--muted); --pk-recess: var(--canvas); --pk-shadow: rgb(0 0 0 / 45%); --pk-bevel: rgb(255 255 255 / 9%);
+    --q-top: #303030; --q-s3: #262626; --q-s2: #222; --q-s1: #151515; --q-s0: #0b0b0b; --q-bevel: #484848; --q-bevel-r: #303030; --q-edge: #d0d0d0; --q-crease: rgb(255 255 255 / 14%); --q-rule: #777; --q-recess: #0b0b0b; --q-wall: #000; --q-screw: #777; --q-slot: #0b0b0b; --q-plate: #262626; --q-halo: #000; --q-halo-a: .55; --q-tape: #5a5a5a; --q-finger: #5a5a5a; }
+  h2 { margin: 0 0 4px; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+  .panel > p { margin: 0 0 18px; color: var(--muted); font-size: 12px; }
+  .head, .row { display: grid; grid-template-columns: 92px 1fr 1fr 64px 64px; align-items: center; gap: 8px; }
+  .head { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; padding: 0 0 6px; }
+  .row { border-top: 1px solid var(--line); padding: 4px 0; }
+  .row b { font-size: 12.5px; font-weight: 700; }
+  .cell { display: grid; place-items: center; background: var(--diagram); border-radius: 10px; height: 132px; }
+  .cell.small { height: 64px; }
+  .cell svg { overflow: visible; }
+
+  /* today's classes, as the stage styles them */
+  .now .pk { stroke-linejoin: round; stroke-linecap: round; }
+  .now .pt, .now .pl, .now .pr, .now .ps, .now .ball { stroke: var(--pk-line); stroke-width: 1.15; }
+  .now .pt, .now .head { fill: var(--pk-top); }
+  .now .pl, .now .ps, .now .ball { fill: var(--pk-left); }
+  .now .pr, .now .pr-shade { fill: var(--pk-right); }
+  .now .pr-shade { stroke: none; }
+  .now .ps-line, .now .ring, .now .handle { fill: none; stroke: var(--pk-line); stroke-width: 1.15; }
+  .now .head { stroke: var(--pk-line); stroke-width: 1.1; }
+  .now .gl { fill: var(--pk-recess); stroke: var(--pk-detail); stroke-width: .8; }
+  .now .bay { fill: none; stroke: var(--pk-detail); stroke-width: .8; }
+  .now .dl { fill: none; stroke: var(--pk-detail); stroke-width: .9; }
+  .now .dot { fill: var(--pk-detail); }
+  .now .gearbody { fill: var(--pk-top); stroke: var(--pk-detail); stroke-width: .9; }
+  .now .sh { fill: var(--pk-shadow); }
+  .now .led { stroke: var(--ink); stroke-width: 2.2; }
+  .now .led.strip { stroke-width: 2.6; stroke-linecap: round; }
+  .now .plinth-side { fill: var(--pk-left); stroke: var(--pk-line); stroke-width: 1.15; stroke-linejoin: round; }
+  .now .plinth-top { fill: var(--pk-top); stroke: var(--pk-line); stroke-width: 1.15; stroke-linejoin: round; }
+  .now .plinth-bevel { fill: none; stroke: var(--pk-bevel); stroke-width: 1; }
+
+  /* the polished classes */
+  .q { stroke-linejoin: round; stroke-linecap: round; }
+  .q .q-top { fill: var(--q-top); }
+  .q .q-left { fill: var(--q-s3); }
+  .q .q-right { fill: var(--q-s1); }
+  .q .q-chip { fill: var(--q-s2); }
+  .q .q-bevel { fill: var(--q-bevel); }
+  .q .q-bevel-r { fill: var(--q-bevel-r); }
+  .q .q-crease, .q .q-crease-fill { fill: none; stroke: var(--q-crease); stroke-width: .7; }
+  .q .q-edge { fill: none; stroke: var(--q-edge); stroke-width: 1.05; }
+  .q .q-edge-open { fill: none; stroke: var(--q-edge); stroke-width: 1.05; }
+  .q .q-rim-top { fill: none; stroke: var(--q-edge); stroke-width: 1.05; }
+  .q .q-rule { fill: none; stroke: var(--q-rule); stroke-width: .6; }
+  .q .q-etch { fill: none; stroke: var(--q-rule); stroke-width: .7; }
+  .q .q-etch-dot { fill: var(--q-rule); }
+  .q .q-recess { fill: var(--q-recess); }
+  .q .q-wall { fill: var(--q-wall); }
+  .q .q-wall-face { fill: var(--q-s0); }
+  .q .q-rim { fill: none; stroke: var(--q-rule); stroke-width: .5; }
+  .q .q-screw { fill: var(--q-screw); }
+  .q .q-slot { fill: var(--q-slot); }
+  .q .q-plate { fill: var(--q-plate); stroke: var(--q-rule); stroke-width: .35; }
+  .q .q-leg { stroke: var(--q-rule); stroke-width: .6; }
+  .q .q-finger { fill: var(--q-finger); }
+  .q .q-tape { fill: none; stroke: var(--q-tape); stroke-width: 1.4; }
+  .q .q-card { fill: var(--q-top); stroke: var(--q-edge); stroke-width: .7; }
+  .q .q-card-lit { fill: var(--q-top); stroke: var(--q-edge); stroke-width: 1.05; }
+  .q .q-ring-shade { fill: none; stroke: var(--q-s0); stroke-width: 1.2; }
+  .q .q-ring-light { fill: none; stroke: var(--q-bevel); stroke-width: .8; }
+  .q .q-base-side { stroke: none; }
+  .q .q-base-top { fill: var(--q-top); stroke: var(--q-crease); stroke-width: .7; }
+  .q .q-base-rim { fill: var(--q-bevel); }
+  .q .q-base-edge { fill: none; stroke: var(--q-edge); stroke-width: 1.05; }
+  .q .led { fill: none; stroke: var(--ink); stroke-width: 1.9; stroke-linecap: round; }
+  .q .led.strip { stroke-width: 2.4; }
+  .q .q-s3 { stop-color: var(--q-s3); } .q .q-s2 { stop-color: var(--q-s2); } .q .q-s1 { stop-color: var(--q-s1); } .q .q-s0 { stop-color: var(--q-s0); }
+  .q .q-h0 { stop-color: var(--q-halo); stop-opacity: var(--q-halo-a); } .q .q-h1 { stop-color: var(--q-halo); stop-opacity: calc(var(--q-halo-a) * .4); } .q .q-h2 { stop-color: var(--q-halo); stop-opacity: 0; }
+</style>
+</head>
+<body>
+<div class="sheet"><section class="panel light" id="light"></section><section class="panel dark" id="dark"></section></div>
+<script type="module">
+  // compare-sheet.mjs inlines today's pictograms (glyph, plinth, ROLE_NAMES) and the candidate's drawings
+  // (POLISHED, plinthPolished, defs) on the next line.
+__MODULES__
+  const GLYPH = 1.42, PH = 7;
+  const roles = Object.keys(POLISHED).map((r) => [r, ROLE_NAMES[r] ?? r]);
+  const vb = '-50 -92 100 122';
+  const now = (r, size) => `<svg viewBox="${vb}" width="${size}" height="${size * 1.22}"><g class="now"><g class="pk">${plinth(56, 7, 11)}<g transform="translate(0 ${-PH}) scale(${GLYPH})">${glyph(r)}</g></g></g></svg>`;
+  const polished = (r, size, gid) => `<svg viewBox="${vb}" width="${size}" height="${size * 1.22}"><g class="q">${defs(gid)}${plinthPolished().replaceAll('GID', gid)}<g transform="translate(0 ${-PH}) scale(${GLYPH})">${POLISHED[r]().replaceAll('GID', gid)}</g></g></svg>`;
+  for (const theme of ['light', 'dark']) {
+    let n = 0;
+    document.getElementById(theme).innerHTML = `<h2>Today and candidate · ${theme === 'light' ? 'Light' : 'Dark'}</h2><p>Same base and size; today from src/lib/lesson-stage/pictograms.ts, the candidate from __CANDIDATE__.</p>` +
+      `<div class="head"><span></span><span>Today</span><span>Candidate</span><span>Today, small</span><span>Candidate, small</span></div>` +
+      roles.map(([r, name]) => `<div class="row"><b>${name}</b><div class="cell">${now(r, 108)}</div><div class="cell">${polished(r, 108, `${theme}${n++}`)}</div><div class="cell small">${now(r, 48)}</div><div class="cell small">${polished(r, 48, `${theme}${n++}`)}</div></div>`).join('');
+  }
+</script>
+</body>
+</html>
