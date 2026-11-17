@@ -65,7 +65,10 @@ export function applyEvent(model: StageModel, event: StageEvent): void {
 export function stepEvents(scene: StageScene, index: number, choices: Choices = {}): StageEvent[] {
   const step = scene.steps[index];
   const control = step.control ? step.control.options[choices[index] ?? 0]?.events ?? [] : [];
-  return [...step.events, ...control];
+  // A part with `appear` arrives at the start of its step unless the step shows it itself.
+  const shownHere = new Set(step.events.flatMap((e) => (e.type === "show" ? e.nodes : [])));
+  const arriving = scene.nodes.filter((n) => n.appear === index && !shownHere.has(n.id)).map((n) => n.id);
+  return [...(arriving.length ? [{ type: "show" as const, nodes: arriving }] : []), ...step.events, ...control];
 }
 
 /** The stage as it stands when step `index` begins (0 is the start, `steps.length` the end). */

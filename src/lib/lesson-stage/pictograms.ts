@@ -113,17 +113,22 @@ const G: Record<StageRole, (o: GlyphOptions) => string> = {
 
   web(o) {
     const k = o.big ? 1.18 : 1, w = 18 * k, h = 34 * k;
-    const b = box(-w / 2, -w / 2, 0, w, w, h);
-    const bays = [0.14, 0.34, 0.54].map((f) => rect(2, h * f, w - 4, h * 0.13, "gl", 0.6) + dl(`M4 ${r2(h * f + h * 0.065)}H${r2(w * 0.45)}`)).join("");
-    const front = face(b, "L", bays + rect(2, h * 0.76, w - 4, h * 0.15, "bay", 0.6) + led(w - 6.5, h * 0.835, w - 4, h * 0.835));
-    const vents = face(b, "R", dl([4, 6, 8, 10, 12].map((u) => `M${r2(u * k)} ${r2(h * 0.7)}V${r2(h * 0.88)}`).join("")));
-    return shadow(18 * k, 9 * k, 1) + b.svg + front + vents;
+    const tower = (ox: number, oy: number) => {
+      const b = box(-w / 2 + ox, -w / 2 + oy, 0, w, w, h);
+      const bays = [0.14, 0.34, 0.54].map((f) => rect(2, h * f, w - 4, h * 0.13, "gl", 0.6) + dl(`M4 ${r2(h * f + h * 0.065)}H${r2(w * 0.45)}`)).join("");
+      const front = face(b, "L", bays + rect(2, h * 0.76, w - 4, h * 0.15, "bay", 0.6) + led(w - 6.5, h * 0.835, w - 4, h * 0.835));
+      const vents = face(b, "R", dl([4, 6, 8, 10, 12].map((u) => `M${r2(u * k)} ${r2(h * 0.7)}V${r2(h * 0.88)}`).join("")));
+      return b.svg + front + vents;
+    };
+    // `many`: a row of identical machines, back to front
+    return shadow(18 * k + (o.many ? 8 : 0), 9 * k + (o.many ? 4 : 0), 1) + (o.many ? tower(-7, -16) + tower(-3.5, -8) : "") + tower(0, 0);
   },
 
   database(o) {
-    const c = cylinder(0, 13, 27, [9, 18], o.level ?? 0, !!o.levelHot);
+    const k = o.big ? 1.2 : 1;
+    const c = cylinder(0, 13 * k, 27 * k, [9 * k, 18 * k], o.level ?? 0, !!o.levelHot);
     const ring = o.replica ? `<ellipse class="dl" ${NS} cx="0" cy="${r2(c.st)}" rx="${r2(c.rx * 0.55)}" ry="${r2(c.ry * 0.55)}"/>` : "";
-    return shadow(19, 9.5, 1) + c.svg + ring + `<line class="led" ${NS} x1="-2.5" y1="${r2(c.ry - 4.5)}" x2="2.5" y2="${r2(c.ry - 4.5)}"/>`;
+    return shadow(19 * k, 9.5 * k, 1) + c.svg + ring + `<line class="led" ${NS} x1="-2.5" y1="${r2(c.ry - 4.5)}" x2="2.5" y2="${r2(c.ry - 4.5)}"/>`;
   },
 
   cache() {
@@ -191,7 +196,7 @@ const G: Record<StageRole, (o: GlyphOptions) => string> = {
 
 /** Height of each object above its floor centre, for placing what floats over it. */
 export const GLYPH_TOP: Record<StageRole, number> = {
-  client: 26, crowd: 16, dns: 38, balancer: 20, web: 46, cache: 18, database: 38, cdn: 36, storage: 40, queue: 18, worker: 30, monitor: 34,
+  client: 26, crowd: 16, dns: 38, balancer: 20, web: 48, cache: 18, database: 40, cdn: 36, storage: 40, queue: 18, worker: 30, monitor: 34,
 };
 
 export const ROLE_NAMES: Record<StageRole, string> = {

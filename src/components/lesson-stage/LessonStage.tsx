@@ -47,6 +47,9 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<StageHandle | null>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null);
+  const scriptRef = useRef<HTMLDivElement>(null);
+  const heads = useRef<(HTMLButtonElement | null)[]>([]);
+  const refocus = useRef(false);
   const [status, setStatus] = useState<StageStatus>({ step: -1, total: scene.steps.length, playing: false, paused: false, ended: false });
   const [choices, setChoices] = useState<Choices>({});
   const [ready, setReady] = useState(false);
@@ -73,10 +76,26 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
     lastStep.current = step;
     const url = step >= 0 ? `#step-${step + 1}` : window.location.pathname + window.location.search;
     window.history.replaceState(window.history.state, "", url);
-    if (step >= 0) setAnnouncement(`Step ${step + 1} of ${total}. ${scene.steps[step].title}. ${scene.steps[step].text}`);
+    // The step's words are already in the list beside the stage; announcing its title keeps up with autoplay.
+    if (step >= 0) setAnnouncement(`Step ${step + 1} of ${total}: ${scene.steps[step].title}`);
+    // Keep the current step in view inside the list (never scrolling the page itself).
+    const panel = scriptRef.current, head = step >= 0 ? heads.current[step] : null;
+    if (panel && head) {
+      const item = head.closest("li");
+      window.setTimeout(() => {
+        if (!item || panel.scrollHeight <= panel.clientHeight) return;
+        const top = item.offsetTop - panel.offsetTop, bottom = top + item.offsetHeight;
+        if (top < panel.scrollTop + 8 || bottom > panel.scrollTop + panel.clientHeight - 8) {
+          panel.scrollTo({ top: Math.max(0, Math.min(top - 12, bottom - panel.clientHeight + 12)), behavior: reducedMotion() ? "auto" : "smooth" });
+        }
+      }, 480);
+    }
+    if (refocus.current && head) { refocus.current = false; head.focus({ preventScroll: true }); }
   }, [ready, step, total, scene]);
 
   const stage = () => stageRef.current;
+  /** A jump started from the list keeps keyboard focus in the list, on the step it landed on. */
+  function jumpFromList(i: number) { refocus.current = true; stage()?.jump(i); }
   function choose(stepIndex: number, option: number) {
     setChoices((current) => ({ ...current, [stepIndex]: option }));
     stage()?.choose(stepIndex, option);
@@ -145,17 +164,17 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
       </div>
     </div>
 
-    <div className={`${styles.script} ${step < 0 ? styles.overview : ""}`}>
+    <div ref={scriptRef} className={`${styles.script} ${step < 0 ? styles.overview : ""}`}>
       <p className={styles.intro}>{scene.intro}</p>
       <ol className={styles.steps}>
         {scene.steps.map((s, i) => {
           const state = i < step ? "done" : i === step ? "current" : "todo";
           return <li key={s.title} className={styles.step} data-state={state} style={{ "--from": `${direction * 28}px` } as CSSProperties}>
-            <button type="button" className={styles.stepHead} onClick={() => stage()?.jump(i)} aria-current={i === step ? "step" : undefined}>
+            <button type="button" ref={(node) => { heads.current[i] = node; }} className={styles.stepHead} onClick={() => jumpFromList(i)} aria-current={i === step ? "step" : undefined}>
               <span className={styles.stepNumber}>{pad(i + 1)}<span className={styles.stepTotal}> / {total}</span></span>
               <span className={styles.stepTitle}>{s.title}</span>
             </button>
-            <div className={styles.stepBody}><div>
+            <div className={styles.stepBody} inert={ready && i !== step ? true : undefined}><div>
               <p>{s.text}</p>
               {s.facts?.length ? <dl className={styles.facts}>{s.facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl> : null}
               {s.changes?.length ? <>
@@ -174,7 +193,7 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
                   >{o.label}</button>)}
                 </div>
               </div> : null}
-              {i < total - 1 ? <button type="button" className={styles.nextStep} onClick={() => stage()?.jump(i + 1)}>
+              {i < total - 1 ? <button type="button" className={styles.nextStep} onClick={() => jumpFromList(i + 1)}>
                 Next: {scene.steps[i + 1].short} <ArrowRight size={14} aria-hidden="true" />
               </button> : null}
             </div></div>

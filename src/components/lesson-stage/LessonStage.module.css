@@ -13,7 +13,7 @@
   --pk-bevel: color-mix(in srgb, var(--ink) 7%, transparent);
   --glass: rgb(255 255 255 / 70%);
   --glass-line: rgb(0 0 0 / 9%);
-  --stage-height: clamp(440px, 64vh, 620px);
+  --stage-height: clamp(400px, calc(100svh - 400px), 620px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 316px;
   gap: 14px;
@@ -45,7 +45,7 @@
   background: var(--diagram);
   box-shadow: var(--shadow);
 }
-.stage { position: absolute; inset: 0; outline: none; touch-action: pan-y; }
+.stage { position: absolute; inset: 0; outline: none; touch-action: pan-y pinch-zoom; }
 .stage:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 18px; }
 .stage :global(.stage-svg) { display: block; width: 100%; height: 100%; max-width: none; }
 
@@ -119,8 +119,9 @@
 .stage :global(.griddot) { fill: var(--diagram-dot); }
 .stage :global(.link) { fill: none; stroke: var(--line-strong); stroke-width: 1.4; vector-effect: non-scaling-stroke; transition: opacity .4s; }
 .stage :global(.link.is-down) { stroke-dasharray: 3 5; }
-.stage :global(.is-dim) { opacity: .36 !important; }
-.stage :global(.node), .stage :global(.node-label), .stage :global(.pill) { transition: opacity .3s; }
+.stage :global(.is-dim) { opacity: .36; }
+.stage :global(.link.is-dim) { opacity: 1; stroke-opacity: .36; }
+.stage :global(.node > g), .stage :global(.node-label > g), .stage :global(.pill > g) { transition: opacity .35s; }
 .stage :global(.trail) { fill: none; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .stage :global(.trail.k-request), .stage :global(.trail.k-quiet) { stroke: var(--ink); }
 .stage :global(.trail.k-quiet) { stroke-dasharray: 2 4; }
@@ -133,6 +134,8 @@
 .stage :global(.dot.k-request) { fill: var(--ink); }
 .stage :global(.dot.k-work) { fill: var(--work); }
 .stage :global(.dot.k-hot) { fill: var(--hot); }
+.stage :global(.dot.k-response) { fill: var(--work); }
+.stage :global(.dot.k-quiet) { fill: var(--muted); }
 .stage :global(.heat) { opacity: 0; transition: opacity .4s; }
 .stage :global(.node.is-hot .heat) { opacity: 1; animation: heat 1.3s ease-in-out infinite; }
 @keyframes heat { 50% { opacity: .45; } }
@@ -164,6 +167,7 @@
 .stage :global(.note text) { fill: var(--ink); font-size: 11px; font-weight: 700; }
 .stage :global(.lost-mark path) { fill: none; stroke: var(--hot); stroke-width: 2.4; stroke-linecap: round; }
 .stage :global(.lost-mark .burst) { fill: none; stroke: var(--hot); stroke-width: 2; }
+.stage :global(.lost-mark.k-quiet path), .stage :global(.lost-mark.k-quiet .burst) { stroke: var(--muted); }
 
 /* pictograms and their bases */
 .stage :global(.pk) { stroke-linejoin: round; stroke-linecap: round; }
@@ -207,6 +211,11 @@
 @media (prefers-reduced-motion: reduce) {
   .stage :global(.node.is-hot .heat) { animation: none; opacity: .8; }
   .stepBody, .pip { transition: none; }
+  .root[data-ready] .step[data-state="current"] .stepBody > div { animation: none !important; }
+}
+/* a phone on its side: keep the whole stage, its numbers and its controls on screen */
+@media (max-height: 520px) and (orientation: landscape) {
+  .root { --stage-height: clamp(280px, 86svh, 440px); }
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .transport { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }

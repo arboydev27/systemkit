@@ -58,6 +58,7 @@ function addFrame(f: Frame) {
   frames.add(f);
   if (!rafId) rafId = requestAnimationFrame(loop);
 }
+function removeFrame(f: Frame) { frames.delete(f); }
 
 export function createStage(host: HTMLElement, scene: StageScene, options: StageOptions = {}): StageHandle {
   const reduce = options.reduce ?? (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -67,6 +68,13 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   const choices: Choices = {};
   const clock = { paused: false, offscreen: false };
   const stopped = () => clock.paused || clock.offscreen;
+  // This stage's frames; while it is paused or off screen they leave the shared loop, which then stops.
+  const mine = new Set<Frame>();
+  const parked = () => stopped() || destroyed;
+  function addMine(f: Frame) { mine.add(f); if (!parked()) addFrame(f); }
+  function dropMine(f: Frame) { mine.delete(f); removeFrame(f); }
+  function syncFrames() { for (const f of mine) { if (parked()) removeFrame(f); else addFrame(f); } }
+  function setPaused(value: boolean) { clock.paused = value; syncFrames(); }
   let token: Token = { dead: false };
   let cur = -1, autoPlay = false, ended = false, looping = false, destroyed = false;
   let model: StageModel = initialModel(scene);
@@ -77,12 +85,12 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     return new Promise((resolve, reject) => {
       let t = 0;
       const f: Frame = (dt) => {
-        if (tk.dead) { frames.delete(f); reject(CANCEL); return; }
+        if (tk.dead) { dropMine(f); reject(CANCEL); return; }
         if (stopped()) return;
         t += dt;
-        if (t >= ms) { frames.delete(f); resolve(); }
+        if (t >= ms) { dropMine(f); resolve(); }
       };
-      addFrame(f);
+      addMine(f);
     });
   }
   function tween(ms: number, tk: Token, fn: (p: number) => void): Promise<void> {
@@ -90,22 +98,23 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       let t = 0;
       fn(0);
       const f: Frame = (dt) => {
-        if (tk.dead) { frames.delete(f); fn(1); reject(CANCEL); return; }
+        if (tk.dead) { dropMine(f); reject(CANCEL); return; }
         if (stopped()) return;
         t += dt;
         const p = Math.min(1, t / ms);
         fn(p);
-        if (p >= 1) { frames.delete(f); resolve(); }
+        if (p >= 1) { dropMine(f); resolve(); }
       };
-      addFrame(f);
+      addMine(f);
     });
   }
   function realtime(ms: number, fn: (p: number) => void): Promise<void> {
     return new Promise((resolve) => {
       let t = 0;
       fn(0);
-      const f: Frame = (dt) => { t += dt; const p = Math.min(1, t / ms); fn(p); if (p >= 1) { frames.delete(f); resolve(); } };
-      addFrame(f);
+      const f: Frame = (dt) => { t += dt; const p = Math.min(1, t / ms); fn(p); if (p >= 1) { dropMine(f); resolve(); } };
+      addMine(f);
+      if (clock.paused && !clock.offscreen) addFrame(f);
     });
   }
   const swallow = (err: unknown) => { if (err !== CANCEL) throw err; };
@@ -137,7 +146,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   type Shown = { visible: boolean; op: number; sink: number; lift: number };
   const shown: Record<string, Shown> = {};
   type NodeEls = {
-    g: SVGGElement; lift: SVGGElement; pk: SVGGElement; art: SVGGElement; label: SVGGElement; tag: SVGRectElement;
+    g: SVGGElement; lift: SVGGElement; pk: SVGGElement; art: SVGGElement; label: SVGGElement; labelInner: SVGGElement; pillInner: SVGGElement; tag: SVGRectElement;
     name: SVGTextElement; detail: SVGTextElement; pill: SVGGElement; pillBg: SVGRectElement; barBg: SVGRectElement;
     bar: SVGRectElement; pillText: SVGTextElement; opts: string | null; light: string | null;
   };
@@ -158,24 +167,31 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     pk.innerHTML = plinth(BASE, PH, 11);
     const art = el("g", { transform: `translate(0 ${-PH}) scale(${GLYPH})` }, pk);
     el("path", { class: "down-mark", d: "M-8 -8L8 8M8 -8L-8 8", transform: `translate(0 ${-topOf(n.role) - 6})` }, lift);
+    // Outer groups carry position and fades; inner groups carry dimming, so the two never fight.
     const label = el("g", { class: "node-label" }, gLabels);
-    const tag = el("rect", { class: "tag", x: -40, y: 0, width: 80, height: 36, rx: 10 }, label);
-    const name = el("text", { class: "name", "text-anchor": "middle", y: 15 }, label);
-    const detail = el("text", { class: "detail", "text-anchor": "middle", y: 29 }, label);
+    const labelInner = el("g", {}, label);
+    const tag = el("rect", { class: "tag", x: -40, y: 0, width: 80, height: 36, rx: 10 }, labelInner);
+    const name = el("text", { class: "name", "text-anchor": "middle", y: 15 }, labelInner);
+    const detail = el("text", { class: "detail", "text-anchor": "middle", y: 29 }, labelInner);
     const pill = el("g", { class: "pill is-off" }, gLabels);
-    const pillBg = el("rect", { class: "pill-bg", x: -30, y: -22, width: 60, height: 22, rx: 11 }, pill);
-    const barBg = el("rect", { class: "bar-bg", x: 0, y: -13.5, width: 24, height: 5, rx: 2.5 }, pill);
-    const bar = el("rect", { class: "bar", x: 0, y: -13.5, width: 0, height: 5, rx: 2.5 }, pill);
-    const pillText = el("text", { class: "pill-text", y: -7.2 }, pill);
-    nodeEls[n.id] = { g, lift, pk, art, label, tag, name, detail, pill, pillBg, barBg, bar, pillText, opts: null, light: null };
+    const pillInner = el("g", {}, pill);
+    const pillBg = el("rect", { class: "pill-bg", x: -30, y: -22, width: 60, height: 22, rx: 11 }, pillInner);
+    const barBg = el("rect", { class: "bar-bg", x: 0, y: -13.5, width: 24, height: 5, rx: 2.5 }, pillInner);
+    const bar = el("rect", { class: "bar", x: 0, y: -13.5, width: 0, height: 5, rx: 2.5 }, pillInner);
+    const pillText = el("text", { class: "pill-text", y: -7.2 }, pillInner);
+    nodeEls[n.id] = { g, lift, pk, art, label, labelInner, tag, name, detail, pill, pillInner, pillBg, barBg, bar, pillText, opts: null, light: null };
     shown[n.id] = { visible: false, op: 0, sink: 0, lift: 0 };
   }
   for (const l of scene.links) linkEls.push({ a: l.from, b: l.to, unless: l.unless, path: el("path", { class: "link" }, gLinks), drawn: 0 });
 
+  const wanted = new WeakMap<SVGTextElement, string>();
   function crossfadeText(t: SVGTextElement, value: string) {
-    if (t.textContent === value) return;
+    if ((wanted.get(t) ?? t.textContent) === value) return;
+    wanted.set(t, value);
+    if (typeof t.getAnimations === "function") for (const a of t.getAnimations()) a.cancel();
     if (reduce || !t.textContent || typeof t.animate !== "function") { t.textContent = value; return; }
     t.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in" }).onfinish = () => {
+      if (wanted.get(t) !== value) return;
       t.textContent = value;
       t.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
     };
@@ -227,7 +243,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   function setFocus(list: string[] | undefined) {
     for (const id of ids) {
       const dim = !!list && !list.includes(id);
-      for (const x of [nodeEls[id].g, nodeEls[id].label, nodeEls[id].pill]) x.classList.toggle("is-dim", dim);
+      for (const x of [nodeEls[id].lift, nodeEls[id].labelInner, nodeEls[id].pillInner]) x.classList.toggle("is-dim", dim);
     }
     for (const L of linkEls) L.path.classList.toggle("is-dim", !!list && !(list.includes(L.a) && list.includes(L.b)));
   }
@@ -235,12 +251,14 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   // ---------- routes ----------
   function anchors(a: string, b: string): [Point, Point] {
     const A = pos[a], B = pos[b];
-    if (!narrow) {
+    const sameRow = narrow && Math.abs(A.y - B.y) < 40;
+    const sameTier = !narrow && Math.abs(model.nodes[a].at[0] - model.nodes[b].at[0]) < 0.3;
+    if ((!narrow && !sameTier) || sameRow) {
       const dir = Math.sign(B.x - A.x) || 1;
       return [{ x: A.x + dir * 50, y: A.y }, { x: B.x - dir * 50, y: B.y }];
     }
     const k = view.k;
-    const below = (id: string) => pos[id].y + BASE / 2 + PH + (tagHeight(model.nodes[id].detail) + 4) / k;
+    const below = (id: string) => pos[id].y + BASE / 2 + PH + (tagHeight(model.nodes[id].detail) + 18) / k;
     const above = (id: string) => pos[id].y - topOf(roleOf[id]) - 8 - (hasPill(id) ? 28 / k : 0);
     return B.y >= A.y ? [{ x: A.x, y: below(a) }, { x: B.x, y: above(b) }] : [{ x: A.x, y: above(a) }, { x: B.x, y: below(b) }];
   }
@@ -253,7 +271,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const [s, e] = anchors(a, b);
     let points: Point[];
     if (Math.abs(s.x - e.x) < 1 || Math.abs(s.y - e.y) < 1) points = [s, e];
-    else if (!narrow) { const mx = (s.x + e.x) / 2; points = [s, { x: mx, y: s.y }, { x: mx, y: e.y }, e]; }
+    else if (!narrow && Math.abs(model.nodes[a].at[0] - model.nodes[b].at[0]) >= 0.3) { const mx = (s.x + e.x) / 2; points = [s, { x: mx, y: s.y }, { x: mx, y: e.y }, e]; }
     else { const my = (s.y + e.y) / 2; points = [s, { x: s.x, y: my }, { x: e.x, y: my }, e]; }
     const out = [points[0]];
     for (let i = 1; i < points.length - 1; i++) {
@@ -333,6 +351,9 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const lightOf = (id: string) => (model.nodes[id].down ? "down" : model.nodes[id].light);
     const changed = ids.filter((id) => model.nodes[id].visible && nodeEls[id].light && nodeEls[id].light !== lightOf(id));
     for (const id of ids) { renderNode(id); nodeEls[id].light = lightOf(id); }
+    // whatever an interrupted transition left half-done is settled here
+    for (const id of ids) if (!enters.includes(id) && !exits.includes(id)) Object.assign(shown[id], model.nodes[id].visible ? { visible: true, op: 1, sink: 0, lift: 0 } : { visible: false, op: 0, sink: 0, lift: 0 });
+    for (const L of linkEls) if (!linkWanted(L)) L.drawn = 0;
 
     if (instant || reduce) {
       for (const id of ids) {
@@ -412,20 +433,23 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     updateLinks();
   }
   let camRun = 0;
+  let heading: { k: number; x: number; y: number } | null = null;
   function cameraTo(list: string[] | null | undefined, m: StageModel, instant = false) {
     const target = fit(list && list.length ? list : ids, m);
     if (!instant) {
-      const pd = pads(), b = target.b;
-      const inside = b.x0 >= view.x + pd.x / view.k && b.x1 <= view.x + (view.W - pd.x) / view.k && b.y0 >= view.y + pd.top / view.k && b.y1 <= view.y + (view.H - pd.bottom) / view.k;
-      if (inside && view.k / target.k > 0.84 && view.k / target.k < 1.2) return;
+      const v = heading ?? view, pd = pads(), b = target.b;
+      const inside = b.x0 >= v.x + pd.x / v.k && b.x1 <= v.x + (view.W - pd.x) / v.k && b.y0 >= v.y + pd.top / v.k && b.y1 <= v.y + (view.H - pd.bottom) / v.k;
+      if (inside && v.k / target.k > 0.84 && v.k / target.k < 1.2) return;
     }
     const run = ++camRun;
-    if (instant || reduce) { setView(target); return; }
+    heading = { k: target.k, x: target.x, y: target.y };
+    if (instant || reduce) { setView(target); heading = null; return; }
     const start = { k: view.k, x: view.x, y: view.y };
     realtime(T.camera, (p) => {
       if (run !== camRun) return;
       const q = easeInOut(p);
       setView({ k: 1 / (1 / start.k + (1 / target.k - 1 / start.k) * q), x: start.x + (target.x - start.x) * q, y: start.y + (target.y - start.y) * q });
+      if (p >= 1) heading = null;
     });
   }
 
@@ -464,7 +488,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const o = {
       place(s: number) {
         const p = pos[id];
-        const up = topOf(roleOf[id]) + 10 + (narrow && hasPill(id) ? 30 * s : 0);
+        const up = topOf(roleOf[id]) + 10 + (narrow && hasPill(id) ? 30 * s : 0) + (model.nodes[id].down ? 16 : 0);
         g.setAttribute("transform", `translate(${fmt(p.x)} ${fmt(p.y - up - 14 * s)}) scale(${fmt(s)})`);
       },
     };
@@ -475,8 +499,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     if (reduce || typeof nodeEls[id].pk.animate !== "function") return;
     nodeEls[id].pk.animate([{ transform: "translateY(0)" }, { transform: "translateY(-4px)" }, { transform: "translateY(0)" }], { duration: 340, easing: "ease-out" });
   }
-  function lostMark(p: Point) {
-    const g = el("g", { class: "lost-mark" }, gNotes);
+  function lostMark(p: Point, kind: FlowKind = "hot") {
+    const g = el("g", { class: `lost-mark k-${kind === "hot" ? "hot" : "quiet"}` }, gNotes);
     const burst = el("circle", { r: 10, class: "burst" }, g);
     el("path", { d: "M-5 -5L5 5M5 -5L-5 5" }, g);
     const o = { place(s: number) { g.setAttribute("transform", `translate(${fmt(p.x)} ${fmt(p.y)}) scale(${fmt(s)})`); } };
@@ -500,7 +524,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         });
         if (reach < 1) {
           await tween(380, tk, (p) => { pk.o.op = 1 - p; pk.o.sc = 1 - p * 0.3; pk.o.place(1 / view.k); });
-          lostMark(at(rt, rt.total * reach));
+          lostMark(at(rt, rt.total * reach), kind);
           return;
         }
         const to = e.path[h + 1];
@@ -520,7 +544,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       last = { rt, reach };
     }
     if (!last) return;
-    if (e.lost) { lostMark(at(last.rt, last.rt.total * last.reach)); return; }
+    if (e.lost) { lostMark(at(last.rt, last.rt.total * last.reach), e.kind ?? "request"); return; }
     const pk = packet(e.label, e.kind ?? "request");
     const end = at(last.rt, last.rt.total * 0.7);
     pk.o.x = end.x; pk.o.y = end.y; pk.o.place(1 / view.k);
@@ -568,8 +592,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         });
       }
     };
-    addFrame(f);
-    streams.add(() => { frames.delete(f); for (const d of live) d.g.remove(); });
+    addMine(f);
+    streams.add(() => { dropMine(f); for (const d of live) d.g.remove(); });
   }
 
   async function runEvent(e: StageEvent, tk: Token): Promise<void> {
@@ -593,6 +617,16 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     }
     await Promise.all(pending);
   }
+  /** Put back what a played step leaves on screen, without replaying it: its notes and its ongoing traffic. */
+  function settleExtras(i: number) {
+    let stream: StreamEvent | null = null;
+    for (const e of stepEvents(scene, i, choices)) {
+      if (e.type === "note") note(e.node, e.text, e.tone);
+      else if (e.type === "stream") stream = e;
+      else if (e.type === "packet" && reduce) placePacket(e);
+    }
+    if (stream) startStream(stream);
+  }
   async function runStep(i: number, tk: Token) {
     cur = i; ended = false;
     clearTransient();
@@ -608,7 +642,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   async function go(i: number, auto: boolean) {
     token.dead = true;
     const tk = (token = { dead: false });
-    clock.paused = false; autoPlay = auto; looping = true;
+    setPaused(false); autoPlay = auto; looping = true;
     report();
     try {
       for (let s = i; s < steps.length; s++) {
@@ -627,7 +661,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
 
   // Nothing moves while the stage is off screen.
   const visibility = typeof IntersectionObserver === "function"
-    ? new IntersectionObserver(([entry]) => { clock.offscreen = !entry.isIntersecting; }, { threshold: 0.05 })
+    ? new IntersectionObserver((entries) => { clock.offscreen = !entries[entries.length - 1].isIntersecting; syncFrames(); }, { threshold: 0.05 })
     : null;
   visibility?.observe(host);
   const resize = typeof ResizeObserver === "function" ? new ResizeObserver(() => handle.resize()) : null;
@@ -635,10 +669,10 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   const handle = {
     play() {
       if (ended || cur === -1) { void go(ended ? 0 : Math.max(0, cur), true); return; }
-      autoPlay = true; clock.paused = false;
+      autoPlay = true; setPaused(false);
       if (!looping) void go(cur + 1 < steps.length ? cur + 1 : 0, true); else report();
     },
-    pause() { autoPlay = false; clock.paused = true; report(); },
+    pause() { autoPlay = false; setPaused(true); report(); },
     toggle() { if (autoPlay && !clock.paused) handle.pause(); else handle.play(); },
     next() { if (cur < steps.length - 1) void go(cur + 1, autoPlay && !clock.paused); },
     back() { if (cur > 0) void go(cur - 1, autoPlay && !clock.paused); else handle.reset(); },
@@ -646,7 +680,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     reset() {
       token.dead = true;
       const tk = (token = { dead: false });
-      cur = -1; autoPlay = false; ended = false; looping = false; clock.paused = false;
+      cur = -1; autoPlay = false; ended = false; looping = false; setPaused(false);
       clearTransient(); setFocus(undefined); report();
       const m = initialModel(scene);
       cameraTo(null, m);
@@ -655,27 +689,43 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     choose(step: number, option: number) {
       choices[step] = option;
       if (step !== cur || !steps[step].control) return;
-      const tk = token;
-      runEvents(steps[step].control!.options[option].events, tk).catch(swallow);
+      token.dead = true;
+      const tk = (token = { dead: false });
+      autoPlay = false; looping = false; ended = false; setPaused(false);
+      clearTransient();
+      const end = stateBefore(scene, step + 1, choices);
+      cameraTo(frameOf(step), end);
+      report();
+      (async () => {
+        await transitionTo(end, tk);
+        for (const e of steps[step].events) if (e.type === "note") note(e.node, e.text, e.tone);
+        await runEvents(steps[step].control!.options[option].events.filter((e) => e.type !== "state" && e.type !== "show" && e.type !== "hide" && e.type !== "move"), tk);
+      })().catch(swallow);
     },
     show(i: number) {
       token.dead = true;
       token = { dead: false };
-      cur = i; ended = false; autoPlay = false; looping = false; clock.paused = false;
+      cur = i; ended = false; autoPlay = false; looping = false; setPaused(false);
       clearTransient(); setFocus(steps[i].focus);
       const end = stateBefore(scene, i + 1, choices);
       cameraTo(frameOf(i), end, true);
       transitionTo(end, token, true).catch(swallow);
+      settleExtras(i);
       report();
     },
     resize() {
       const n = host.getBoundingClientRect().width < 560;
-      if (n !== narrow) { narrow = n; for (const id of ids) { pos[id] = placeAt(model.nodes[id].at); renderNode(id); } }
+      if (n !== narrow) {
+        narrow = n;
+        for (const id of ids) { pos[id] = placeAt(model.nodes[id].at); renderNode(id); }
+        if (cur >= 0) { handle.show(cur); return; }
+      }
       cameraTo(cur >= 0 ? frameOf(cur) : null, cur >= 0 ? stateBefore(scene, cur + 1, choices) : model, true);
     },
     destroy() {
       destroyed = true; token.dead = true;
       clearTransient();
+      syncFrames();
       visibility?.disconnect(); resize?.disconnect();
       host.innerHTML = "";
     },

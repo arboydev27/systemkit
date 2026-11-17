@@ -373,7 +373,7 @@ export function LearningExperience({ chapter, step, questions, outline, nextChap
             <CopyLessonLink path={lessonHref(chapter.id, step.id)} />
           </div>
 
-          <div className="lesson-heading">
+          <div className={`lesson-heading ${stageChapters.has(chapter.id) ? "is-compact" : ""}`}>
             <div className="lesson-heading-main">
               <span className="eyebrow"><span className="eyebrow-line" /> LESSON {padded(activeIndex)} <span className="eyebrow-dot">·</span> {step.eyebrow.replace(/^\d+\s*·\s*/, "")}</span>
               <h1 ref={headingRef} tabIndex={-1}>{step.title}</h1>

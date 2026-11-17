@@ -1,4 +1,153 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
-// Not written yet: the lesson keeps its static drawing until this scene exists.
-export const replicationStage: StageScene | null = null;
+// Lesson "Protect the database": writes to one primary and reads to replicas, a stale read and its fix, then failover, split brain and fencing.
+export const replicationStage: StageScene = {
+  id: "replication",
+  intro: "Watch writes go to one primary and reads to replicas, then see what lag and failover cost.",
+  metrics: [{ id: "replicas", label: "Replicas" }, { id: "missing", label: "Missing at failover" }, { id: "writers", label: "Taking writes" }],
+  nodes: [
+    { id: "user", role: "client", label: "User", detail: "browser", at: [0, 0] },
+    { id: "web", role: "web", label: "Web server", detail: "runs the app", at: [1, 0] },
+    { id: "replicaA", role: "database", label: "Replica A", detail: "serves reads", at: [2, -1.5], opts: { replica: true } },
+    { id: "replicaB", role: "database", label: "Replica B", detail: "serves reads", at: [2, 1.5], opts: { replica: true } },
+    { id: "primary", role: "database", label: "Primary", detail: "takes every write", at: [3, 0] },
+  ],
+  links: [
+    { from: "user", to: "web" },
+    { from: "web", to: "primary" },
+    { from: "web", to: "replicaA" },
+    { from: "web", to: "replicaB" },
+    { from: "primary", to: "replicaA" },
+    { from: "primary", to: "replicaB" },
+  ],
+  steps: [
+    {
+      title: "Writes to the primary, reads to replicas",
+      short: "Replicas",
+      text: "In a primary/replica arrangement, every change goes to the primary, and copies called replicas apply it and serve many reads. Replication doesn’t move writes off the primary, so a write bottleneck needs a different remedy.",
+      metrics: { replicas: 2, writers: 1 },
+      changes: ["+ Every write goes to the primary", "+ 2 replicas copy it and serve reads"],
+      events: [
+        { type: "state", node: "web", light: "on" },
+        { type: "state", node: "primary", light: "on", with: true },
+        { type: "state", nodes: ["replicaA", "replicaB"], light: "work", with: true },
+        { type: "stream", every: 220, routes: [
+          { path: ["user", "web", "replicaA"], w: 3, kind: "work" },
+          { path: ["user", "web", "replicaB"], w: 3, kind: "work" },
+          { path: ["user", "web", "primary"], w: 2 },
+          { path: ["primary", "replicaA"], w: 1 },
+          { path: ["primary", "replicaB"], w: 1 },
+        ] },
+      ],
+    },
+    {
+      title: "The primary confirms, then copies",
+      short: "Async write",
+      text: "A user renames their profile. Replication here is asynchronous, the Postgres default: the primary confirms first and ships the change afterward, so replicas lag. Replica A is two seconds behind.",
+      focus: ["user", "web", "primary", "replicaA"],
+      changes: ["+ Rename confirmed by the primary", "~ Replica A: 2 s lag"],
+      events: [
+        { type: "packet", path: ["user", "web"], label: "POST /profile" },
+        { type: "packet", path: ["web", "primary"], label: "UPDATE name" },
+        { type: "state", node: "primary", light: "work" },
+        { type: "packet", path: ["primary", "web"], label: "committed", kind: "response" },
+        { type: "packet", path: ["web", "user"], label: "200 OK", kind: "response" },
+        { type: "state", node: "primary", detail: "ships changes later" },
+        { type: "state", node: "replicaA", light: "on", readout: "2 s lag", with: true },
+      ],
+    },
+    {
+      title: "Lag makes a replica read stale",
+      short: "Stale read",
+      text: "The user reloads, and the read lands on replica A. It hasn’t applied the rename yet, so they see the old name.",
+      focus: ["user", "web", "replicaA"],
+      changes: ["+ Read from replica A", "~ It returns the old name"],
+      events: [
+        { type: "packet", path: ["user", "web"], label: "GET /profile" },
+        { type: "packet", path: ["web", "replicaA"], label: "SELECT name" },
+        { type: "state", node: "replicaA", readout: "2 s lag · old name" },
+        { type: "packet", path: ["replicaA", "web"], label: "old name", kind: "quiet" },
+        { type: "packet", path: ["web", "user"], label: "old name", kind: "quiet" },
+      ],
+    },
+    {
+      title: "Read your own writes from the primary",
+      short: "Own writes",
+      text: "A common fix routes a user’s reads to the primary for a few seconds after their own write. The reload now shows the new name.",
+      focus: ["user", "web", "primary"],
+      changes: ["+ Reads after a write go to the primary", "~ The new name shows"],
+      events: [
+        { type: "packet", path: ["user", "web"], label: "GET /profile" },
+        { type: "state", node: "web", detail: "user just wrote" },
+        { type: "packet", path: ["web", "primary"], label: "SELECT name" },
+        { type: "packet", path: ["primary", "web"], label: "new name", kind: "response" },
+        { type: "packet", path: ["web", "user"], label: "new name", kind: "response" },
+      ],
+    },
+    {
+      title: "Lose the primary, promote a replica",
+      short: "Failover",
+      text: "The primary stops responding, so replica A is promoted and writes are redirected to it. At 500 writes a second, two seconds of lag means up to 1,000 confirmed writes may be missing. Synchronous replication loses none if A survives, but every commit pays an extra round trip.",
+      focus: ["web", "primary", "replicaA"],
+      metrics: { replicas: 1 },
+      changes: ["− Primary unreachable", "+ Replica A promoted", "~ Writes go to A"],
+      events: [
+        { type: "packet", path: ["web", "primary"], label: "UPDATE …", kind: "hot", lost: true },
+        { type: "state", node: "primary", down: true, light: "idle", label: "Old primary", detail: "unreachable" },
+        { type: "state", node: "web", detail: "runs the app", with: true },
+        { type: "state", node: "replicaA", label: "New primary", detail: "was replica A", opts: { replica: false }, readout: "", light: "work" },
+        { type: "packet", path: ["web", "replicaA"], label: "UPDATE …" },
+      ],
+      control: {
+        label: "Replication",
+        options: [
+          {
+            label: "Asynchronous",
+            metrics: { missing: { n: 1000, tone: "hot" } },
+            events: [
+              { type: "note", node: "replicaA", text: "up to 1,000 writes missing", tone: "hot" },
+            ],
+          },
+          {
+            label: "Synchronous",
+            metrics: { missing: 0 },
+            events: [
+              { type: "note", node: "replicaA", text: "none missing; commits wait", tone: "work" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      title: "Split brain: two nodes take writes",
+      short: "Split brain",
+      text: "If the old primary was only cut off, not dead, it still acts as primary when the network heals, and web servers that weren’t redirected keep writing to it. That’s split brain: two nodes take writes, and their copies diverge.",
+      focus: ["web", "primary", "replicaA"],
+      metrics: { writers: { n: 2, tone: "hot" } },
+      changes: ["+ Network heals; old primary still takes writes", "− The two copies diverge"],
+      events: [
+        { type: "state", node: "primary", down: false, light: "hot", tone: "hot", detail: "still takes writes" },
+        { type: "state", node: "web", label: "Web servers", detail: "some not redirected", opts: { many: true }, with: true },
+        { type: "packet", path: ["web", "primary"], label: "UPDATE …", kind: "hot" },
+        { type: "packet", path: ["web", "replicaA"], label: "UPDATE …" },
+        { type: "packet", path: ["primary", "replicaA"], label: "its writes", kind: "hot", lost: true },
+        { type: "note", node: "replicaA", text: "copies diverge", tone: "hot" },
+      ],
+    },
+    {
+      title: "Fence the old primary",
+      short: "Fencing",
+      text: "The old node must be fenced, meaning blocked from accepting writes. Tools such as Patroni use a majority-based store like etcd to allow one primary at a time. Failover is an operational process: plan for missing writes and split brain.",
+      focus: ["web", "primary", "replicaA"],
+      metrics: { writers: 1 },
+      changes: ["+ Old primary fenced", "~ One node takes writes"],
+      events: [
+        { type: "state", node: "primary", down: true, light: "idle", tone: "", detail: "fenced" },
+        { type: "packet", path: ["web", "primary"], label: "UPDATE …", lost: true },
+        { type: "note", node: "replicaA", text: "one primary at a time", tone: "work" },
+        { type: "packet", path: ["web", "replicaA"], label: "UPDATE …" },
+        { type: "packet", path: ["replicaA", "web"], label: "committed", kind: "response" },
+      ],
+    },
+  ],
+};

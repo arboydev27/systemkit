@@ -1,4 +1,136 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
-// Not written yet: the lesson keeps its static drawing until this scene exists.
-export const multiDcStage: StageScene | null = null;
+// Lesson "Serve more than one region": GeoDNS picks a nearby region, data is copied across, Region A fails and traffic moves, then the capacity the survivor needs and a rehearsal of the move.
+export const multiDcStage: StageScene = {
+  id: "multi-dc",
+  intro: "Watch users find a nearby region, then follow them when that region fails.",
+  metrics: [{ id: "regions", label: "Healthy regions" }, { id: "lost", label: "Writes lost" }, { id: "load", label: "Region B load" }],
+  nodes: [
+    { id: "dns", role: "dns", label: "GeoDNS", detail: "answers by location", at: [0, 0] },
+    { id: "users", role: "crowd", label: "Users", detail: "around the world", at: [1, 0] },
+    { id: "webA", role: "web", label: "Web A", detail: "in Region A", at: [2, -1.6] },
+    { id: "webB", role: "web", label: "Web B", detail: "in Region B", at: [2, 1.6] },
+    { id: "dataA", role: "database", label: "Database A", detail: "in Region A", at: [3, -1.6] },
+    { id: "dataB", role: "database", label: "Database B", detail: "in Region B", at: [3, 1.6] },
+  ],
+  links: [
+    { from: "users", to: "dns" },
+    { from: "users", to: "webA" },
+    { from: "users", to: "webB" },
+    { from: "webA", to: "dataA" },
+    { from: "webB", to: "dataB" },
+    { from: "dataA", to: "dataB" },
+  ],
+  steps: [
+    {
+      title: "Users go to a nearby region",
+      short: "Nearby region",
+      text: "A geo-aware DNS service, GeoDNS, answers a lookup with the address of a nearby data center. This user is near Region A, so their requests go there. Users near Region B are sent to B.",
+      metrics: { regions: 2, lost: 0 },
+      changes: ["+ Lookup answered with Region A", "+ Each region serves nearby users"],
+      events: [
+        { type: "packet", path: ["users", "dns"], label: "shop.example?" },
+        { type: "state", node: "dns", light: "on" },
+        { type: "packet", path: ["dns", "users"], label: "Region A address", kind: "response" },
+        { type: "packet", path: ["users", "webA"], label: "GET /" },
+        { type: "state", node: "webA", light: "on", with: true },
+        { type: "packet", path: ["webA", "users"], label: "200 OK", kind: "response" },
+        { type: "state", nodes: ["webB", "dataA", "dataB"], light: "on" },
+        { type: "stream", every: 260, routes: [{ path: ["users", "webA", "dataA"] }, { path: ["users", "webB", "dataB"] }], with: true },
+      ],
+    },
+    {
+      title: "Copy the data to Region B",
+      short: "Copy data",
+      text: "Region B can take over only if it holds the data too. Copies between regions usually go asynchronously, because waiting about 100 ms on each write is expensive. Region A confirms a write at once, and B catches up, here about a second behind.",
+      focus: ["users", "webA", "dataA", "dataB"],
+      changes: ["+ Async copy from A to B", "~ B about 1 s behind A"],
+      events: [
+        { type: "packet", path: ["users", "webA"], label: "POST /orders" },
+        { type: "packet", path: ["webA", "dataA"], label: "INSERT order" },
+        { type: "packet", path: ["dataA", "webA"], label: "committed", kind: "response" },
+        { type: "packet", path: ["webA", "users"], label: "200 OK", kind: "response" },
+        { type: "packet", path: ["dataA", "dataB"], label: "copy, async", kind: "work", gap: 500 },
+        { type: "note", node: "dataB", text: "~1 s behind" },
+      ],
+    },
+    {
+      title: "Region A goes down",
+      short: "Outage",
+      text: "A major outage takes out Region A. Writes it confirmed in the last second never reach Region B, so a one-second lag loses about a second of confirmed writes. Users still sent to A get no answer.",
+      focus: ["users", "webA", "dataA", "dataB"],
+      metrics: { regions: { n: 1, tone: "hot" }, lost: { n: 1, unit: " s", tone: "hot" } },
+      changes: ["− Region A", "− About 1 s of confirmed writes"],
+      events: [
+        { type: "packet", path: ["dataA", "dataB"], label: "last 1 s of writes", kind: "hot", lost: true },
+        { type: "state", nodes: ["webA", "dataA"], light: "idle", down: true, with: true },
+        { type: "note", node: "dataB", text: "missing ~1 s", tone: "hot" },
+        { type: "packet", path: ["users", "webA"], label: "GET /", kind: "hot", lost: true },
+      ],
+    },
+    {
+      title: "DNS moves users to Region B",
+      short: "Move traffic",
+      text: "GeoDNS failover routing now answers lookups with Region B. DNS moves slowly: with a 60-second TTL, many clients switch within minutes, but some resolvers hold old answers for longer, so their users keep being sent to A and get no answer.",
+      focus: ["dns", "users", "webA", "webB"],
+      frame: ["dns", "users", "webA", "webB", "dataA", "dataB"],
+      changes: ["~ GeoDNS answers Region B", "~ Some resolvers keep old answers"],
+      events: [
+        { type: "packet", path: ["users", "dns"], label: "shop.example?" },
+        { type: "packet", path: ["dns", "users"], label: "Region B · TTL 60 s", kind: "response" },
+        { type: "packet", path: ["users", "webB"], label: "GET /" },
+        { type: "packet", path: ["webB", "users"], label: "200 OK", kind: "response" },
+        { type: "packet", path: ["users", "webA"], label: "GET / · old answer", kind: "hot", lost: true },
+        { type: "stream", every: 260, routes: [{ path: ["users", "webB"], w: 4 }, { path: ["users", "webA"], w: 1, kind: "hot" }] },
+      ],
+    },
+    {
+      title: "The survivor needs headroom",
+      short: "Headroom",
+      text: "Region B now carries everyone. If each region ran at 60% of capacity, the survivor faces 120% and overloads. To absorb a full failover, each must stay below 50%, so you pay for about twice what a normal day needs.",
+      focus: ["users", "webB", "dataB"],
+      frame: ["dns", "users", "webA", "webB", "dataA", "dataB"],
+      changes: ["~ Region B carries all traffic", "~ Its load doubles"],
+      events: [],
+      control: {
+        label: "Load per region",
+        options: [
+          {
+            label: "60% each",
+            metrics: { load: { n: 120, unit: "%", tone: "hot" } },
+            events: [
+              { type: "state", node: "webB", light: "hot", readout: "120%", tone: "hot" },
+              { type: "stream", every: 170, routes: [{ path: ["users", "webB", "dataB"], kind: "hot" }] },
+            ],
+          },
+          {
+            label: "Below 50%",
+            metrics: { load: "under 100%" },
+            events: [
+              { type: "state", node: "webB", light: "work", readout: "< 100%", tone: "" },
+              { type: "stream", every: 200, routes: [{ path: ["users", "webB", "dataB"], kind: "work" }] },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      title: "Rehearse the failover",
+      short: "Rehearse",
+      text: "Failover needs both traffic routing and usable data. Here A stays up, so its last writes reach B before DNS sends A’s users there on purpose. Rehearsing this, as Netflix has publicly described doing for an entire AWS region, proves the healthy region actually works and can absorb the load.",
+      metrics: { regions: 2, lost: 0, load: "under 100%" },
+      changes: ["+ Region A healthy, evacuated on purpose", "~ Data copied, then DNS answers B", "+ Proof that Region B can take the load"],
+      events: [
+        { type: "state", nodes: ["webA", "dataA"], light: "on", down: false },
+        { type: "state", node: "webB", light: "on", readout: "< 50%", tone: "", with: true },
+        { type: "packet", path: ["dataA", "dataB"], label: "copy, async", kind: "work" },
+        { type: "packet", path: ["users", "dns"], label: "shop.example?" },
+        { type: "packet", path: ["dns", "users"], label: "Region B address", kind: "response" },
+        { type: "state", nodes: ["webA", "dataA"], light: "idle" },
+        { type: "state", node: "webA", detail: "evacuated", with: true },
+        { type: "state", node: "webB", light: "work", readout: "< 100%", tone: "", with: true },
+        { type: "stream", every: 240, routes: [{ path: ["users", "webB", "dataB"], kind: "work" }], with: true },
+      ],
+    },
+  ],
+};

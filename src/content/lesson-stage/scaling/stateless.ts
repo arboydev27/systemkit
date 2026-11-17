@@ -1,4 +1,151 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
-// Not written yet: the lesson keeps its static drawing until this scene exists.
-export const statelessStage: StageScene | null = null;
+// Lesson "Keep web servers replaceable": a session kept on one server breaks on the next server and on a restart,
+// then moves to a shared store so any server can answer, with signed tokens as the other way out.
+export const statelessStage: StageScene = {
+  id: "stateless",
+  intro: "Watch a login get lost between two servers, then survive a restart once sessions live in a shared store.",
+  metrics: [{ id: "loggedOut", label: "Times logged out" }, { id: "session", label: "Session" }, { id: "lookups", label: "Lookups" }],
+  nodes: [
+    { id: "user", role: "client", label: "User", detail: "browser", at: [0, 0] },
+    { id: "lb", role: "balancer", label: "Load balancer", detail: "picks a server", at: [1, 0] },
+    { id: "webA", role: "web", label: "Web A", detail: "web server", at: [2, -1.1] },
+    { id: "webB", role: "web", label: "Web B", detail: "web server", at: [2, 1.1] },
+    { id: "store", role: "cache", label: "Session store", detail: "Redis or database", at: [3, 0], appear: 4 },
+  ],
+  links: [
+    { from: "user", to: "lb" },
+    { from: "lb", to: "webA" },
+    { from: "lb", to: "webB" },
+    { from: "webA", to: "store" },
+    { from: "webB", to: "store" },
+  ],
+  steps: [
+    {
+      title: "Log in on Web A",
+      short: "Log in",
+      text: "A user logs in, and the load balancer sends the request to Web A. Web A keeps the session, what it remembers about this user between requests, in its own memory.",
+      metrics: { loggedOut: 0, session: "on Web A" },
+      changes: ["+ Session in Web A’s memory"],
+      events: [
+        { type: "packet", path: ["user", "lb", "webA"], label: "POST /login" },
+        { type: "state", node: "webA", light: "on", detail: "session in memory" },
+        { type: "note", node: "webA", text: "session saved", tone: "work", with: true },
+        { type: "packet", path: ["webA", "lb", "user"], label: "200 OK", kind: "response" },
+      ],
+    },
+    {
+      title: "The next request lands on Web B",
+      short: "Next request",
+      text: "The balancer sends the user’s next request to Web B. Web B has no copy of the session, so the user appears logged out.",
+      focus: ["user", "lb", "webB"],
+      frame: ["user", "lb", "webA", "webB"],
+      metrics: { loggedOut: { n: 1, tone: "hot" } },
+      changes: ["~ Web B has no session", "− User appears logged out"],
+      events: [
+        { type: "packet", path: ["user", "lb", "webB"], label: "GET /account" },
+        { type: "state", node: "webB", light: "on", detail: "no session here" },
+        { type: "packet", path: ["webB", "lb", "user"], label: "logged out", kind: "hot" },
+      ],
+    },
+    {
+      title: "Sticky sessions pin the user",
+      short: "Sticky sessions",
+      text: "Sticky sessions route this user back to Web A every time, so the login works again. But the session still lives on one machine.",
+      focus: ["user", "lb", "webA"],
+      frame: ["user", "lb", "webA", "webB"],
+      changes: ["+ Balancer pins the user to Web A", "~ Login works again"],
+      events: [
+        { type: "state", node: "lb", light: "on", detail: "sticky sessions" },
+        { type: "note", node: "lb", text: "pinned to Web A", with: true },
+        { type: "packet", path: ["user", "lb", "webA"], label: "GET /account" },
+        { type: "note", node: "webA", text: "session found", tone: "work" },
+        { type: "packet", path: ["webA", "lb", "user"], label: "200 OK", kind: "response" },
+      ],
+    },
+    {
+      title: "A restart logs them out",
+      short: "Restart",
+      text: "A rolling deploy restarts each server. When Web A restarts, the sessions in its memory are gone, and every user pinned to it is logged out.",
+      focus: ["user", "lb", "webA"],
+      frame: ["user", "lb", "webA", "webB"],
+      metrics: { loggedOut: { n: 2, tone: "hot" }, session: "lost" },
+      changes: ["− Web A’s sessions, on restart", "− Pinned users logged out"],
+      events: [
+        { type: "state", node: "webA", down: true },
+        { type: "pause", ms: 900 },
+        { type: "state", node: "webA", down: false, light: "on", detail: "sessions gone" },
+        { type: "packet", path: ["user", "lb", "webA"], label: "GET /account" },
+        { type: "packet", path: ["webA", "lb", "user"], label: "logged out", kind: "hot" },
+      ],
+    },
+    {
+      title: "Move sessions to a shared store",
+      short: "Shared store",
+      text: "The user logs in again. This time Web A writes the session to a shared store, such as Redis or a database, that every server can reach, and the browser gets only a random session ID.",
+      focus: ["user", "lb", "webA", "store"],
+      frame: ["user", "lb", "webA", "webB", "store"],
+      metrics: { loggedOut: 2, session: "in the store", lookups: 0 },
+      changes: ["+ Shared session store", "~ Browser holds only a session ID"],
+      events: [
+        { type: "show", nodes: ["store"] },
+        { type: "state", nodes: ["webA", "webB"], detail: "no local sessions", with: true },
+        { type: "packet", path: ["user", "lb", "webA"], label: "POST /login" },
+        { type: "packet", path: ["webA", "store"], label: "SET session" },
+        { type: "state", node: "store", light: "work" },
+        { type: "note", node: "store", text: "session stored", tone: "work", with: true },
+        { type: "packet", path: ["webA", "lb", "user"], label: "200 OK · session ID", kind: "response" },
+        { type: "state", node: "user", detail: "holds session ID" },
+      ],
+    },
+    {
+      title: "Any server can answer",
+      short: "Any server",
+      text: "A deploy restarts Web A, and the balancer, no longer sticky, sends the user to Web B. Web B looks the session up in the store, typically about a millisecond on the same network, and the user stays logged in.",
+      metrics: { lookups: 1 },
+      changes: ["~ Balancer no longer sticky", "+ 1 store lookup, about 1 ms"],
+      events: [
+        { type: "state", node: "webA", down: true, detail: "restarting (deploy)" },
+        { type: "state", node: "lb", detail: "picks a server", with: true },
+        { type: "packet", path: ["user", "lb", "webB"], label: "GET /account" },
+        { type: "state", node: "webB", light: "on", with: true },
+        { type: "packet", path: ["webB", "store"], label: "GET session" },
+        { type: "state", node: "store", readout: "~1 ms lookup" },
+        { type: "packet", path: ["store", "webB"], label: "session", kind: "response" },
+        { type: "packet", path: ["webB", "lb", "user"], label: "200 OK · logged in", kind: "response" },
+      ],
+    },
+    {
+      title: "The web tier holds no sessions",
+      short: "Store or token",
+      text: "Any healthy server can now serve the next request. A shared store costs a lookup but can log someone out at once; a signed token skips the lookup but stays valid until it expires.",
+      events: [{ type: "state", node: "webA", down: false, light: "on", detail: "no local sessions" }],
+      control: {
+        label: "Sessions kept in",
+        options: [
+          {
+            label: "Shared store",
+            metrics: { session: "in the store", lookups: { n: 1, unit: "/request" } },
+            events: [
+              { type: "show", nodes: ["store"] },
+              { type: "state", node: "store", light: "work", readout: "~1 ms lookup", detail: "delete = logged out", with: true },
+              { type: "state", node: "user", detail: "holds session ID", with: true },
+              { type: "state", nodes: ["webA", "webB"], detail: "no local sessions", with: true },
+              { type: "stream", every: 260, routes: [{ path: ["user", "lb", "webA", "store"], kind: "work" }, { path: ["user", "lb", "webB", "store"], kind: "work" }] },
+            ],
+          },
+          {
+            label: "Signed token",
+            metrics: { session: "in a token", lookups: { n: 0, unit: "/request" } },
+            events: [
+              { type: "hide", nodes: ["store"] },
+              { type: "state", node: "user", detail: "valid until expiry", with: true },
+              { type: "state", nodes: ["webA", "webB"], detail: "verifies with key", with: true },
+              { type: "stream", every: 260, routes: [{ path: ["user", "lb", "webA"], kind: "work" }, { path: ["user", "lb", "webB"], kind: "work" }] },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+};
