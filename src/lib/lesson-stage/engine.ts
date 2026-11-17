@@ -2,11 +2,12 @@
 // Framework-free, so it stays small and any chapter can use it. The React wrapper owns the controls and text.
 import { GLYPH_TOP, glyph, plinth } from "./pictograms";
 import { applyEvent, cloneModel, initialModel, stateBefore, stepEvents, type Choices, type StageModel } from "./model";
+import { isFront, portSlot, routeLinks, rounded, type Face, type Rect, type RouteNode } from "./routing";
 import type { FlowKind, PacketEvent, Place, StageEvent, StageRole, StageScene, StreamEvent } from "./types";
 
 const NS = "http://www.w3.org/2000/svg";
 const CANCEL = Symbol("cancel");
-const GLYPH = 1.42, PH = 7, BASE = 56;
+const GLYPH = 1.42, PH = 7, BASE = 56, HALF_BASE_W = BASE * Math.cos(Math.PI / 6);
 // Choreography, in ms: what leaves, then what moves, then what arrives, then the links between them.
 const T = { exit: 420, move: 820, enter: 680, stagger: 130, draw: 560, linkStagger: 90, camera: 820, hop: 160 };
 const SPEED = 0.22; // world units per ms
@@ -151,7 +152,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   type Shown = { visible: boolean; op: number; sink: number; lift: number };
   const shown: Record<string, Shown> = {};
   type NodeEls = {
-    g: SVGGElement; lift: SVGGElement; pk: SVGGElement; art: SVGGElement; label: SVGGElement; labelInner: SVGGElement; pillInner: SVGGElement; tag: SVGRectElement;
+    g: SVGGElement; lift: SVGGElement; pk: SVGGElement; ports: SVGGElement; portsKey: string; art: SVGGElement; label: SVGGElement; labelInner: SVGGElement; pillInner: SVGGElement; tag: SVGRectElement;
     name: SVGTextElement; detail: SVGTextElement; pill: SVGGElement; pillBg: SVGRectElement; barBg: SVGRectElement;
     bar: SVGRectElement; pillText: SVGTextElement; opts: string | null; light: string | null;
   };
@@ -179,6 +180,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     el("ellipse", { class: "soft", cx: 0, cy: 12, rx: 66, ry: 33, fill: "url(#sk-soft-shadow)" }, lift);
     const pk = el("g", { class: "pk" }, lift);
     pk.innerHTML = plinth(BASE, PH, 11);
+    // where links plug into the base's front
+    const ports = el("g", { class: "ports" }, pk);
     const art = el("g", { transform: `translate(0 ${-PH}) scale(${GLYPH})` }, pk);
     el("path", { class: "down-mark", d: "M-8 -8L8 8M8 -8L-8 8", transform: `translate(0 ${-topOf(n.role) - 6})` }, lift);
     // Outer groups carry position and fades; inner groups carry dimming, so the two never fight.
@@ -193,7 +196,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const barBg = el("rect", { class: "bar-bg", x: 0, y: -13.5, width: 24, height: 5, rx: 2.5 }, pillInner);
     const bar = el("rect", { class: "bar", x: 0, y: -13.5, width: 0, height: 5, rx: 2.5 }, pillInner);
     const pillText = el("text", { class: "pill-text", y: -7.2 }, pillInner);
-    nodeEls[n.id] = { g, lift, pk, art, label, labelInner, tag, name, detail, pill, pillInner, pillBg, barBg, bar, pillText, opts: null, light: null };
+    nodeEls[n.id] = { g, lift, pk, ports, portsKey: "", art, label, labelInner, tag, name, detail, pill, pillInner, pillBg, barBg, bar, pillText, opts: null, light: null };
     shown[n.id] = { visible: false, op: 0, sink: 0, lift: 0 };
   }
   for (const l of scene.links) linkEls.push({ a: l.from, b: l.to, unless: l.unless, path: el("path", { class: "link" }, gLinks), drawn: 0 });
@@ -267,51 +270,12 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   }
 
   // ---------- routes ----------
-  function anchors(a: string, b: string): [Point, Point] {
-    const A = pos[a], B = pos[b];
-    const sameRow = narrow && Math.abs(A.y - B.y) < 40;
-    const sameTier = !narrow && Math.abs(model.nodes[a].at[0] - model.nodes[b].at[0]) < 0.3;
-    if ((!narrow && !sameTier) || sameRow) {
-      const dir = Math.sign(B.x - A.x) || 1;
-      return [{ x: A.x + dir * 50, y: A.y }, { x: B.x - dir * 50, y: B.y }];
-    }
-    const s = ov();
-    const below = (id: string) => pos[id].y + BASE / 2 + PH + (tagHeight(model.nodes[id].detail) + 18) * s;
-    const above = (id: string) => pos[id].y - topOf(roleOf[id]) - 8 - (narrow && hasPill(id) ? 28 * s : 0);
-    if (B.y >= A.y) {
-      // too close to run under one and over the other: leave from the side and drop in from above
-      if (above(b) - below(a) < 40 * s) return [{ x: A.x + (Math.sign(B.x - A.x) || 1) * 50, y: A.y }, { x: B.x, y: above(b) }];
-      return [{ x: A.x, y: below(a) }, { x: B.x, y: above(b) }];
-    }
-    if (above(a) - below(b) < 40 * s) return [{ x: A.x, y: above(a) }, { x: B.x + (Math.sign(A.x - B.x) || 1) * 50, y: B.y }];
-    return [{ x: A.x, y: above(a) }, { x: B.x, y: below(b) }];
-  }
+  // Links lie on the floor: they run along its axes into ports on the parts' bases (see routing.ts). Each link's shape
+  // is chosen for where the parts will stand, then drawn for where they are, so a link keeps its shape while parts move.
   function measure(pts: Point[]): Route {
     const len = [0];
     for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
     return { pts, len, total: len[len.length - 1] };
-  }
-  function route(a: string, b: string, r = 18): Route {
-    const [s, e] = anchors(a, b);
-    let points: Point[];
-    const A = pos[a], B = pos[b];
-    const sideStart = Math.abs(s.y - A.y) < 1 && Math.abs(s.x - A.x) > 1, sideEnd = Math.abs(e.y - B.y) < 1 && Math.abs(e.x - B.x) > 1;
-    const vertical = (narrow && !(sideStart && sideEnd)) || (!narrow && Math.abs(model.nodes[a].at[0] - model.nodes[b].at[0]) < 0.3);
-    if (Math.abs(s.x - e.x) < 1 || Math.abs(s.y - e.y) < 1) points = [s, e];
-    else if (vertical && sideStart !== sideEnd) points = sideStart ? [s, { x: e.x, y: s.y }, e] : [s, { x: s.x, y: e.y }, e];
-    else if (!vertical) { const mx = (s.x + e.x) / 2; points = [s, { x: mx, y: s.y }, { x: mx, y: e.y }, e]; }
-    else { const my = (s.y + e.y) / 2; points = [s, { x: s.x, y: my }, { x: e.x, y: my }, e]; }
-    const out = [points[0]];
-    for (let i = 1; i < points.length - 1; i++) {
-      const p = points[i], pa = points[i - 1], pb = points[i + 1];
-      const la = Math.hypot(p.x - pa.x, p.y - pa.y), lb = Math.hypot(pb.x - p.x, pb.y - p.y);
-      const rr = Math.min(r, la / 2, lb / 2);
-      const p1 = { x: p.x + ((pa.x - p.x) / la) * rr, y: p.y + ((pa.y - p.y) / la) * rr };
-      const p2 = { x: p.x + ((pb.x - p.x) / lb) * rr, y: p.y + ((pb.y - p.y) / lb) * rr };
-      for (let k = 0; k <= 8; k++) { const t = k / 8, u = 1 - t; out.push({ x: u * u * p1.x + 2 * u * t * p.x + t * t * p2.x, y: u * u * p1.y + 2 * u * t * p.y + t * t * p2.y }); }
-    }
-    out.push(points[points.length - 1]);
-    return measure(out);
   }
   function offset(rt: Route, off: number): Route {
     return measure(rt.pts.map((p, i) => {
@@ -320,7 +284,6 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       return { x: p.x - (dy / l) * off, y: p.y + (dx / l) * off };
     }));
   }
-  const pathOf = (rt: Route) => "M" + rt.pts.map((p) => `${fmt(p.x)} ${fmt(p.y)}`).join("L");
   function at(rt: Route, s: number): Point {
     s = Math.max(0, Math.min(rt.total, s));
     let i = 1;
@@ -329,30 +292,114 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const a = rt.pts[i - 1], b = rt.pts[i];
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
   }
-  function partial(rt: Route, f: number) {
-    const s = rt.total * Math.max(0, Math.min(1, f));
-    const out = [rt.pts[0]];
-    for (let i = 1; i < rt.pts.length && rt.len[i] <= s; i++) out.push(rt.pts[i]);
-    out.push(at(rt, s));
-    return "M" + out.map((p) => `${fmt(p.x)} ${fmt(p.y)}`).join("L");
+  /** The route from its start to `f` of the way along, leaving out the stretches in `gaps` (where another link crosses over). */
+  function partial(rt: Route, f: number, gaps: [number, number][] = []) {
+    const end = rt.total * Math.max(0, Math.min(1, f));
+    const cuts = [0, ...gaps.flat().filter((c) => c > 0 && c < end), end].sort((a, b) => a - b);
+    let d = "";
+    for (let k = 0; k < cuts.length - 1; k++) {
+      const s0 = cuts[k], s1 = cuts[k + 1], mid = (s0 + s1) / 2;
+      if (s1 - s0 < 0.01 || gaps.some(([a, b]) => mid > a && mid < b)) continue;
+      const pts = [at(rt, s0)];
+      for (let i = 1; i < rt.pts.length - 1; i++) if (rt.len[i] > s0 && rt.len[i] < s1) pts.push(rt.pts[i]);
+      pts.push(at(rt, s1));
+      d += "M" + pts.map((p) => `${fmt(p.x)} ${fmt(p.y)}`).join("L");
+    }
+    return d;
+  }
+  /** Where along a route a point lies (the nearest place on it). */
+  function along(rt: Route, p: Point): number {
+    let best = 0, bestD = Infinity;
+    for (let i = 1; i < rt.pts.length; i++) {
+      const a = rt.pts[i - 1], b = rt.pts[i], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+      const d = Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y);
+      if (d < bestD) { bestD = d; best = rt.len[i - 1] + (rt.len[i] - rt.len[i - 1]) * t; }
+    }
+    return best;
+  }
+
+  /** A part as the router sees it: where it stands, how tall it is, and where its tag and load pill sit. */
+  function routeNode(id: string, p: Point, m: StageModel, s: number): RouteNode {
+    const n = m.nodes[id], top = topOf(roleOf[id]);
+    const tw = Math.round(tagWidth(n)) * s, ty = p.y + BASE / 2 + PH - 4 - 6 * s;
+    let pill: Rect | undefined;
+    if (hasPill(id, m)) {
+      const pw = pillWidth(n) * s;
+      pill = narrow
+        ? { x0: p.x - pw / 2, y0: p.y - top - 6 - 22 * s, x1: p.x + pw / 2, y1: p.y - top - 6 }
+        : { x0: p.x + 46, y0: p.y - top * 0.5 - 22 * s, x1: p.x + 46 + pw, y1: p.y - top * 0.5 };
+    }
+    return { id, at: p, top, tag: { x0: p.x - tw / 2, y0: ty, x1: p.x + tw / 2, y1: ty + tagHeight(n.detail) * s }, tagRound: 10 * s, pill };
+  }
+  const gapAt = (s: number) => 8 * s;
+  /** Routes for the links in `list` with every visible part of `m` standing where `place` says. */
+  function routesFor(m: StageModel, list: LinkEl[], place: (id: string) => Point | undefined, s: number, force?: Map<number, string>, rough = false) {
+    const nodes: RouteNode[] = [];
+    for (const id of ids) { const p = place(id); if (p && (m.nodes[id].visible || shown[id].visible)) nodes.push(routeNode(id, p, m, s)); }
+    const links = list.map((L) => ({ id: linkEls.indexOf(L), a: L.a, b: L.b, quiet: !!focusList && !(focusList.includes(L.a) && focusList.includes(L.b)) }));
+    return { nodes, links, run: () => routeLinks(nodes, links, { narrow, gap: gapAt(s), force, rough }) };
+  }
+  type Drawn = { rt: Route; gaps: [number, number][]; from: Face; to: Face; pts: Point[] };
+  let drawnRoutes = new Map<LinkEl, Drawn>(), drawnKey = "", planKey = "";
+  let plan = new Map<number, string>();
+  function currentRoutes(): Map<LinkEl, Drawn> {
+    const live = linkEls.filter((L) => pos[L.a] && pos[L.b] && (linkWanted(L) || (L.drawn > 0 && shown[L.a].visible && shown[L.b].visible)));
+    // the shapes come from where the parts are headed, at the zoom the camera is headed for
+    const sGoal = ovs(heading?.k ?? view.k);
+    const goal = routesFor(model, live, (id) => (pos[id] ? placeAt(model.nodes[id].at) : undefined), sGoal);
+    const gk = JSON.stringify([goal.nodes, goal.links, narrow, fmt(sGoal)]);
+    if (gk !== planKey) { planKey = gk; plan = new Map(goal.run().map((r) => [r.id, r.shape])); }
+    const s = ov(), now = routesFor(model, live, (id) => pos[id], s, plan);
+    const key = JSON.stringify([now.nodes, now.links, narrow, fmt(s), planKey]);
+    if (key === drawnKey) return drawnRoutes;
+    drawnKey = key;
+    drawnRoutes = new Map();
+    const g = 3.5 * s;
+    for (const r of now.run()) {
+      const rt = measure(rounded(r.pts, 12 * s));
+      drawnRoutes.set(linkEls[r.id], { rt, gaps: r.under.map((x) => { const a = along(rt, x); return [a - g, a + g] as [number, number]; }), from: r.from, to: r.to, pts: r.pts });
+    }
+    return drawnRoutes;
+  }
+  function route(a: string, b: string): Route {
+    const L = linkEls.find((l) => l.a === a && l.b === b);
+    const known = L && currentRoutes().get(L);
+    if (known) return known.rt;
+    // a message between two parts with no link drawn between them
+    const parts = routesFor(model, [], (id) => pos[id], ov()).nodes;
+    const r = routeLinks(parts, [{ id: -1, a, b }], { narrow, gap: gapAt(ov()) })[0];
+    return measure(rounded(r ? r.pts : [pos[a], pos[b]], 12 * ov()));
   }
   /** One hop of a message, on its own lane so a request and its reply never overlap. */
   function hop(a: string, b: string): Route {
     const link = scene.links.find((l) => (l.from === a && l.to === b) || (l.from === b && l.to === a));
     const base = link ? route(link.from, link.to) : route(a, b);
-    return offset(!link || link.from === a ? base : measure([...base.pts].reverse()), 5);
+    return offset(!link || link.from === a ? base : measure([...base.pts].reverse()), 3 * ov());
   }
 
   const linkWanted = (L: LinkEl, m = model) => m.nodes[L.a].visible && m.nodes[L.b].visible && !(L.unless && m.nodes[L.unless].visible);
   function updateLinks() {
+    const routes = currentRoutes();
+    const ports: Record<string, string[]> = {};
     for (const L of linkEls) {
-      const on = L.drawn > 0 && shown[L.a].visible && shown[L.b].visible && !!pos[L.a] && !!pos[L.b];
+      const r = routes.get(L);
+      const on = L.drawn > 0 && shown[L.a].visible && shown[L.b].visible && !!r;
       L.path.style.display = on ? "" : "none";
-      if (!on) continue;
+      if (!on || !r) continue;
       L.path.classList.toggle("is-down", model.nodes[L.a].down || model.nodes[L.b].down);
-      const rt = route(L.a, L.b);
-      L.path.setAttribute("d", L.drawn >= 1 ? pathOf(rt) : partial(rt, L.drawn));
+      L.path.setAttribute("d", partial(r.rt, L.drawn, r.gaps));
       L.path.style.opacity = String(Math.min(shown[L.a].op, shown[L.b].op));
+      // a port shows once its link has reached it
+      const slot = (id: string, face: Face, p: Point) => { const q = portSlot(face, p, pos[id]); if (q) (ports[id] ??= []).push(q); };
+      if (isFront(r.from)) slot(L.a, r.from, r.pts[0]);
+      if (L.drawn >= 1 && isFront(r.to)) slot(L.b, r.to, r.pts[r.pts.length - 1]);
+    }
+    for (const id of ids) {
+      const e = nodeEls[id], key = (ports[id] ?? []).join("|");
+      if (key === e.portsKey) continue;
+      e.portsKey = key;
+      e.ports.innerHTML = (ports[id] ?? []).map((q) => `<polygon class="port" points="${q}"/>`).join("");
     }
   }
 
@@ -450,7 +497,28 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       y0 = Math.min(y0, p.y - topOf(roleOf[id]) - 10 - (narrow && pill ? 26 * s : 0) - (notes.has(id) ? 34 * s : 0) - (n.down ? 16 : 0));
       y1 = Math.max(y1, p.y + BASE / 2 + PH + (tagHeight(n.detail) - 2) * s);
     }
+    // links can run out past the parts, below a row or around one
+    const inList = new Set(list), live = linkEls.filter((L) => linkWanted(L, m) && inList.has(L.a) && inList.has(L.b));
+    const r = isFinite(x0) && live.length ? routeBox(m, live, s) : null;
+    if (r) { x0 = Math.min(x0, r.x0); x1 = Math.max(x1, r.x1); y0 = Math.min(y0, r.y0); y1 = Math.max(y1, r.y1); }
     return isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
+  }
+  // The camera tries several zooms for each step, so the links' extent is kept for each layout and (rounded) zoom.
+  const routeBoxes = new Map<string, Rect | null>();
+  function routeBox(m: StageModel, live: LinkEl[], s: number): Rect | null {
+    const q = Math.round(s * 20) / 20;
+    const run = routesFor(m, live, (id) => (m.nodes[id].visible ? placeAt(m.nodes[id].at) : undefined), q, undefined, true);
+    const key = JSON.stringify([run.nodes, run.links.map((l) => l.id), narrow, q]);
+    if (!routeBoxes.has(key)) {
+      if (routeBoxes.size > 64) routeBoxes.clear();
+      let box: Rect | null = null;
+      for (const r of run.run()) for (const p of r.pts) {
+        box = box ?? { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+        box = { x0: Math.min(box.x0, p.x - 6), y0: Math.min(box.y0, p.y - 6), x1: Math.max(box.x1, p.x + 6), y1: Math.max(box.y1, p.y + 6) };
+      }
+      routeBoxes.set(key, box);
+    }
+    return routeBoxes.get(key)!;
   }
   const pads = () => ({ x: narrow ? 14 : 40, top: narrow ? 76 : 72, bottom: 84 });
   /** What a phone needs between rows and columns at zoom k: the tallest part, its tag, its pill and a clear stretch of link. */
@@ -549,6 +617,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   const streams = new Set<() => void>();
   function clearTransient() {
     for (const g of [gTrails, gStreamTrails, gPackets, gNotes, gDots, gRings]) g.innerHTML = "";
+    resting = [];
     overlays.clear();
     for (const stop of streams) stop();
     streams.clear();
@@ -557,8 +626,9 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const p = el("path", { class: `trail k-${kind}`, d: "" }, group);
     return (f: number) => p.setAttribute("d", f <= 0 ? "" : partial(rt, f));
   }
+  const pillW = (label: string, dot: boolean) => Math.round((dot ? 26 : 16) + label.length * 6.3);
   function pillMarkup(g: SVGGElement, label: string, dot: boolean) {
-    const w = Math.round((dot ? 26 : 16) + label.length * 6.3);
+    const w = pillW(label, dot);
     el("rect", { x: -w / 2, y: -11, width: w, height: 22, rx: 11 }, g);
     if (dot) el("circle", { cx: -w / 2 + 10, cy: 0, r: 2.8 }, g);
     const t = el("text", { x: dot ? 5 : 0, y: 3.8, "text-anchor": "middle" }, g);
@@ -571,6 +641,18 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     overlays.add(o);
     return { g, o, remove() { overlays.delete(o); g.remove(); } };
   }
+  /** How far above a part's base its note floats. */
+  const noteUp = (id: string, s: number) => topOf(roleOf[id]) + 10 + (narrow && hasPill(id) ? 30 * s : 0) + (model.nodes[id].down ? 16 : 0) + 14 * s;
+  /** Where the current step's notes on a part sit, played or not yet. */
+  function noteBoxes(id: string): Rect[] {
+    if (cur < 0) return [];
+    const s = ov(), p = pos[id], y = p.y - noteUp(id, s);
+    return stepEvents(scene, cur, choices).flatMap((e) => {
+      if (e.type !== "note" || e.node !== id) return [];
+      const w = (pillW(e.text, !!e.tone) / 2) * s;
+      return [{ x0: p.x - w, y0: y - 11 * s, x1: p.x + w, y1: y + 11 * s }];
+    });
+  }
   function note(id: string, text: string, tone?: "work" | "hot") {
     const g = el("g", { class: `note t-${tone ?? "plain"}` }, gNotes);
     const inner = el("g", {}, g);
@@ -578,8 +660,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const o = {
       place(s: number) {
         const p = pos[id];
-        const up = topOf(roleOf[id]) + 10 + (narrow && hasPill(id) ? 30 * s : 0) + (model.nodes[id].down ? 16 : 0);
-        g.setAttribute("transform", `translate(${fmt(p.x)} ${fmt(p.y - up - 14 * s)}) scale(${fmt(s)})`);
+        g.setAttribute("transform", `translate(${fmt(p.x)} ${fmt(p.y - noteUp(id, s))}) scale(${fmt(s)})`);
       },
     };
     overlays.add(o); o.place(ov());
@@ -598,46 +679,91 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     if (reduce) burst.style.opacity = "0";
     else realtime(650, (q) => { burst.setAttribute("r", String(fmt(4 + 16 * easeOut(q)))); burst.style.opacity = String(0.8 * (1 - q)); });
   }
+  /** How far along a hop a message pill can go, or where it can start, without covering the part at that end. */
+  /** A part and everything drawn on it: its base and the part above, its tag, load pill and the step's notes. */
+  function partBoxes(id: string): Rect[] {
+    const s = ov(), p = pos[id], n = routeNode(id, p, model, s), w = HALF_BASE_W;
+    return [{ x0: p.x - w, y0: p.y - n.top - 4, x1: p.x + w, y1: p.y + BASE / 2 + 2 }, n.tag, ...(n.pill ? [n.pill] : []), ...noteBoxes(id)];
+  }
+  /** The box a message pill covers when it rides at `d` along a route. */
+  function pillBox(rt: Route, d: number, label: string, kind: FlowKind): Rect {
+    const s = ov(), q = at(rt, d), hw = (pillW(label, kind !== "request") / 2) * s + 4, hh = 11 * s + 3, cy = q.y - 16 * s;
+    return { x0: q.x - hw, y0: cy - hh, x1: q.x + hw, y1: cy + hh };
+  }
+  const meets = (a: Rect, b: Rect) => a.x1 > b.x0 && a.x0 < b.x1 && a.y1 > b.y0 && a.y0 < b.y1;
+  /** How far along a hop a message pill can go, or where it can start, without covering the part at that end. */
+  function clearOf(rt: Route, id: string, label: string, kind: FlowKind, arriving: boolean): number {
+    const keepOff = partBoxes(id);
+    const clear = (d: number) => { const b = pillBox(rt, d, label, kind); return !keepOff.some((r) => meets(b, r)); };
+    const step = 3;
+    if (arriving) { for (let d = rt.total; d > rt.total * 0.45; d -= step) if (clear(d)) return d; return rt.total * 0.45; }
+    for (let d = 0; d < rt.total * 0.45; d += step) if (clear(d)) return d;
+    return rt.total * 0.45;
+  }
   async function runPacket(e: PacketEvent, tk: Token) {
     const kind = e.kind ?? "request";
-    const pk = packet(e.label, kind);
+    let pk: ReturnType<typeof packet> | null = null;
     try {
       for (let h = 0; h < e.path.length - 1; h++) {
-        const rt = hop(e.path[h], e.path[h + 1]);
+        const from = e.path[h], to = e.path[h + 1];
+        const rt = hop(from, to);
         const draw = trail(rt, kind);
-        const reach = e.lost && h === e.path.length - 2 ? 0.58 : 1;
-        await tween((rt.total * reach) / SPEED, tk, (p) => {
-          const q = easeInOut(p) * reach, pt = at(rt, rt.total * q);
-          pk.o.x = pt.x; pk.o.y = pt.y;
-          pk.o.sc = h === 0 ? backOut(Math.min(1, p * 3.5)) : 1;
-          draw(q); pk.o.place(ov());
+        const last = h === e.path.length - 2;
+        // The pill rides between the two parts and stops short of the one it reaches; its trail runs port to port.
+        const s0 = clearOf(rt, from, e.label, kind, false);
+        const s1 = Math.max(s0, e.lost && last ? rt.total * 0.58 : clearOf(rt, to, e.label, kind, true));
+        draw(s0 / rt.total);
+        pk = packet(e.label, kind);
+        const p0 = at(rt, s0);
+        pk.o.x = p0.x; pk.o.y = p0.y; pk.o.sc = 0; pk.o.place(ov());
+        const ride = pk;
+        await tween(Math.max(160, (s1 - s0) / SPEED), tk, (p) => {
+          const q = s0 + (s1 - s0) * easeInOut(p), pt = at(rt, q);
+          ride.o.x = pt.x; ride.o.y = pt.y;
+          ride.o.sc = backOut(Math.min(1, p * 3.5));
+          draw(q / rt.total); ride.o.place(ov());
         });
-        if (reach < 1) {
-          await tween(380, tk, (p) => { pk.o.op = 1 - p; pk.o.sc = 1 - p * 0.3; pk.o.place(ov()); });
-          lostMark(at(rt, rt.total * reach), kind);
+        if (e.lost && last) {
+          await tween(380, tk, (p) => { ride.o.op = 1 - p; ride.o.sc = 1 - p * 0.3; ride.o.place(ov()); });
+          lostMark(at(rt, s1), kind);
           return;
         }
-        const to = e.path[h + 1];
+        // it hands over: the pill goes as the trail reaches the port, and the part takes it
+        await tween(180, tk, (p) => { ride.o.sc = 1 - 0.35 * p; ride.o.op = 1 - p; ride.o.place(ov()); draw((s1 + (rt.total - s1) * p) / rt.total); });
+        ride.remove(); pk = null;
         bob(to); ring(pos[to], ringKind(kind));
-        if (h < e.path.length - 2) await after(T.hop, tk);
+        if (!last) await after(T.hop, tk);
       }
-      await tween(180, tk, (p) => { pk.o.sc = 1 - 0.35 * p; pk.o.op = 1 - p; pk.o.place(ov()); });
-    } finally { pk.remove(); }
+    } finally { pk?.remove(); }
   }
+  // Messages resting on the stage (reduced motion), so the next one rests clear of them.
+  let resting: Rect[] = [];
   function placePacket(e: PacketEvent, lossOnly = false) {
     if (lossOnly && !e.lost) return;
-    // Reduced motion: the route is drawn and the message rests near where it arrives.
-    let last: { rt: Route; reach: number } | null = null;
+    // Reduced motion: the route is drawn and the message rests short of where it arrives.
+    let last: { rt: Route; reach: number; from: string; to: string } | null = null;
     for (let h = 0; h < e.path.length - 1; h++) {
       const rt = hop(e.path[h], e.path[h + 1]);
       const reach = e.lost && h === e.path.length - 2 ? 0.58 : 1;
       trail(rt, e.kind ?? "request")(reach);
-      last = { rt, reach };
+      last = { rt, reach, from: e.path[h], to: e.path[h + 1] };
     }
     if (!last) return;
     if (e.lost) { lostMark(at(last.rt, last.rt.total * last.reach), e.kind ?? "request"); return; }
-    const pk = packet(e.label, e.kind ?? "request");
-    const end = at(last.rt, last.rt.total * 0.7);
+    const kind = e.kind ?? "request", pk = packet(e.label, kind), rt = last.rt;
+    // as near its part as it can rest clear of both parts, their notes and the messages already resting
+    const avoid = [...partBoxes(last.to), ...partBoxes(last.from), ...resting];
+    const near = Math.min(rt.total * 0.7, clearOf(rt, last.to, e.label, kind, true));
+    // where nothing is clear, the place that covers least of the others
+    const covered = (b: Rect) => avoid.reduce((sum, r) => sum + Math.max(0, Math.min(b.x1, r.x1) - Math.max(b.x0, r.x0)) * Math.max(0, Math.min(b.y1, r.y1) - Math.max(b.y0, r.y0)), 0);
+    let d = near, least = Infinity;
+    for (let t = near; t > rt.total * 0.2; t -= 3) {
+      const c = covered(pillBox(rt, t, e.label, kind));
+      if (c < least - 1) { least = c; d = t; }
+      if (c === 0) break;
+    }
+    resting.push(pillBox(rt, d, e.label, kind));
+    const end = at(rt, d);
     pk.o.x = end.x; pk.o.y = end.y; pk.o.place(ov());
   }
   function startStream(e: StreamEvent) {

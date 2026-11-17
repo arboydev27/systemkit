@@ -124,6 +124,7 @@
 .stage :global(.griddot) { fill: var(--diagram-dot); }
 .stage :global(.link) { fill: none; stroke: var(--line-strong); stroke-width: 1.4; vector-effect: non-scaling-stroke; transition: opacity .4s; }
 .stage :global(.link.is-down) { stroke-dasharray: 3 5; }
+.stage :global(.port) { fill: var(--pk-line); }
 .stage :global(.is-dim) { opacity: .38; }
 .stage :global(.is-quiet .name), .stage :global(.is-quiet .detail), .stage :global(.is-quiet .pill-text) { fill: var(--muted); }
 .stage :global(.is-quiet .tag), .stage :global(.is-quiet .pill-bg) { stroke: var(--line); }
