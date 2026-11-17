@@ -1,8 +1,8 @@
 // Checks a stage scene before it ships: every reference resolves and the words stay short enough to read while things move.
 import type { StageEvent, StageScene } from "./types";
+import { roleProblems } from "./roles.ts";
 
 export const STAGE_LIMITS = { minSteps: 3, maxSteps: 8, titleChars: 44, shortChars: 18, textWords: 60, labelChars: 16, detailChars: 20, packetChars: 22, noteChars: 26 };
-const ROLES = new Set(["client", "crowd", "dns", "balancer", "web", "cache", "database", "cdn", "storage", "queue", "worker", "monitor"]);
 const SIGNS = new Set(["+", "−", "~"]);
 
 export function validateScene(scene: StageScene): string[] {
@@ -12,11 +12,11 @@ export function validateScene(scene: StageScene): string[] {
   for (const n of scene.nodes) {
     if (ids.has(n.id)) problems.push(where(`duplicate node "${n.id}"`));
     ids.add(n.id);
-    if (!ROLES.has(n.role)) problems.push(where(`node "${n.id}" has unknown role "${n.role}"`));
     if (n.label.length > STAGE_LIMITS.labelChars) problems.push(where(`node "${n.id}" label is longer than ${STAGE_LIMITS.labelChars} characters`));
     if ((n.detail ?? "").length > STAGE_LIMITS.detailChars) problems.push(where(`node "${n.id}" detail is longer than ${STAGE_LIMITS.detailChars} characters`));
     if (n.appear !== undefined && (n.appear < 1 || n.appear >= scene.steps.length)) problems.push(where(`node "${n.id}" appears at step ${n.appear}, outside 1-${scene.steps.length - 1}`));
   }
+  for (const p of roleProblems(scene)) problems.push(where(p));
   const node = (id: string, context: string) => { if (!ids.has(id)) problems.push(where(`${context} names unknown node "${id}"`)); };
   const linked = (a: string, b: string) => scene.links.some((l) => (l.from === a && l.to === b) || (l.from === b && l.to === a));
   for (const l of scene.links) { node(l.from, "a link"); node(l.to, "a link"); if (l.unless) node(l.unless, "a link"); }

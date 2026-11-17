@@ -1,12 +1,9 @@
 // The data a lesson stage plays: parts, the links between them, and steps of events.
 // A scene is plain data, so a chapter can author its own and load it with its lessons.
 
-export type StageRole =
-  | "client" | "crowd" | "dns" | "balancer" | "web" | "cache" | "database"
-  | "cdn" | "storage" | "queue" | "worker" | "monitor";
-
-/** Options a pictogram understands: a bigger machine, a read replica, a queue's backlog. */
-export type GlyphOptions = { big?: boolean; replica?: boolean; items?: number; many?: boolean; level?: number; levelHot?: boolean };
+// The parts a stage can draw and the options they read live in roles.ts, with the pictograms.
+import type { GlyphOptions, StageRole } from "./roles.ts";
+export type { GlyphOptions, StageRole };
 
 /** Where a part stands: `[tier, lane]`. Tiers run left to right (top to bottom on a phone); lanes stack siblings. */
 export type Place = [tier: number, lane: number];

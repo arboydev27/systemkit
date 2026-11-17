@@ -1,6 +1,8 @@
 // Plays a lesson stage: an SVG of the system that changes step by step, with messages moving between parts.
 // Framework-free, so it stays small and any chapter can use it. The React wrapper owns the controls and text.
-import { GLYPH_TOP, glyph, plinth } from "./pictograms";
+import { GLYPH_TOP, PICTOGRAM_DEFS, glyph, isDrawn, plinth } from "./pictograms.ts";
+import { loadScenePacks } from "./packs/index.ts";
+import { fills } from "./roles.ts";
 import { applyEvent, cloneModel, initialModel, stateBefore, stepEvents, type Choices, type StageModel } from "./model";
 import { isFront, portSlot, routeLinks, rounded, type Face, type Rect, type RouteNode } from "./routing";
 import type { FlowKind, PacketEvent, Place, StageEvent, StageRole, StageScene, StreamEvent } from "./types";
@@ -132,7 +134,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   defs.insertAdjacentHTML("beforeend",
     '<radialGradient id="sk-soft-shadow"><stop offset="0" class="ss0"/><stop offset=".55" class="ss1"/><stop offset="1" class="ss2"/></radialGradient>' +
     '<radialGradient id="sk-heat"><stop offset="0" class="ht0"/><stop offset="1" class="ht1"/></radialGradient>' +
-    '<linearGradient id="sk-plinth-side" x1="0" x2="1"><stop offset="0" class="ps0"/><stop offset=".5" class="ps0"/><stop offset=".5" class="ps1"/><stop offset="1" class="ps1"/></linearGradient>');
+    PICTOGRAM_DEFS);
   el("rect", { x: -4000, y: -4000, width: 8000, height: 8000, fill: "url(#sk-iso-dots)" }, svg);
   const gLinks = el("g", { class: "links" }, svg);
   const gStreamTrails = el("g", { class: "trails stream" }, svg);
@@ -216,7 +218,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
 
   function renderNode(id: string) {
     const s = model.nodes[id], e = nodeEls[id], role = roleOf[id];
-    const opts = role === "database" && s.meter != null ? { ...s.opts, level: s.meter, levelHot: s.tone === "hot" } : s.opts;
+    const opts = fills(role) && s.meter != null ? { ...s.opts, level: s.meter, levelHot: s.tone === "hot" } : s.opts;
     const key = JSON.stringify(opts);
     if (e.opts !== key) { e.art.innerHTML = glyph(role, opts); e.opts = key; }
     e.pk.setAttribute("data-light", s.down ? "idle" : s.light);
@@ -974,6 +976,13 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     get step() { return cur; },
     get choices() { return choices; },
   };
+
+  // Parts whose pack hasn't loaded stand as plain crates until their drawings arrive (a loader can load them first).
+  const waiting = ids.filter((id) => !isDrawn(roleOf[id]));
+  if (waiting.length) loadScenePacks(scene).then(() => {
+    if (destroyed) return;
+    for (const id of waiting) { nodeEls[id].opts = null; renderNode(id); }
+  }, (err) => console.error("SystemKit stage: a pack of drawings didn't load", err));
 
   cameraTo(null, model, true);
   transitionTo(model, token, true).catch(swallow);

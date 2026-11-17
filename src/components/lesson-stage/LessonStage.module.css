@@ -3,14 +3,22 @@
   --work: #2a78d6;
   --hot: #eb6834;
   --fluid: cubic-bezier(.22, 1, .36, 1);
+  /* pictogram tones: four close neutrals for faces, an ink silhouette over faint creases, muted details */
   --pk-top: var(--surface);
-  --pk-left: var(--accent-tint);
+  --pk-left: var(--surface-soft);
+  --pk-mid: var(--accent-tint);
   --pk-right: var(--line);
+  --pk-deep: var(--accent-line);
+  --pk-bevel: var(--surface);
+  --pk-bevel-r: var(--accent-tint);
   --pk-line: var(--ink);
-  --pk-detail: var(--muted);
+  --pk-crease: color-mix(in srgb, var(--ink) 22%, transparent);
+  --pk-rule: var(--control-border);
   --pk-recess: var(--accent-line);
-  --pk-shadow: rgb(0 0 0 / 5%);
-  --pk-bevel: color-mix(in srgb, var(--ink) 7%, transparent);
+  --pk-wall: color-mix(in srgb, var(--control-border) 40%, var(--line-strong));
+  --pk-slot: var(--line-strong);
+  --pk-plate: var(--surface);
+  --pk-halo: .2;
   --glass: rgb(255 255 255 / 70%);
   --glass-line: rgb(0 0 0 / 9%);
   --stage-height: clamp(400px, calc(100svh - 400px), 620px);
@@ -25,12 +33,19 @@
     --work: #3987e5;
     --hot: #f0733f;
     --pk-top: var(--line);
-    --pk-left: var(--surface-soft);
+    --pk-left: var(--accent-tint);
+    --pk-mid: var(--surface-soft);
     --pk-right: var(--surface);
+    --pk-deep: var(--canvas);
+    --pk-bevel: var(--accent-line);
+    --pk-bevel-r: var(--line);
     --pk-line: var(--ink-soft);
+    --pk-crease: rgb(255 255 255 / 14%);
     --pk-recess: var(--canvas);
-    --pk-shadow: rgb(0 0 0 / 45%);
-    --pk-bevel: rgb(255 255 255 / 9%);
+    --pk-wall: #000;
+    --pk-slot: var(--canvas);
+    --pk-plate: var(--accent-tint);
+    --pk-halo: .55;
     --glass: rgb(30 30 30 / 64%);
     --glass-line: rgb(255 255 255 / 10%);
   }
@@ -178,39 +193,60 @@
 .stage :global(.lost-mark .burst) { fill: none; stroke: var(--hot); stroke-width: 2; }
 .stage :global(.lost-mark.k-quiet path), .stage :global(.lost-mark.k-quiet .burst) { stroke: var(--muted); }
 
-/* pictograms and their bases */
+/* pictograms and their bases: the classes src/lib/lesson-stage/draw.ts gives shapes (see the pictogram-polish skill) */
 .stage :global(.pk) { stroke-linejoin: round; stroke-linecap: round; }
-.stage :global(.pk .pt), .stage :global(.pk .pl), .stage :global(.pk .pr), .stage :global(.pk .ps), .stage :global(.pk .ball) { stroke: var(--pk-line); stroke-width: 1.15; }
-.stage :global(.pk .pt), .stage :global(.pk .head) { fill: var(--pk-top); }
-.stage :global(.pk .pl), .stage :global(.pk .ps), .stage :global(.pk .ball) { fill: var(--pk-left); }
-.stage :global(.pk .pr), .stage :global(.pk .pr-shade) { fill: var(--pk-right); }
-.stage :global(.pk .pr-shade) { stroke: none; }
-.stage :global(.pk .ps-line), .stage :global(.pk .ring), .stage :global(.pk .handle) { fill: none; stroke: var(--pk-line); stroke-width: 1.15; }
-.stage :global(.pk .handle) { stroke-width: 1.4; }
-.stage :global(.pk .head) { stroke: var(--pk-line); stroke-width: 1.1; }
-.stage :global(.pk .gl) { fill: var(--pk-recess); stroke: var(--pk-detail); stroke-width: .8; }
-.stage :global(.pk .bay) { fill: none; stroke: var(--pk-detail); stroke-width: .8; }
-.stage :global(.pk .dl) { fill: none; stroke: var(--pk-detail); stroke-width: .9; }
-.stage :global(.pk .dot) { fill: var(--pk-detail); }
-.stage :global(.pk .gearbody) { fill: var(--pk-top); stroke: var(--pk-detail); stroke-width: .9; }
-.stage :global(.pk .spark) { fill: none; stroke: var(--pk-line); stroke-width: 1.3; }
-.stage :global(.pk .sh) { fill: var(--pk-shadow); }
-.stage :global(.pk .liquid) { fill: color-mix(in srgb, var(--ink) 16%, var(--pk-left)); }
-.stage :global(.pk .liquid.is-hot) { fill: color-mix(in srgb, var(--hot) 42%, var(--pk-left)); }
-.stage :global(.pk .led) { stroke: var(--line-strong); stroke-width: 2.2; transition: stroke .3s; }
-.stage :global(.pk .led.strip) { stroke-width: 2.6; }
-.stage :global(.pk .node-led) { fill: var(--line-strong); transition: fill .3s; }
+.stage :global(.pk .pt), .stage :global(.pk .key), .stage :global(.pk .card), .stage :global(.pk .card-lit) { fill: var(--pk-top); }
+.stage :global(.pk .pl) { fill: var(--pk-left); }
+.stage :global(.pk .pm), .stage :global(.pk .gear) { fill: var(--pk-mid); }
+.stage :global(.pk .pr) { fill: var(--pk-right); }
+.stage :global(.pk .pd) { fill: var(--pk-deep); }
+.stage :global(.pk .bevel) { fill: var(--pk-bevel); }
+.stage :global(.pk .bevel-r) { fill: var(--pk-bevel-r); }
+.stage :global(.pk .crease) { fill: none; stroke: var(--pk-crease); stroke-width: .7; }
+.stage :global(.pk .edge), .stage :global(.pk .edge-open) { fill: none; stroke: var(--pk-line); stroke-width: 1.05; }
+.stage :global(.pk .card) { stroke: var(--pk-line); stroke-width: .7; }
+.stage :global(.pk .card-lit) { stroke: var(--pk-line); stroke-width: 1.05; }
+.stage :global(.pk .rule) { fill: none; stroke: var(--pk-rule); stroke-width: .6; }
+.stage :global(.pk .etch) { fill: none; stroke: var(--pk-rule); stroke-width: .7; }
+.stage :global(.pk .etch-dot), .stage :global(.pk .screw) { fill: var(--pk-rule); }
+.stage :global(.pk .recess) { fill: var(--pk-recess); }
+.stage :global(.pk .wall) { fill: var(--pk-wall); }
+.stage :global(.pk .rim) { fill: none; stroke: var(--pk-rule); stroke-width: .5; }
+.stage :global(.pk .slot), .stage :global(.pk .finger) { fill: var(--pk-slot); }
+.stage :global(.pk .plate) { fill: var(--pk-plate); stroke: var(--pk-rule); stroke-width: .35; }
+.stage :global(.pk .key) { stroke: var(--pk-crease); stroke-width: .4; }
+.stage :global(.pk .gear) { stroke: var(--pk-rule); stroke-width: .6; }
+.stage :global(.pk .leg) { stroke: var(--pk-rule); stroke-width: .6; }
+.stage :global(.pk .tape) { fill: none; stroke: var(--pk-slot); stroke-width: 1.4; }
+.stage :global(.pk .handle), .stage :global(.pk .pole) { fill: none; stroke: var(--pk-line); stroke-width: 1.2; }
+.stage :global(.pk .flag), .stage :global(.pk .ink) { fill: var(--pk-line); }
+.stage :global(.pk .spark) { fill: none; stroke: var(--pk-line); stroke-width: 1.2; }
+.stage :global(.pk .ring-shade) { fill: none; stroke: var(--pk-deep); stroke-width: 1.2; }
+.stage :global(.pk .ring-light) { fill: none; stroke: var(--pk-bevel); stroke-width: .8; }
+.stage :global(.pk .liquid) { fill: var(--ink); fill-opacity: .13; }
+.stage :global(.pk .liquid.is-hot) { fill: var(--hot); fill-opacity: .4; }
+.stage :global(.pk .surface) { fill: none; stroke: var(--pk-rule); stroke-width: .6; }
+.stage :global(.pk .led) { fill: none; stroke: var(--line-strong); stroke-width: 1.9; transition: stroke .3s; }
+.stage :global(.pk .led.strip) { stroke-width: 2.4; }
+.stage :global(.pk .lamp) { fill: var(--line-strong); transition: fill .3s; }
 .stage :global(.pk[data-light="on"] .led) { stroke: var(--ink); }
-.stage :global(.pk[data-light="on"] .node-led) { fill: var(--ink); }
+.stage :global(.pk[data-light="on"] .lamp) { fill: var(--ink); }
 .stage :global(.pk[data-light="work"] .led) { stroke: var(--work); }
-.stage :global(.pk[data-light="work"] .node-led) { fill: var(--work); }
+.stage :global(.pk[data-light="work"] .lamp) { fill: var(--work); }
 .stage :global(.pk[data-light="hot"] .led) { stroke: var(--hot); }
-.stage :global(.pk[data-light="hot"] .node-led) { fill: var(--hot); }
-.stage :global(.plinth-side) { fill: url(#sk-plinth-side); stroke: var(--pk-line); stroke-width: 1.15; stroke-linejoin: round; }
-.stage :global(.plinth-top) { fill: var(--pk-top); stroke: var(--pk-line); stroke-width: 1.15; stroke-linejoin: round; }
-.stage :global(.plinth-bevel) { fill: none; stroke: var(--pk-bevel); stroke-width: 1; }
-.stage :global(.ps0) { stop-color: var(--pk-left); }
-.stage :global(.ps1) { stop-color: var(--pk-right); }
+.stage :global(.pk[data-light="hot"] .lamp) { fill: var(--hot); }
+.stage :global(.pk .base-side) { fill: url(#sk-plinth-side); }
+.stage :global(.pk .base-rim) { fill: var(--pk-bevel); }
+.stage :global(.pk .base-top) { fill: var(--pk-top); stroke: var(--pk-crease); stroke-width: .7; }
+.stage :global(.pk .base-edge) { fill: none; stroke: var(--pk-line); stroke-width: 1.05; }
+.stage :global(.gs-top) { stop-color: var(--pk-top); }
+.stage :global(.gs-left) { stop-color: var(--pk-left); }
+.stage :global(.gs-mid) { stop-color: var(--pk-mid); }
+.stage :global(.gs-right) { stop-color: var(--pk-right); }
+.stage :global(.gs-deep) { stop-color: var(--pk-deep); }
+.stage :global(.gh0) { stop-color: #000; stop-opacity: var(--pk-halo); }
+.stage :global(.gh1) { stop-color: #000; stop-opacity: calc(var(--pk-halo) * .4); }
+.stage :global(.gh2) { stop-color: #000; stop-opacity: 0; }
 .stage :global(.ss0) { stop-color: #000; stop-opacity: .26; }
 .stage :global(.ss1) { stop-color: #000; stop-opacity: .1; }
 .stage :global(.ss2) { stop-color: #000; stop-opacity: 0; }
