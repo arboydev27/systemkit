@@ -126,7 +126,7 @@ export const queueStage: StageScene = {
     {
       title: "A backlog builds",
       short: "Backlog",
-      changes: ["~ Backlog and job age grow", "~ Web tier still responsive"],
+      changes: ["~ Backlog and job age grow", "~ Web server still responsive"],
       text: "A 50/s burst outpaces 160 workers by 30 a second: 18,000 jobs wait after ten minutes. Unhealthy workers grow a backlog too. No job is lost and the web tier stays responsive.",
       events: [],
       control: {
@@ -172,7 +172,7 @@ export const queueStage: StageScene = {
       text: "Check the cause, then add or repair workers. The backlog drains while the web tier stays unchanged: the queue decouples the producer from the workers, so each scales on its own.",
       focus: ["web", "queue", "worker1", "worker2"],
       metrics: { uploads: { n: 20, unit: "/s" }, workers: "160+", backlog: "draining" },
-      changes: ["+ More workers", "~ Backlog drains", "~ Web tier unchanged"],
+      changes: ["+ More workers", "~ Backlog drains", "~ Web server unchanged"],
       events: [
         { type: "state", node: "worker2", label: "More workers", detail: "added", light: "on", tone: "", down: false },
         { type: "show", nodes: ["worker2"], at: { worker1: [3.4, -1.5] }, with: true },

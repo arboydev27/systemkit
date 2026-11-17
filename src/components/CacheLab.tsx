@@ -6,11 +6,14 @@ import { modelCacheReads, type CacheModelInput } from "@/lib/cache-model";
 import { trackOnce } from "@/lib/analytics";
 import styles from "./CacheLab.module.css";
 
+// Opens on the cache lesson's own example: 10,000 reads a second and a 95% hit rate, with the cache down.
+// The example database takes 3,000 reads a second: room for the 500 or 1,000 that the lesson's healthy
+// hit rates leave it, far short of the 10,000 that arrive once the cache is gone.
 const initialInput: CacheModelInput = {
-  requestsPerSecond: 1000,
-  hitRatePercent: 90,
+  requestsPerSecond: 10000,
+  hitRatePercent: 95,
   cacheAvailable: false,
-  databaseCapacity: 300,
+  databaseCapacity: 3000,
 };
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 type Prediction = "within" | "above";
@@ -66,10 +69,10 @@ export function CacheLab({ headingLevel = 2 }: { standalone?: boolean; headingLe
               <label htmlFor={`${id}-traffic`}>Incoming read requests</label>
               <output htmlFor={`${id}-traffic`}>{format(input.requestsPerSecond)}<span> /s</span></output>
             </div>
-            <input id={`${id}-traffic`} type="range" min="100" max="5000" step="100" value={input.requestsPerSecond}
+            <input id={`${id}-traffic`} type="range" min="1000" max="50000" step="1000" value={input.requestsPerSecond}
               aria-valuetext={`${format(input.requestsPerSecond)} read requests per second`}
               onChange={(event) => updateInput({ requestsPerSecond: Number(event.target.value) })} />
-            <div className={styles.rangeEnds} aria-hidden="true"><span>100 /s</span><span>5,000 /s</span></div>
+            <div className={styles.rangeEnds} aria-hidden="true"><span>1,000 /s</span><span>50,000 /s</span></div>
           </div>
 
           <div className={styles.control}>

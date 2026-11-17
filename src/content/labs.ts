@@ -54,7 +54,7 @@ export const labs: LabInfo[] = [
     seoTitle: "Cache failure lab: what happens when the cache goes down",
     description: "Set the request rate and hit rate, take the cache away, and predict whether the database can absorb the load.",
     about: [
-      "A cache with a 90% hit rate quietly shields the database from nine out of ten reads. Capacity plans built on that number are also plans for what happens the moment it stops being true.",
+      "A cache with a 95% hit rate quietly shields the database from 19 of every 20 reads. Capacity plans built on that number are also plans for what happens the moment it stops being true.",
       "Set a workload, decide whether the cache is healthy, and predict where database demand lands before seeing the numbers.",
     ],
     lesson: { chapterId: "scaling", stepId: "cache", title: "Cache repeated work" },
