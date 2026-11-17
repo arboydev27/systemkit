@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 import { createStage, type StageHandle, type StageStatus } from "@/lib/lesson-stage/engine";
+import type { FigureFactory } from "@/lib/lesson-stage/figure";
+import { loadFigures, needsFigures } from "@/lib/lesson-stage/figures";
 import { formatMetric, metricsAt, type Choices } from "@/lib/lesson-stage/model";
 import type { MetricValue, StageScene } from "@/lib/lesson-stage/types";
 import styles from "./LessonStage.module.css";
@@ -63,12 +65,19 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const stage = createStage(host, scene, { onStatus: setStatus, label: `${title}: the system, step by step` });
-    stageRef.current = stage;
-    setReady(true);
-    const linked = /^#step-(\d+)$/.exec(window.location.hash);
-    if (linked && +linked[1] >= 1 && +linked[1] <= scene.steps.length) stage.show(+linked[1] - 1);
-    return () => { stage.destroy(); stageRef.current = null; };
+    let stage: StageHandle | null = null, live = true;
+    const start = (figures: FigureFactory[]) => {
+      if (!live) return;
+      stage = createStage(host, scene, { onStatus: setStatus, label: `${title}: the system, step by step`, figures });
+      stageRef.current = stage;
+      setReady(true);
+      const linked = /^#step-(\d+)$/.exec(window.location.hash);
+      if (linked && +linked[1] >= 1 && +linked[1] <= scene.steps.length) stage.show(+linked[1] - 1);
+    };
+    // a ring, a log or a timeline loads its own code first; the tiers start at once
+    if (needsFigures(scene)) void loadFigures(scene).then(start);
+    else start([]);
+    return () => { live = false; stage?.destroy(); stageRef.current = null; };
   }, [scene, title]);
 
   useEffect(() => {

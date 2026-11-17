@@ -116,13 +116,40 @@ function checkChapter(id) {
     }
   }
 
-  // Animated lesson stages: when a chapter has them, every lesson needs one and each must validate.
-  const stagePath = path.join(root, "src/content/lesson-stage", id, "index.ts");
-  if (fs.existsSync(stagePath)) {
+  // Animated lesson stages: each lesson listed in the chapter's index.ts needs a valid scene and one line in player.tsx.
+  // Lessons that aren't listed keep their drawing, so a chapter can be part way through.
+  const stageDir = path.join(root, "src/content/lesson-stage", id);
+  if (fs.existsSync(path.join(stageDir, "index.ts"))) {
     const { validateScene } = require(path.join(root, "src/lib/lesson-stage/validate.ts"));
-    const stages = exportEndingWith(require(stagePath), "stages");
-    for (const step of steps) if (!stages[step.diagramId]) problems.push(`${step.id}: no lesson stage for diagram ${step.diagramId}`);
-    for (const scene of Object.values(stages)) for (const issue of validateScene(scene)) problems.push(`stage ${issue}`);
+    const relative = (file) => path.relative(root, path.join(stageDir, file));
+    const staged = require(path.join(stageDir, "index.ts")).staged;
+    if (!Array.isArray(staged)) problems.push(`stage: ${relative("index.ts")} must export a staged list`);
+    const listed = Array.isArray(staged) ? staged : [];
+    const playerText = fs.existsSync(path.join(stageDir, "player.tsx")) ? fs.readFileSync(path.join(stageDir, "player.tsx"), "utf8") : null;
+    if (playerText === null) problems.push(`stage: missing ${relative("player.tsx")}`);
+    // Every `key: dynamic(() => import("./file")` entry, quoted or not, so lines of the wrong form show up as extra.
+    const lines = [...(playerText ?? "").matchAll(/^\s*(?:"([^"]+)"|([\w$]+))\s*:\s*dynamic\(\s*\(\)\s*=>\s*import\(\s*["']([^"']+)["']/gm)]
+      .map((match) => ({ key: match[1] ?? match[2], quoted: match[1] !== undefined, target: match[3] }));
+    const wired = (line, sceneId) => line.quoted && line.key === sceneId && line.target === `./${sceneId}`;
+    const diagramIds = new Set(steps.map((step) => step.diagramId));
+    listed.forEach((sceneId, index) => {
+      if (listed.indexOf(sceneId) !== index) { problems.push(`stage ${sceneId}: listed twice in ${relative("index.ts")}`); return; }
+      if (!diagramIds.has(sceneId)) problems.push(`stage ${sceneId}: no lesson in this chapter has diagram ${sceneId}`);
+      const count = lines.filter((line) => wired(line, sceneId)).length;
+      if (playerText !== null && count === 0) problems.push(`stage ${sceneId}: ${relative("player.tsx")} has no line "${sceneId}": dynamic(() => import("./${sceneId}")...)`);
+      if (count > 1) problems.push(`stage ${sceneId}: ${relative("player.tsx")} has ${count} lines for it, keep one`);
+      const file = `${sceneId}.ts`;
+      if (!fs.existsSync(path.join(stageDir, file))) { problems.push(`stage ${sceneId}: missing ${relative(file)}`); return; }
+      const scene = Object.values(require(path.join(stageDir, file))).find((value) => value && typeof value === "object" && "id" in value && "steps" in value && "nodes" in value);
+      if (!scene) { problems.push(`stage ${sceneId}: ${relative(file)} exports no scene`); return; }
+      if (scene.id !== sceneId) problems.push(`stage ${sceneId}: scene id "${scene.id}" should match its file name`);
+      for (const issue of validateScene(scene)) problems.push(`stage ${issue}`);
+    });
+    for (const line of lines) if (!listed.some((sceneId) => wired(line, sceneId))) problems.push(`stage ${line.key}: extra line in ${relative("player.tsx")} ("${line.key}" loads ${line.target}); each line is a listed id loading "./<id>"`);
+    for (const file of fs.readdirSync(stageDir).filter((name) => name.endsWith(".ts") && name !== "index.ts")) {
+      const sceneId = file.replace(/\.ts$/, "");
+      if (!listed.includes(sceneId)) problems.push(`stage ${sceneId}: ${relative(file)} isn't listed in ${relative("index.ts")}`);
+    }
   }
 
   console.log(`${id}: ${steps.length} lessons, ${questions.length} questions, ${Math.round(mean)} mean body words (${Math.min(...words)}-${Math.max(...words)}), correct option longest in ${Math.round(share * 100)}%`);

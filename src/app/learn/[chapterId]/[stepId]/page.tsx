@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { chapters } from "@/content/chapters";
 import { challengeForLesson } from "@/content/challenges";
+import { hasStage } from "@/content/lesson-stage/staged";
 import { LearningExperience } from "@/components/LearningExperience";
 import { courseOutline, findLesson, relatedLessons } from "@/lib/lessons";
 import { lessonHref } from "@/lib/links";
@@ -58,6 +59,7 @@ export default async function LessonPage({ params }: Props) {
         steps: chapter.steps.map(({ id, title }) => ({ id, title })),
       }}
       step={step}
+      staged={hasStage(chapter.id, step.diagramId)}
       questions={chapter.questions.filter((question) => question.stepId === step.id)}
       outline={courseOutline}
       nextChapter={next ? { id: next.id, title: next.title, firstStepId: next.steps[0].id } : undefined}

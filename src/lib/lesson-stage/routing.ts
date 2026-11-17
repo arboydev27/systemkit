@@ -24,6 +24,8 @@ export type RouteNode = {
   tagRound?: number;
   /** The load pill, when the part shows one. */
   pill?: Rect;
+  /** Anything else drawn beside the part that links keep clear of, such as its log. */
+  more?: Rect[];
 };
 export type RouteLink = {
   id: number; a: string; b: string;
@@ -227,6 +229,7 @@ function hits(b: Chosen, all: RouteNode[]): number {
       if (!own && hitsPoly(p, q, body)) cost += 1000;
       if (!tagOk && hitsRound(p, q, tag, round)) cost += own ? 600 : 1000;
       if (pill && !pillOk && hitsRect(p, q, pill)) cost += own ? 250 : 500;
+      for (const r of n.more ?? []) if (hitsRect(p, q, grow(r, 3))) cost += own ? 250 : 500;
     }
   }
   return cost;
@@ -441,6 +444,7 @@ export function routeProblems(nodes: RouteNode[], routes: Routed[]): string[] {
       if (hitsPoly(p, q, bodyOf(n))) out.push(`${r.a}>${r.b} runs behind ${n.id}`);
       else if (hitsRound(p, q, n.tag, n.tagRound ?? 10)) out.push(`${r.a}>${r.b} runs behind ${n.id}'s tag`);
       else if (n.pill && hitsRect(p, q, n.pill)) out.push(`${r.a}>${r.b} runs behind ${n.id}'s pill`);
+      else if (n.more?.some((m) => hitsRect(p, q, m))) out.push(`${r.a}>${r.b} runs behind what ${n.id} carries`);
     }
   }
   return [...new Set(out)];

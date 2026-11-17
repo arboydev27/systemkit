@@ -5,6 +5,7 @@ import { loadScenePacks } from "./packs/index.ts";
 import { fills } from "./roles.ts";
 import { applyEvent, cloneModel, initialModel, stateBefore, stepEvents, type Choices, type StageModel } from "./model";
 import { isFront, portSlot, routeLinks, rounded, type Face, type Rect, type RouteNode } from "./routing";
+import type { Figure, FigureContext, FigureFactory } from "./figure";
 import type { FlowKind, PacketEvent, Place, StageEvent, StageRole, StageScene, StreamEvent } from "./types";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -23,7 +24,13 @@ export type StageStatus = {
   /** While autoplay waits on a step for reading time, how long it waits (ms); 0 otherwise. */
   hold: number;
 };
-export type StageOptions = { reduce?: boolean; onStatus?: (status: StageStatus) => void; label?: string };
+export type StageOptions = {
+  reduce?: boolean; onStatus?: (status: StageStatus) => void; label?: string;
+  /** The scene's figures (ring, log, timeline), loaded by figures.ts. */
+  figures?: FigureFactory[];
+};
+// Figure events that leave nothing lasting: they play, then only their trail stays for the step.
+const PASSING = new Set(["walk", "read"]);
 export type StageHandle = {
   play(): void; pause(): void; toggle(): void; next(): void; back(): void; jump(index: number): void; reset(): void;
   /** Set a step's control (such as a hit rate) and replay what it changes. */
@@ -136,15 +143,20 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     '<radialGradient id="sk-heat"><stop offset="0" class="ht0"/><stop offset="1" class="ht1"/></radialGradient>' +
     PICTOGRAM_DEFS);
   el("rect", { x: -4000, y: -4000, width: 8000, height: 8000, fill: "url(#sk-iso-dots)" }, svg);
+  const gFloor = el("g", { class: "figure-floor" }, svg);
   const gLinks = el("g", { class: "links" }, svg);
   const gStreamTrails = el("g", { class: "trails stream" }, svg);
   const gTrails = el("g", { class: "trails" }, svg);
   const gDots = el("g", {}, svg);
   const gRings = el("g", {}, svg);
   const gNodes = el("g", {}, svg);
+  const gMid = el("g", { class: "figure-mid" }, svg);
   const gLabels = el("g", {}, svg);
   const gNotes = el("g", {}, svg);
+  const gTop = el("g", { class: "figure-top" }, svg);
   const gPackets = el("g", {}, svg);
+  // the scene's figures, made once everything they call on exists (at the end)
+  let figs: Figure[] = [];
 
   const view = { x: -300, y: -200, w: 600, h: 400, k: 1, W: 600, H: 400 };
   let narrow = host.getBoundingClientRect().width < 560;
@@ -172,6 +184,12 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   // On a phone the spacing grows with the zoom so the tags and links between rows always have room.
   const pitch = { tier: 212, lane: 132 };
   const placeAt = ([t, l]: Place): Point => (narrow ? { x: l * pitch.lane, y: t * pitch.tier } : { x: t * 226 + l * 64, y: l * 104 });
+  /** Where a part stands in a model: where its figure lays it out (a ring, a timeline), or in the tiers. */
+  function spot(id: string, m: StageModel = model): Point {
+    for (const f of figs) { const p = f.place?.(id, m); if (p) return p; }
+    return placeAt(m.nodes[id].at);
+  }
+  const layoutFigures = () => { for (const f of figs) f.layout?.(); };
   let focusList: string[] | undefined;
   const hasPill = (id: string, m = model) => { const n = m.nodes[id]; return !!(n.readout || n.meter != null) && !n.down; };
 
@@ -263,6 +281,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
 
   function setFocus(list: string[] | undefined) {
     focusList = list;
+    for (const f of figs) f.focus?.(list);
     for (const id of ids) {
       const dim = !!list && !list.includes(id);
       nodeEls[id].lift.classList.toggle("is-dim", dim);
@@ -332,7 +351,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         ? { x0: p.x - pw / 2, y0: p.y - top - 6 - 22 * s, x1: p.x + pw / 2, y1: p.y - top - 6 }
         : { x0: p.x + 46, y0: p.y - top * 0.5 - 22 * s, x1: p.x + 46 + pw, y1: p.y - top * 0.5 };
     }
-    return { id, at: p, top, tag: { x0: p.x - tw / 2, y0: ty, x1: p.x + tw / 2, y1: ty + tagHeight(n.detail) * s }, tagRound: 10 * s, pill };
+    const more = figs.flatMap((f) => f.obstacles?.(id, p, m, s) ?? []);
+    return { id, at: p, top, tag: { x0: p.x - tw / 2, y0: ty, x1: p.x + tw / 2, y1: ty + tagHeight(n.detail) * s }, tagRound: 10 * s, pill, ...(more.length ? { more } : {}) };
   }
   const gapAt = (s: number) => 8 * s;
   /** Routes for the links in `list` with every visible part of `m` standing where `place` says. */
@@ -349,7 +369,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const live = linkEls.filter((L) => pos[L.a] && pos[L.b] && (linkWanted(L) || (L.drawn > 0 && shown[L.a].visible && shown[L.b].visible)));
     // the shapes come from where the parts are headed, at the zoom the camera is headed for
     const sGoal = ovs(heading?.k ?? view.k);
-    const goal = routesFor(model, live, (id) => (pos[id] ? placeAt(model.nodes[id].at) : undefined), sGoal);
+    const goal = routesFor(model, live, (id) => (pos[id] ? spot(id, model) : undefined), sGoal);
     const gk = JSON.stringify([goal.nodes, goal.links, narrow, fmt(sGoal)]);
     if (gk !== planKey) { planKey = gk; plan = new Map(goal.run().map((r) => [r.id, r.shape])); }
     const s = ov(), now = routesFor(model, live, (id) => pos[id], s, plan);
@@ -421,7 +441,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   async function transitionTo(target: StageModel, tk: Token, instant = false) {
     const before = Object.fromEntries(ids.map((id) => [id, { visible: shown[id].visible, at: pos[id] ? { ...pos[id] } : null }]));
     model = target;
-    const goal = Object.fromEntries(ids.map((id) => [id, placeAt(model.nodes[id].at)]));
+    const goal = Object.fromEntries(ids.map((id) => [id, spot(id, model)]));
     const exits = ids.filter((id) => before[id].visible && !model.nodes[id].visible);
     const enters = ids.filter((id) => !before[id].visible && model.nodes[id].visible);
     const moves = ids.filter((id) => before[id].visible && model.nodes[id].visible && before[id].at && Math.hypot(before[id].at!.x - goal[id].x, before[id].at!.y - goal[id].y) > 0.5);
@@ -440,6 +460,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       }
       for (const L of linkEls) L.drawn = linkWanted(L) ? 1 : 0;
       updateLinks();
+      layoutFigures();
+      for (const f of figs) void Promise.resolve(f.render(model, tk, true)).catch(swallow);
       return;
     }
     const ringChanged = () => {
@@ -451,7 +473,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     if (!moves.length) ringChanged();
     for (const L of linkEls) if (L.drawn && (exits.includes(L.a) || exits.includes(L.b) || !linkWanted(L))) L.drawn = 0;
     if (exits.length) {
-      await tween(T.exit, tk, (p) => { for (const id of exits) { shown[id].op = 1 - easeOut(p); shown[id].sink = 22 * easeIn(p); placeNode(id); } updateLinks(); });
+      await tween(T.exit, tk, (p) => { for (const id of exits) { shown[id].op = 1 - easeOut(p); shown[id].sink = 22 * easeIn(p); placeNode(id); } updateLinks(); layoutFigures(); });
       for (const id of exits) Object.assign(shown[id], { visible: false, sink: 0 });
     }
     if (moves.length) {
@@ -460,6 +482,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         const q = easeInOut(p);
         for (const id of moves) { pos[id] = { x: from[id].x + (goal[id].x - from[id].x) * q, y: from[id].y + (goal[id].y - from[id].y) * q }; placeNode(id); }
         updateLinks();
+        layoutFigures();
       });
     }
     for (const id of ids) pos[id] = goal[id];
@@ -474,12 +497,17 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
           shown[id].op = Math.min(1, p * 2.4);
           if (!rung && p > 0.62) { rung = true; ring(pos[id], "plain", true); }
           placeNode(id);
+          layoutFigures();
         });
       })));
     }
     for (const id of ids) placeNode(id);
+    layoutFigures();
     const fresh = linkEls.filter((L) => linkWanted(L) && L.drawn < 1);
-    await Promise.all(fresh.map((L, i) => after(i * T.linkStagger, tk).then(() => tween(T.draw, tk, (p) => { L.drawn = Math.max(0.001, easeInOut(p)); updateLinks(); }))));
+    await Promise.all([
+      ...fresh.map((L, i) => after(i * T.linkStagger, tk).then(() => tween(T.draw, tk, (p) => { L.drawn = Math.max(0.001, easeInOut(p)); updateLinks(); }))),
+      ...figs.map((f) => f.render(model, tk, false)),
+    ]);
     updateLinks();
   }
 
@@ -492,7 +520,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     for (const id of list) {
       const n = m.nodes[id];
       if (!n.visible) continue;
-      const p = placeAt(n.at), pill = hasPill(id, m);
+      const p = spot(id, m), pill = hasPill(id, m);
       const half = Math.max(52, (tagWidth(n) / 2) * s);
       x0 = Math.min(x0, p.x - half); x1 = Math.max(x1, p.x + half);
       if (!narrow && pill) x1 = Math.max(x1, p.x + 46 + pillWidth(n) * s);
@@ -503,13 +531,17 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     const inList = new Set(list), live = linkEls.filter((L) => linkWanted(L, m) && inList.has(L.a) && inList.has(L.b));
     const r = isFinite(x0) && live.length ? routeBox(m, live, s) : null;
     if (r) { x0 = Math.min(x0, r.x0); x1 = Math.max(x1, r.x1); y0 = Math.min(y0, r.y0); y1 = Math.max(y1, r.y1); }
+    for (const f of figs) {
+      const b = f.bounds(m, k, list);
+      if (b) { x0 = Math.min(x0, b.x0); x1 = Math.max(x1, b.x1); y0 = Math.min(y0, b.y0); y1 = Math.max(y1, b.y1); }
+    }
     return isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
   }
   // The camera tries several zooms for each step, so the links' extent is kept for each layout and (rounded) zoom.
   const routeBoxes = new Map<string, Rect | null>();
   function routeBox(m: StageModel, live: LinkEl[], s: number): Rect | null {
     const q = Math.round(s * 20) / 20;
-    const run = routesFor(m, live, (id) => (m.nodes[id].visible ? placeAt(m.nodes[id].at) : undefined), q, undefined, true);
+    const run = routesFor(m, live, (id) => (m.nodes[id].visible ? spot(id, m) : undefined), q, undefined, true);
     const key = JSON.stringify([run.nodes, run.links.map((l) => l.id), narrow, q]);
     if (!routeBoxes.has(key)) {
       if (routeBoxes.size > 64) routeBoxes.clear();
@@ -526,7 +558,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   /** What a phone needs between rows and columns at zoom k: the tallest part, its tag, its pill and a clear stretch of link. */
   function pitchFor(list: string[], models: StageModel[], k: number, notes: Set<string>) {
     const s = ovs(k);
-    let top = 0, tag = 22, pill = false, note = false, wide = 0;
+    let top = 0, tag = 22, pill = false, note = false, wide = 0, under = 0;
     const rows = new Map<number, string[]>();
     for (const m of models) for (const id of list) {
       const n = m.nodes[id];
@@ -535,6 +567,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       tag = Math.max(tag, tagHeight(n.detail));
       pill = pill || hasPill(id, m);
       note = note || notes.has(id);
+      for (const f of figs) under = Math.max(under, f.below?.(id, m) ?? 0);
       const row = Math.round(n.at[0] * 10);
       rows.set(row, [...(rows.get(row) ?? []), id]);
     }
@@ -544,7 +577,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       for (const id of row) { const n = m.nodes[id]; if (n.visible) wide = Math.max(wide, tagWidth(n), hasPill(id, m) ? pillWidth(n) : 0); }
     }
     return {
-      tier: Math.max(212, top + 16 + BASE / 2 + PH + (tag + 14 + (pill ? 26 : 0) + (note ? 28 : 0) + 10) * s),
+      tier: Math.max(212, top + 16 + BASE / 2 + PH + (tag + 14 + (pill ? 26 : 0) + (note ? 28 : 0) + 10 + under) * s),
       lane: Math.max(132, (wide + 14) * s),
     };
   }
@@ -579,6 +612,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     for (const id of ids) placeNode(id);
     for (const o of overlays) o.place(ov());
     updateLinks();
+    layoutFigures();
     const pd = pads();
     for (const id of ids) {
       const p = pos[id];
@@ -618,6 +652,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   const overlays = new Set<Overlay>();
   const streams = new Set<() => void>();
   function clearTransient() {
+    for (const f of figs) f.clear();
     for (const g of [gTrails, gStreamTrails, gPackets, gNotes, gDots, gRings]) g.innerHTML = "";
     resting = [];
     overlays.clear();
@@ -815,7 +850,18 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     streams.add(() => { dropMine(f); for (const d of live) d.g.remove(); });
   }
 
+  const figureFor = (e: StageEvent) => figs.find((f) => f.handles(e));
   async function runEvent(e: StageEvent, tk: Token): Promise<void> {
+    const fig = figureFor(e);
+    if (fig) {
+      const next = cloneModel(model);
+      applyEvent(next, e);
+      if (!reduce) await fig.play?.(e, model, next, tk);
+      if (PASSING.has(e.type)) { if (reduce) fig.settle?.(e, next); return; }
+      await transitionTo(next, tk);
+      if (reduce) fig.settle?.(e, model);
+      return;
+    }
     if (e.type === "packet") return reduce ? placePacket(e) : runPacket(e, tk);
     if (e.type === "note") return note(e.node, e.text, e.tone);
     if (e.type === "stream") return startStream(e);
@@ -840,7 +886,9 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   function settleExtras(i: number) {
     let stream: StreamEvent | null = null;
     for (const e of stepEvents(scene, i, choices)) {
-      if (e.type === "note") note(e.node, e.text, e.tone);
+      const fig = figureFor(e);
+      if (fig) fig.settle?.(e, model);
+      else if (e.type === "note") note(e.node, e.text, e.tone);
       else if (e.type === "stream") stream = e;
       else if (e.type === "packet" && (reduce || e.lost)) placePacket(e, !reduce);
     }
@@ -934,7 +982,9 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       (async () => {
         await transitionTo(end, tk);
         for (const e of steps[step].events) if (e.type === "note") note(e.node, e.text, e.tone);
-        await runEvents(steps[step].control!.options[option].events.filter((e) => e.type !== "state" && e.type !== "show" && e.type !== "hide" && e.type !== "move"), tk);
+        // what the option leaves is already drawn; play only what passes (messages, notes, traffic, a walk or a read)
+        const passing = (e: StageEvent) => (figureFor(e) ? PASSING.has(e.type) : e.type !== "state" && e.type !== "show" && e.type !== "hide" && e.type !== "move");
+        await runEvents(steps[step].control!.options[option].events.filter(passing), tk);
       })().catch(swallow);
     },
     show(i: number) {
@@ -955,6 +1005,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       const n = width < 560;
       if (n !== narrow) {
         narrow = n;
+        for (const f of figs) f.resize?.();
         for (const id of ids) renderNode(id);
         if (cur >= 0) { if (looping) void go(cur, autoPlay); else handle.show(cur); return; }
         const m = model;
@@ -963,12 +1014,13 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
         return;
       }
       cameraTo(cur >= 0 ? frameOf(cur) : null, cur >= 0 ? stateBefore(scene, cur + 1, choices) : model, true, undefined, cur >= 0 ? notesOf(cur) : undefined);
-      for (const id of ids) pos[id] = placeAt(model.nodes[id].at);
+      for (const id of ids) pos[id] = spot(id, model);
       setView(view);
     },
     destroy() {
       destroyed = true; token.dead = true;
       clearTransient();
+      for (const f of figs) f.destroy?.();
       syncFrames();
       visibility?.disconnect(); resize?.disconnect();
       host.innerHTML = "";
@@ -984,6 +1036,29 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     for (const id of waiting) { nodeEls[id].opts = null; renderNode(id); }
   }, (err) => console.error("SystemKit stage: a pack of drawings didn't load", err));
 
+  const ctx: FigureContext = {
+    scene, reduce,
+    layers: { floor: gFloor, mid: gMid, top: gTop },
+    narrow: () => narrow,
+    zoom: () => view.k,
+    labelScale: (k?: number) => ovs(k ?? view.k),
+    model: () => model,
+    step: () => cur,
+    at: (id) => pos[id],
+    goal: (id, m) => spot(id, m),
+    top: (id) => topOf(roleOf[id]),
+    tag: (id) => (pos[id] ? routeNode(id, pos[id], model, ov()).tag : undefined),
+    tween, after, realtime,
+    ease: { inOut: easeInOut, out: easeOut, in: easeIn, back: backOut },
+    pulse: (p, kind = "plain", big = false) => ring(p, kind, big),
+    bob,
+    pill: (label, kind) => packet(label, kind),
+    message: (path, label, kind, tk) => runPacket({ type: "packet", path, label, kind }, tk),
+    rest: (path, label, kind) => placePacket({ type: "packet", path, label, kind }),
+    speed: SPEED,
+    el,
+  };
+  figs = (options.figures ?? []).map((make) => make(ctx));
   cameraTo(null, model, true);
   transitionTo(model, token, true).catch(swallow);
   resize?.observe(host);
