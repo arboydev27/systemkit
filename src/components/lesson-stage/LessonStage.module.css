@@ -19,6 +19,8 @@
   --pk-slot: var(--line-strong);
   --pk-plate: var(--surface);
   --pk-halo: .2;
+  --pk-liquid: .2;
+  --pk-ring: var(--surface);
   --glass: rgb(255 255 255 / 70%);
   --glass-line: rgb(0 0 0 / 9%);
   --stage-height: clamp(400px, calc(100svh - 400px), 620px);
@@ -40,12 +42,14 @@
     --pk-bevel: var(--accent-line);
     --pk-bevel-r: var(--line);
     --pk-line: var(--ink-soft);
-    --pk-crease: rgb(255 255 255 / 14%);
+    --pk-crease: rgb(255 255 255 / 26%);
     --pk-recess: var(--canvas);
     --pk-wall: #000;
     --pk-slot: var(--canvas);
     --pk-plate: var(--accent-tint);
     --pk-halo: .55;
+    --pk-liquid: .3;
+    --pk-ring: var(--line-strong);
     --glass: rgb(30 30 30 / 64%);
     --glass-line: rgb(255 255 255 / 10%);
   }
@@ -222,8 +226,8 @@
 .stage :global(.pk .flag), .stage :global(.pk .ink) { fill: var(--pk-line); }
 .stage :global(.pk .spark) { fill: none; stroke: var(--pk-line); stroke-width: 1.2; }
 .stage :global(.pk .ring-shade) { fill: none; stroke: var(--pk-deep); stroke-width: 1.2; }
-.stage :global(.pk .ring-light) { fill: none; stroke: var(--pk-bevel); stroke-width: .8; }
-.stage :global(.pk .liquid) { fill: var(--ink); fill-opacity: .13; }
+.stage :global(.pk .ring-light) { fill: none; stroke: var(--pk-ring); stroke-width: .8; }
+.stage :global(.pk .liquid) { fill: var(--ink); fill-opacity: var(--pk-liquid); }
 .stage :global(.pk .liquid.is-hot) { fill: var(--hot); fill-opacity: .4; }
 .stage :global(.pk .surface) { fill: none; stroke: var(--pk-rule); stroke-width: .6; }
 .stage :global(.pk .led) { fill: none; stroke: var(--line-strong); stroke-width: 1.9; transition: stroke .3s; }
