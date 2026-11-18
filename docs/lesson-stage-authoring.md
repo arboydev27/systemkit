@@ -132,10 +132,10 @@ export const exampleStage: StageScene = {
 
 A part is `{ id, role, label, detail?, at, appear?, opts? }`.
 
-- `role` picks the pictogram: `client`, `crowd`, `dns`, `balancer`, `web`, `cache`, `database`, `cdn`, `storage`, `queue`, `worker`, `monitor`. Use one role per kind of part, consistently across a chapter.
+- `role` picks the pictogram: any role in `docs/pictogram-catalog.md`. Twelve core parts (`client`, `crowd`, `dns`, `balancer`, `web`, `cache`, `database`, `cdn`, `storage`, `queue`, `worker`, `monitor`) load with every stage; the rest come in packs (devices, control, time, services, logs, records) that the stage loads for the scenes that use them, so never import a drawing. Prefer a core part with a label where the catalogue's table says one is enough, and a pack part where its working is the lesson's idea: the samples use `broker` for a partitioned topic, `consumer` for a consumer group and `row` for a row with versions and a lock. Use one role per kind of part, consistently across a chapter.
 - `label` is the part's name on its tag (16 characters); `detail` is a few words under it (20 characters). A phone shows the name only, so the name must say what the part is.
 - `appear` is the step, counted from 0, where the part first shows; it arrives at the start of that step unless the step shows it itself. Leave it out for parts there from the start. (Step links count from 1: `appear: 2` arrives in `#step-3`.)
-- `opts` adjusts the pictogram: `big` (web, database), `many` (client, web: a row of them), `replica` (database), `items` (queue: how many parcels, 0 to 4), `level` (database fill, normally set by a `state` event's `meter`).
+- `opts` adjusts the pictogram, and which options a role reads is in the catalogue (the checks reject the rest): for example `big`, `many`, `replica`, `items`, `count` (a broker's partitions, a consumer group's members), `mark` (the picked one, such as the partition a key hashes to), `locked` (a row under a lock) and `lead` (the leader's flag, on any part). A role that fills (database, bucket, timer, lease, memtable) takes its `level` from a `state` event's `meter`. A `state` event can change `opts` mid-lesson: `{ type: "state", node: "wallet", opts: { locked: true } }`.
 
 `at` is a `Place`, `[a, b]`, and means something different in each layout:
 

@@ -16,9 +16,9 @@ export const stLogStage: StageScene = {
   // messages and the topic's strips lie under both.
   nodes: [
     { id: "checkout", role: "web", label: "Checkout", detail: "producer", at: [1, 1.65] },
-    { id: "topic", role: "queue", label: "Orders topic", detail: "6 partitions", at: [1, 0], opts: { items: 3 } },
-    { id: "billing", role: "worker", label: "Billing", detail: "6 consumers", at: [1, 1.65], appear: 2 },
-    { id: "search", role: "worker", label: "Search", detail: "indexing group", at: [1, 1.65], appear: 3 },
+    { id: "topic", role: "broker", label: "Orders topic", detail: "6 partitions", at: [1, 0], opts: { count: 6, items: 3 } },
+    { id: "billing", role: "consumer", label: "Billing", detail: "6 consumers", at: [1, 1.65], appear: 2, opts: { count: 4 } },
+    { id: "search", role: "consumer", label: "Search", detail: "indexing group", at: [1, 1.65], appear: 3, opts: { count: 2 } },
   ],
   links: [{ from: "checkout", to: "topic" }, { from: "topic", to: "billing" }, { from: "topic", to: "search" }],
   logs: [
@@ -39,6 +39,7 @@ export const stLogStage: StageScene = {
       changes: ["+ 812 new at partition 3, offset 1041", "~ Key 812 hashes to partition 3"],
       events: [
         { type: "note", node: "topic", text: "hash(812) → P3" },
+        { type: "state", node: "topic", opts: { mark: 3 }, with: true },
         { type: "append", log: "p3", from: "checkout", records: [{ text: "812 new", key: "812" }] },
       ],
     },

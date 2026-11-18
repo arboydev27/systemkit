@@ -7,6 +7,7 @@ import {
 import { applyEvent, initialModel, stepEvents } from "../src/lib/lesson-stage/model.ts";
 import { timelineSpan } from "../src/lib/lesson-stage/figure-model.ts";
 import { txLostUpdateStage } from "../src/content/lesson-stage/transactions/tx-lost-update.ts";
+import { ROLES } from "../src/lib/lesson-stage/roles.ts";
 
 // The lost-update lesson's lifelines: two payments either side of the wallet's row. A part's height is its pictogram's
 // top times the stage's glyph scale (1.42) plus its base (7).
@@ -181,7 +182,7 @@ test("the lost-update lesson's labels rest clear of each other, its lines and it
   // each telling of the story: what is drawn just before each rewind, and at the end
   const told = tellings(scene, key);
   assert.equal(told.length, 3, "told three times: the race, the atomic update, compare-and-set");
-  const glyph = { client: 26, database: 40 };
+  const glyph = Object.fromEntries(Object.entries(ROLES).map(([role, info]) => [role, info.top]));
   const parts = [...scene.nodes].sort((a, b) => a.at[0] - b.at[0]).map((n) => ({ id: n.id, top: top(glyph[n.role]), label: n.label, detail: n.detail ?? "", readout: 0 }));
   const packets = scene.steps.flatMap((st) => st.events).filter((e) => e.type === "packet");
   const widths = packets.map((e) => pillWidth(e.label, (e.kind ?? "request") !== "request")).sort((a, b) => a - b);
@@ -209,7 +210,7 @@ test("the lost-update lesson's labels rest clear of each other, its lines and it
 test("the lost-update lesson's flags hang on straight stems, its span labels stay by their sleeves, and no pill hides now", () => {
   const scene = txLostUpdateStage;
   const key = (it) => `${it.kind}|${it.id}`;
-  const glyph = { client: 26, database: 40 };
+  const glyph = Object.fromEntries(Object.entries(ROLES).map(([role, info]) => [role, info.top]));
   const parts = [...scene.nodes].sort((a, b) => a.at[0] - b.at[0]).map((n) => ({ id: n.id, top: top(glyph[n.role]), label: n.label, detail: n.detail ?? "", readout: 0 }));
   // the stages a 1440x900 window and the two phones give this lesson
   for (const [w, h] of [[672, 498], [356, 588.8], [341, 464.89]]) {

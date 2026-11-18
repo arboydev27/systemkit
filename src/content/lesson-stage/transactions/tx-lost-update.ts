@@ -10,7 +10,7 @@ export const txLostUpdateStage: StageScene = {
   metrics: [{ id: "balance", label: "Balance" }, { id: "kept", label: "Debits kept" }],
   nodes: [
     { id: "a", role: "client", label: "Payment A", detail: "debits $30", at: [0, 0] },
-    { id: "wallet", role: "database", label: "Wallet", detail: "row 7", at: [1, 0] },
+    { id: "wallet", role: "row", label: "Wallet", detail: "row 7", at: [1, 0] },
     { id: "b", role: "client", label: "Payment B", detail: "debits $50", at: [2, 0] },
   ],
   links: [],
@@ -65,6 +65,7 @@ export const txLostUpdateStage: StageScene = {
         { type: "packet", path: ["a", "wallet"], label: "balance − 30" },
         { type: "packet", path: ["b", "wallet"], label: "balance − 50", with: true },
         { type: "span", id: "lock", node: "a", label: "holds row lock", tone: "work" },
+        { type: "state", node: "wallet", opts: { locked: true }, with: true },
         { type: "span", id: "wait", node: "b", label: "waits for lock", tone: "quiet", with: true },
         { type: "mark", node: "wallet", text: "100 → 70", tone: "work", dur: 1.5 },
         { type: "packet", path: ["wallet", "a"], label: "1 row", kind: "response" },
@@ -80,6 +81,7 @@ export const txLostUpdateStage: StageScene = {
       events: [
         { type: "packet", path: ["a", "wallet"], label: "COMMIT" },
         { type: "span", id: "lock", end: true },
+        { type: "state", node: "wallet", opts: { locked: false }, with: true },
         { type: "span", id: "wait", end: true, with: true },
         { type: "mark", node: "wallet", text: "70 → 20", tone: "work" },
         { type: "packet", path: ["wallet", "b"], label: "1 row", kind: "response" },

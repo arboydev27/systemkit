@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play, RotateCcw, RotateCw
 import { createStage, type StageHandle, type StageStatus } from "@/lib/lesson-stage/engine";
 import type { FigureFactory } from "@/lib/lesson-stage/figure";
 import { loadFigures, needsFigures } from "@/lib/lesson-stage/figures";
+import { loadScenePacks, packsFor } from "@/lib/lesson-stage/packs/index.ts";
 import { formatMetric, metricsAt, type Choices } from "@/lib/lesson-stage/model";
 import type { MetricValue, StageScene } from "@/lib/lesson-stage/types";
 import styles from "./LessonStage.module.css";
@@ -77,9 +78,13 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
       const linked = /^#step-(\d+)$/.exec(window.location.hash);
       if (linked && +linked[1] >= 1 && +linked[1] <= scene.steps.length) stage.show(+linked[1] - 1);
     };
-    // a ring, a log or a timeline loads its own code first; the tiers start at once
-    if (needsFigures(scene)) void loadFigures(scene).then(start);
-    else start([]);
+    // a ring, a log or a timeline loads its own code first, and parts from a pack their drawings, so nothing starts as
+    // a placeholder; a scene of core parts in tiers starts at once
+    const packs = packsFor(scene.nodes.map((n) => n.role)).length > 0;
+    if (needsFigures(scene) || packs) {
+      // a pack that fails to load leaves its parts as plain crates (the engine says so); the stage still plays
+      void Promise.all([needsFigures(scene) ? loadFigures(scene) : [], loadScenePacks(scene).catch(() => undefined)]).then(([figures]) => start(figures));
+    } else start([]);
     return () => { live = false; stage?.destroy(); stageRef.current = null; };
   }, [scene, title]);
 
