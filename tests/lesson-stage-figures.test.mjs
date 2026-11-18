@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyEvent, initialModel, metricsAt, stateBefore } from "../src/lib/lesson-stage/model.ts";
+import { applyEvent, initialModel, metricsAt, shownMetricStep, stateBefore } from "../src/lib/lesson-stage/model.ts";
 import { compacted, preferenceList, ringMoved, ringOwner, ringShare, scatter, timelineSpan } from "../src/lib/lesson-stage/figure-model.ts";
 import { validateScene } from "../src/lib/lesson-stage/validate.ts";
 
@@ -223,4 +223,14 @@ test("a valid timeline passes, and timeline mistakes are caught", () => {
   const tiers = structuredClone(logScene);
   tiers.steps[0].events.push({ type: "mark", node: "broker", text: "x", t: 2 });
   assert.match(validateScene(tiers).join("\n"), /needs the timeline layout[\s\S]*only a timeline uses|only a timeline uses[\s\S]*needs the timeline layout/);
+});
+
+test("while a step plays the chips show the step before's numbers, but a step that rewinds shows its own at once", () => {
+  const last = timelineScene.steps.length - 1;
+  assert.equal(timelineScene.steps[last].events[0].type, "rewind");
+  assert.equal(shownMetricStep(timelineScene, last, false), last, "a rewind clears the picture the old numbers describe");
+  assert.equal(shownMetricStep(timelineScene, last, true), last);
+  assert.equal(shownMetricStep(timelineScene, 1, false), 0, "an ordinary step changes its numbers once it has played");
+  assert.equal(shownMetricStep(timelineScene, 1, true), 1);
+  assert.equal(shownMetricStep(timelineScene, -1, false), -1, "nothing before the first step");
 });
