@@ -33,87 +33,155 @@ export type GlyphOptions = {
 };
 
 type RoleInfo = {
-  /** The default name on its tag (scenes usually set their own label). */
-  name: string;
   /** How far the drawing rises above its floor centre, in drawing units, for placing notes, pills and the down mark. */
   top: number;
   /** The pack that draws it; core roles have none and load with every stage. */
   pack?: PackName;
-  /** The options it reads, with ranges: "count:1-6 mark level". `lead` works on every role. */
-  opts?: string;
   /** Its meter fills it: the stage passes the part's meter as `level`. */
   fill?: boolean;
 };
 
+/** What the stage needs of each role while it plays: its height, its pack, whether its meter fills it. */
 export const ROLES = {
   // core: loaded by every stage
-  client: { name: "Client", top: 36, opts: "many" },
-  crowd: { name: "Users", top: 27 },
-  dns: { name: "DNS", top: 28 },
-  balancer: { name: "Load balancer", top: 20 },
-  web: { name: "Web server", top: 50, opts: "big many" },
-  cache: { name: "Cache", top: 16 },
-  database: { name: "Database", top: 42, opts: "big replica level", fill: true },
-  cdn: { name: "CDN edge", top: 36 },
-  storage: { name: "Object storage", top: 40 },
-  queue: { name: "Queue", top: 18, opts: "items:0-4" },
-  worker: { name: "Worker", top: 30 },
-  monitor: { name: "Monitoring", top: 39 },
+  client: { top: 36 },
+  crowd: { top: 27 },
+  dns: { top: 28 },
+  balancer: { top: 20 },
+  web: { top: 50 },
+  cache: { top: 16 },
+  database: { top: 42, fill: true },
+  cdn: { top: 36 },
+  storage: { top: 40 },
+  queue: { top: 18 },
+  worker: { top: 30 },
+  monitor: { top: 39 },
 
   // devices: what stands at the edges, ours and other people's
-  phone: { name: "Phone", top: 36, pack: "devices", opts: "many items:0-3 level" },
-  sensor: { name: "Sensor", top: 35, pack: "devices", opts: "many" },
-  sender: { name: "Outside sender", top: 44, pack: "devices" },
-  external: { name: "Outside service", top: 38, pack: "devices" },
-  mailbox: { name: "Inbox", top: 34, pack: "devices", opts: "items:0-4" },
+  phone: { top: 36, pack: "devices" },
+  sensor: { top: 35, pack: "devices" },
+  sender: { top: 44, pack: "devices" },
+  external: { top: 38, pack: "devices" },
+  mailbox: { top: 34, pack: "devices" },
 
   // control: what checks, limits and lets through
-  gateway: { name: "API gateway", top: 34, pack: "control", opts: "open" },
-  gate: { name: "Gate", top: 34, pack: "control", opts: "open" },
-  breaker: { name: "Circuit breaker", top: 31, pack: "control", opts: "open" },
-  limiter: { name: "Rate limiter", top: 22, pack: "control", opts: "count:1-3" },
-  bucket: { name: "Token bucket", top: 32, pack: "control", opts: "level items:0-8", fill: true },
-  counter: { name: "Counter", top: 23, pack: "control" },
-  lock: { name: "Lock", top: 41, pack: "control", opts: "open" },
+  gateway: { top: 34, pack: "control" },
+  gate: { top: 34, pack: "control" },
+  breaker: { top: 31, pack: "control" },
+  limiter: { top: 22, pack: "control" },
+  bucket: { top: 32, pack: "control", fill: true },
+  counter: { top: 23, pack: "control" },
+  lock: { top: 41, pack: "control" },
 
   // time: clocks, timeouts and leases
-  clock: { name: "Clock", top: 33, pack: "time", opts: "level" },
-  timer: { name: "Timer", top: 43, pack: "time", opts: "level", fill: true },
-  lease: { name: "Lease", top: 40, pack: "time", opts: "level", fill: true },
-  scheduler: { name: "Scheduler", top: 32, pack: "time", opts: "items:0-4" },
+  clock: { top: 33, pack: "time" },
+  timer: { top: 43, pack: "time", fill: true },
+  lease: { top: 40, pack: "time", fill: true },
+  scheduler: { top: 32, pack: "time" },
 
   // services: machines that do one job
-  socket: { name: "WebSocket server", top: 43, pack: "services", opts: "items:0-8" },
-  fanout: { name: "Fan-out", top: 28, pack: "services", opts: "count:2-6" },
-  idgen: { name: "ID generator", top: 35, pack: "services" },
-  transcoder: { name: "Transcoder", top: 39, pack: "services", opts: "count:1-3" },
-  fetcher: { name: "Fetcher", top: 41, pack: "services" },
-  router: { name: "Router", top: 37, pack: "services", opts: "count:2-4 mark" },
-  coordinator: { name: "Coordinator", top: 32, pack: "services", opts: "count:2-5 items:0-5" },
-  registry: { name: "Registry", top: 40, pack: "services", opts: "count:2-6 items:0-6" },
+  socket: { top: 43, pack: "services" },
+  fanout: { top: 28, pack: "services" },
+  idgen: { top: 35, pack: "services" },
+  transcoder: { top: 39, pack: "services" },
+  fetcher: { top: 41, pack: "services" },
+  router: { top: 37, pack: "services" },
+  coordinator: { top: 32, pack: "services" },
+  registry: { top: 40, pack: "services" },
 
   // logs: append-only records and what reads them
-  logfile: { name: "Log", top: 28, pack: "logs", opts: "items:0-8 mark" },
-  broker: { name: "Broker", top: 38, pack: "logs", opts: "count:1-6 items:0-6 mark" },
-  consumer: { name: "Consumer group", top: 31, pack: "logs", opts: "count:1-4 mark" },
-  frontier: { name: "URL frontier", top: 39, pack: "logs", opts: "count:2-4 items:0-4 mark" },
-  disk: { name: "Disk", top: 18, pack: "logs" },
+  logfile: { top: 28, pack: "logs" },
+  broker: { top: 38, pack: "logs" },
+  consumer: { top: 31, pack: "logs" },
+  frontier: { top: 39, pack: "logs" },
+  disk: { top: 18, pack: "logs" },
 
   // records: how data is laid out and found
-  memtable: { name: "Memtable", top: 41, pack: "records", opts: "level", fill: true },
-  sstable: { name: "Sorted files", top: 33, pack: "records", opts: "count:1-5" },
-  bloom: { name: "Bloom filter", top: 28, pack: "records", opts: "level" },
-  tree: { name: "Tree", top: 39, pack: "records", opts: "count:2-3 mark" },
-  shard: { name: "Shard", top: 25, pack: "records", opts: "count:2-6 mark" },
-  index: { name: "Index", top: 35, pack: "records", opts: "mark:0-11" },
-  columns: { name: "Column store", top: 43, pack: "records", opts: "count:3-6 items:0-6" },
-  row: { name: "Row", top: 27, pack: "records", opts: "count:1-4 locked" },
-  doc: { name: "Document", top: 37, pack: "records", opts: "count:1-3" },
+  memtable: { top: 41, pack: "records", fill: true },
+  sstable: { top: 33, pack: "records" },
+  bloom: { top: 28, pack: "records" },
+  tree: { top: 39, pack: "records" },
+  shard: { top: 25, pack: "records" },
+  index: { top: 35, pack: "records" },
+  columns: { top: 43, pack: "records" },
+  row: { top: 27, pack: "records" },
+  doc: { top: 37, pack: "records" },
 } satisfies Record<string, RoleInfo>;
 
 export type StageRole = keyof typeof ROLES;
+
+/**
+ * Each role's default name (on its tag unless a scene names the part) and the options its drawing reads, with ranges:
+ * "count:1-6 mark level". `lead` works on every role. Only the checks and the catalogue read this, so pages don't load it.
+ */
+export const ROLE_TERMS: Record<StageRole, [name: string, opts?: string]> = {
+  // core: loaded by every stage
+  client: ["Client", "many"],
+  crowd: ["Users"],
+  dns: ["DNS"],
+  balancer: ["Load balancer"],
+  web: ["Web server", "big many"],
+  cache: ["Cache"],
+  database: ["Database", "big replica level"],
+  cdn: ["CDN edge"],
+  storage: ["Object storage"],
+  queue: ["Queue", "items:0-4"],
+  worker: ["Worker"],
+  monitor: ["Monitoring"],
+
+  // devices: what stands at the edges, ours and other people's
+  phone: ["Phone", "many items:0-3 level"],
+  sensor: ["Sensor", "many"],
+  sender: ["Outside sender"],
+  external: ["Outside service"],
+  mailbox: ["Inbox", "items:0-4"],
+
+  // control: what checks, limits and lets through
+  gateway: ["API gateway", "open"],
+  gate: ["Gate", "open"],
+  breaker: ["Circuit breaker", "open"],
+  limiter: ["Rate limiter", "count:1-3"],
+  bucket: ["Token bucket", "level items:0-8"],
+  counter: ["Counter"],
+  lock: ["Lock", "open"],
+
+  // time: clocks, timeouts and leases
+  clock: ["Clock", "level"],
+  timer: ["Timer", "level"],
+  lease: ["Lease", "level"],
+  scheduler: ["Scheduler", "items:0-4"],
+
+  // services: machines that do one job
+  socket: ["WebSocket server", "items:0-8"],
+  fanout: ["Fan-out", "count:2-6"],
+  idgen: ["ID generator"],
+  transcoder: ["Transcoder", "count:1-3"],
+  fetcher: ["Fetcher"],
+  router: ["Router", "count:2-4 mark"],
+  coordinator: ["Coordinator", "count:2-5 items:0-5"],
+  registry: ["Registry", "count:2-6 items:0-6"],
+
+  // logs: append-only records and what reads them
+  logfile: ["Log", "items:0-8 mark"],
+  broker: ["Broker", "count:1-6 items:0-6 mark"],
+  consumer: ["Consumer group", "count:1-4 mark"],
+  frontier: ["URL frontier", "count:2-4 items:0-4 mark"],
+  disk: ["Disk"],
+
+  // records: how data is laid out and found
+  memtable: ["Memtable", "level"],
+  sstable: ["Sorted files", "count:1-5"],
+  bloom: ["Bloom filter", "level"],
+  tree: ["Tree", "count:2-3 mark"],
+  shard: ["Shard", "count:2-6 mark"],
+  index: ["Index", "mark:0-11"],
+  columns: ["Column store", "count:3-6 items:0-6"],
+  row: ["Row", "count:1-4 locked"],
+  doc: ["Document", "count:1-3"],
+};
 export const ROLE_IDS = Object.keys(ROLES) as StageRole[];
 const info = (role: StageRole): RoleInfo => ROLES[role];
+export const roleName = (role: StageRole) => ROLE_TERMS[role][0];
 export const packOf = (role: StageRole): PackName | undefined => info(role).pack;
 export const fills = (role: StageRole) => !!info(role).fill;
 
@@ -133,7 +201,7 @@ export function roleProblems(scene: SceneLike): string[] {
     const role = roleOf.get(id);
     if (!role) return;
     const allowed = new Map<string, [number, number] | null>([["lead", null]]);
-    for (const o of (info(role).opts ?? "").split(" ").filter(Boolean)) {
+    for (const o of (ROLE_TERMS[role][1] ?? "").split(" ").filter(Boolean)) {
       const [name, range] = o.split(":");
       allowed.set(name, range ? (range.split("-").map(Number) as [number, number]) : null);
       if (name === "level") allowed.set("levelHot", null);
@@ -145,7 +213,7 @@ export function roleProblems(scene: SceneLike): string[] {
       if (range && typeof value === "number" && (value < range[0] || value > range[1] || !Number.isInteger(value))) problems.push(`${where} sets "${id}" (${role}) ${key} to ${value}, outside ${range[0]}-${range[1]}`);
       if (key === "level" && typeof value === "number" && (value < 0 || value > 1)) problems.push(`${where} sets "${id}" (${role}) level to ${value}, outside 0-1`);
       // a mark picks one of the role's `count` parts, or of its `items` when it has no count (a log's entries)
-      const pool = merged.count ?? (/(^| )count/.test(info(role).opts ?? "") ? undefined : merged.items);
+      const pool = merged.count ?? (/(^| )count/.test(ROLE_TERMS[role][1] ?? "") ? undefined : merged.items);
       if (key === "mark" && typeof value === "number" && (value < 0 || (pool !== undefined && value >= pool))) problems.push(`${where} sets "${id}" (${role}) mark to ${value}, but it has ${pool ?? "no"} to pick from`);
     }
     optsOf.set(id, merged);

@@ -11,9 +11,9 @@ SystemKit's lesson stages draw every part of a system as a small isometric objec
 
 | File | What it holds |
 |---|---|
-| `src/lib/lesson-stage/roles.ts` | Every role: default name, `top` (height), `pack`, the options it reads (`opts: "count:1-6 mark level"`), `fill`. Also `GlyphOptions` and `StageRole`, which `types.ts` re-exports, and `roleProblems`, which `validate.ts` runs. |
+| `src/lib/lesson-stage/roles.ts` | Every role, in two tables: `ROLES` holds what pages need (`top`, the drawing's height; `pack`; `fill`), `ROLE_TERMS` what only the checks and docs need (the default name and the options it reads, `"count:1-6 mark level"`), so pages don't download it. Also `GlyphOptions` and `StageRole`, which `types.ts` re-exports, and `roleProblems`, which `validate.ts` runs. |
 | `src/lib/lesson-stage/draw.ts` | The kit: `iso`, `box`, `face`, `plane`, `cylinder`, `ball`, and face details (`recess`, `pocket`, `screw`, `slot`, `rule`, `etch`, `etchDot`, `plate`, `led`, `lamp`, `halo`). |
-| `src/lib/lesson-stage/pictograms.ts` | The core twelve (every stage loads them), the base (`plinth`), the placeholder crate, the leader's flag (`lead`), `glyph(role, opts)`, `addPack`, `GLYPH_TOP`, `ROLE_NAMES`, and `PICTOGRAM_DEFS` (the shared gradients). |
+| `src/lib/lesson-stage/pictograms.ts` | The core twelve (every stage loads them), the base (`plinth`), the placeholder crate, the leader's flag (`lead`), `glyph(role, opts)`, `addPack`, `GLYPH_TOP`, and `PICTOGRAM_DEFS` (the shared gradients). |
 | `src/lib/lesson-stage/packs/<pack>.ts` | One pack per family: `export default { role(o) { ... } }` and `export const samples` (options to show on the sheet). |
 | `src/lib/lesson-stage/packs/index.ts` | `loadScenePacks(scene)`: dynamic imports, one chunk per pack. The engine calls it for any part whose drawing isn't loaded and redraws when it arrives; a loader can call it first so parts appear already drawn. |
 | `src/components/lesson-stage/LessonStage.module.css` | The class vocabulary, coloured from page tokens in both themes (`--pk-*` on `.root`). |
@@ -26,7 +26,7 @@ A scene never imports drawings: it names roles, and the stage loads their packs.
 - **Boxes.** `box(x, y, z, w, d, h, { top, left, right, bevel })` draws three faces (`pt`, `pl`, `pr`), a bevel of light under the top edges, faint creases and an ink silhouette. `face(b, "L" | "R" | "T", inner)` draws on a face in flat coordinates: u to the right, v **up** (on T, v runs toward the front). A rect at `y = v` covers v..v+h going up. `plane(origin, u, v, inner)` does the same on any tilted plane.
 - **Round parts.** `cylinder(r, h, { x, y, z, rBottom, bands, level, levelHot, top, crease })` shades the side from one gradient, draws raised rings at `bands`, a fill rising to `level`, and an ellipse top. `ball(cx, cy, r)` for spheres and knobs.
 - **Painter's order.** Draw back to front: the halo, then what's furthest from the viewer (smaller x + y), then nearer parts. A part that wraps another (a frame round a carriage) is split into back and front halves.
-- **Options.** Read only the options your role lists in `roles.ts`, clamp them (`clamp`), and give every option a visible meaning: `count` repeats an element, `items` fills slots, `level` fills 0-1, `mark` picks one element (pull it out or raise it, and put a `lamp` or `led` on it), `open` raises an arm or trips a lever (`"half"` in between).
+- **Options.** Read only the options your role lists in `ROLE_TERMS` (`roles.ts`), clamp them (`clamp`), and give every option a visible meaning: `count` repeats an element, `items` fills slots, `level` fills 0-1, `mark` picks one element (pull it out or raise it, and put a `lamp` or `led` on it), `open` raises an arm or trips a lever (`"half"` in between).
 - **Height.** Set `top` in `roles.ts` to the drawing's real height (the sheet measures it). Notes, pills and the down mark sit on it.
 
 ## The class vocabulary
@@ -86,7 +86,7 @@ From the anatomy skill (`~/.claude/skills/anatomy/references/craft.md`), cut dow
 
 ## Adding a part
 
-Add the role to `roles.ts` (name, top, pack, opts), draw it in that pack, add a row to `docs/pictogram-catalog.md`, and run the sheet and the test. No change to `types.ts`, `validate.ts`, the engine or the CSS. A new pack also needs a loader line in `packs/index.ts` and its name in `PackName`.
+Add the role to both tables in `roles.ts` (`ROLES`: top and pack; `ROLE_TERMS`: name and options), draw it in that pack, add a row to `docs/pictogram-catalog.md`, and run the sheet and the test. No change to `types.ts`, `validate.ts`, the engine or the CSS. A new pack also needs a loader line in `packs/index.ts` and its name in `PackName`.
 
 ## Done looks like
 

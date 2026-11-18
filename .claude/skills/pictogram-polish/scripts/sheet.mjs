@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Builds the pictogram comparison sheet from the real drawings and the stage's real CSS, in both themes.
-//   node .claude/skills/pictogram-polish/scripts/sheet.mjs [--out pictograms.html] [--today origin/main] [--packs devices,logs] [--no-core]
+//   node .claude/skills/pictogram-polish/scripts/sheet.mjs [--out pictograms.html] [--today origin/main] [--packs devices,logs] [--no-core] [--stack]
 // Run from the repo root. Core parts show today's drawing (from git ref --today) beside the working tree's; every pack
 // part shows at 108, 48 and 32 px plus the options its pack lists in `samples`. Each new drawing is measured in the
 // page: a part taller than its GLYPH_TOP (roles.ts), or spilling off its base, gets a red note under it.
 // Sections sit side by side, each at the top of the page (drive.mjs element shots start at the viewport's top, so a
-// section lower down would capture the wrong thing). Capture a section with the anatomy skill's drive.mjs, e.g. at 2x:
+// section lower down would capture the wrong thing); --stack puts them one under another for reading in a browser. Capture a section with the anatomy skill's drive.mjs, e.g. at 2x:
 //   node ~/.claude/skills/anatomy/scripts/drive.mjs pictograms.html '[["shot","core.png","#core",2]]' --width 1500
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -20,6 +20,7 @@ const out = resolve(opt("--out", "pictograms.html"));
 const ref = opt("--today", "origin/main");
 const onlyPacks = opt("--packs", "")?.split(",").filter(Boolean);
 const withCore = !args.includes("--no-core");
+const stack = args.includes("--stack");
 const lib = join(root, "src/lib/lesson-stage");
 
 // ---- the drawings: today's from git, the working tree's from source ----
@@ -30,7 +31,7 @@ try {
   today = await import(pathToFileURL(join(tmp, "pictograms.ts")).href);
 } catch (err) { console.warn(`no drawings at ${ref}: ${err.message.split("\n")[0]}`); }
 const now = await import(pathToFileURL(join(lib, "pictograms.ts")).href);
-const { ROLES } = await import(pathToFileURL(join(lib, "roles.ts")).href);
+const { ROLES, ROLE_TERMS } = await import(pathToFileURL(join(lib, "roles.ts")).href);
 const packs = [];
 for (const file of readdirSync(join(lib, "packs")).filter((f) => f.endsWith(".ts") && f !== "index.ts").sort()) {
   const name = file.replace(/\.ts$/, "");
@@ -82,13 +83,13 @@ function coreRows(theme) {
   const roles = Object.keys(ROLES).filter((r) => !ROLES[r].pack);
   const variants = { client: [{ many: true }], web: [{ big: true }, { many: true }], database: [{ level: 0.6 }, { level: 0.9, levelHot: true }, { replica: true, lead: true }], queue: [{ items: 0 }, { items: 4 }] };
   return `<div class="head core"><span></span><span>Today</span><span>New</span><span>Today 48</span><span>New 48</span><span>New 32</span><span>Options and lights</span></div>` +
-    roles.map((r) => `<div class="row core"><b>${ROLES[r].name}<small>${r}</small></b>` +
+    roles.map((r) => `<div class="row core"><b>${ROLE_TERMS[r][0]}<small>${r}</small></b>` +
       cell(today ? part("now", r, 108) : "") + cell(part("new", r, 108), "measure") + cell(today ? part("now", r, 48) : "", "small") + cell(part("new", r, 48), "small") + cell(part("new", r, 32), "tiny") +
       `<div class="variants">${[...(variants[r] ?? []).map((o) => [o, "on"]), [{}, "work"], [{}, "hot"]].map(([o, l]) => `<figure>${part("new", r, 72, o, l)}<figcaption>${label(o)}${l !== "on" ? ` · ${l}` : ""}</figcaption></figure>`).join("")}</div></div>`).join("");
 }
 function packRows(pack) {
   return `<div class="head pack"><span></span><span>108</span><span>48</span><span>32</span><span>Options and lights</span></div>` +
-    pack.roles.map((r) => `<div class="row pack"><b>${ROLES[r].name}<small>${r}${ROLES[r].opts ? ` · ${ROLES[r].opts}` : ""}</small></b>` +
+    pack.roles.map((r) => `<div class="row pack"><b>${ROLE_TERMS[r][0]}<small>${r}${ROLE_TERMS[r][1] ? ` · ${ROLE_TERMS[r][1]}` : ""}</small></b>` +
       cell(part("new", r, 108), "measure") + cell(part("new", r, 48), "small") + cell(part("new", r, 32), "tiny") +
       `<div class="variants">${[...(pack.samples[r] ?? []).map((o) => [o, "on"]), [{}, "work"], [{}, "hot"]].map(([o, l]) => `<figure>${part("new", r, 72, o, l)}<figcaption>${label(o)}${l !== "on" ? ` · ${l}` : ""}</figcaption></figure>`).join("")}</div></div>`).join("");
 }
@@ -97,7 +98,7 @@ const section = (id, title, body) => `<section class="section" id="${id}">${["li
 const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Pictograms</title><style>
 * { box-sizing: border-box; }
 /* sections sit side by side, each at the top of the page: headless element shots of a section lower down come out wrong */
-body { margin: 0; display: flex; align-items: flex-start; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #777; }
+body { margin: 0; display: ${stack ? "block" : "flex"}; align-items: flex-start; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #777; }
 .section { flex: none; display: grid; grid-template-columns: auto auto; }
 .panel { padding: 26px 26px 30px; background: var(--canvas); color: var(--ink); }
 .light { ${lightTokens} --work: #2a78d6; --hot: #eb6834; }

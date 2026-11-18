@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
-import { GLYPH_TOP, ROLE_NAMES, addPack, glyph, isDrawn, plinth } from "../src/lib/lesson-stage/pictograms.ts";
-import { ROLES, ROLE_IDS, roleProblems } from "../src/lib/lesson-stage/roles.ts";
+import { GLYPH_TOP, addPack, glyph, isDrawn, plinth } from "../src/lib/lesson-stage/pictograms.ts";
+import { ROLES, ROLE_IDS, ROLE_TERMS, roleProblems } from "../src/lib/lesson-stage/roles.ts";
 import { validateScene } from "../src/lib/lesson-stage/validate.ts";
 
 const packDir = new URL("../src/lib/lesson-stage/packs/", import.meta.url);
@@ -17,7 +17,7 @@ const CLASSES = new Set([...css.matchAll(/:global\(\.pk \.([a-z][\w-]*)/g)].map(
 // PICTOGRAM_PACKS=logs,time checks only the core and those packs (for drawing one pack while others are unfinished)
 const only = (process.env.PICTOGRAM_PACKS ?? "").split(",").filter(Boolean);
 const ROLES_CHECKED = ROLE_IDS.filter((r) => !only.length || !ROLES[r].pack || only.includes(ROLES[r].pack));
-const optionsOf = (role) => (ROLES[role].opts ?? "").split(" ").filter(Boolean);
+const optionsOf = (role) => (ROLE_TERMS[role][1] ?? "").split(" ").filter(Boolean);
 
 function wellFormed(svg) {
   const stack = [];
@@ -43,7 +43,7 @@ function samplesOf(role) {
 
 test("every role has a name, a height and either a core drawing or a pack that draws it", () => {
   for (const role of ROLES_CHECKED) {
-    assert.ok(ROLE_NAMES[role] && ROLE_NAMES[role].length <= 16, `${role} needs a name of at most 16 characters`);
+    assert.ok(ROLE_TERMS[role]?.[0] && ROLE_TERMS[role][0].length <= 16, `${role} needs a name of at most 16 characters`);
     assert.ok(GLYPH_TOP[role] > 0, `${role} needs a top`);
     const pack = ROLES[role].pack;
     if (!pack) assert.ok(isDrawn(role), `core role ${role} has no drawing`);

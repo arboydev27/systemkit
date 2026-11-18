@@ -260,7 +260,6 @@ export const isDrawn = (role: StageRole) => !!drawn[role];
 
 /** Height of each part above its floor centre, for placing what floats over it. */
 export const GLYPH_TOP = Object.fromEntries(ROLE_IDS.map((r) => [r, ROLES[r].top])) as Record<StageRole, number>;
-export const ROLE_NAMES = Object.fromEntries(ROLE_IDS.map((r) => [r, ROLES[r].name])) as Record<StageRole, string>;
 
 /** A part's drawing as SVG markup; a neutral crate when its pack hasn't loaded. */
 export function glyph(role: StageRole, opts: GlyphOptions = {}): string {
