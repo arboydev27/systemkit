@@ -1,5 +1,7 @@
 // The state of a stage between steps, worked out from the data alone (no DOM), so it can be tested.
-import type { GlyphOptions, Light, MetricValue, Place, StageEvent, StageScene, Tone } from "./types";
+import type {
+  GlyphOptions, Light, LogRecord, MarkTone, MetricValue, Place, RingKey, RingToken, StageEvent, StageMetric, StageScene, Tone,
+} from "./types";
 
 export type NodeState = {
   visible: boolean;
@@ -13,9 +15,41 @@ export type NodeState = {
   down: boolean;
   opts: GlyphOptions;
 };
-export type StageModel = { nodes: Record<string, NodeState> };
+export type RingArc = { id: string; from: number; to: number; label: string; tone: MarkTone | "" };
+export type RingState = { size: number; tokens: RingToken[]; keys: RingKey[]; dots: number[]; arcs: RingArc[] };
+export type LogEntry = LogRecord & { offset: number; seg: number };
+export type LogCursor = { id: string; at: number; label: string; tone: MarkTone | ""; line: boolean };
+export type LogBracket = { id: string; from: number; to: number; label: string; tone: MarkTone | "" };
+export type LogState = {
+  id: string; node: string; label: string; visible: boolean; sorted: boolean; step: number;
+  /** The offset the next record gets, and the segment it joins. */
+  next: number; seg: number;
+  records: LogEntry[]; cursors: LogCursor[]; brackets: LogBracket[];
+};
+export type TimelineItem =
+  | { kind: "message"; id: string; from: string; to: string; t0: number; t1: number; label: string; flow: string; lost: boolean }
+  | { kind: "mark"; id: string; node: string; t: number; text: string; tone: MarkTone | "" }
+  | { kind: "span"; id: string; node: string; t0: number; t1: number | null; label: string; tone: MarkTone | "" };
+/** `clock` is when the next item starts by default, `last` when the item before started (for `with`). */
+export type TimelineState = { clock: number; last: number; items: TimelineItem[] };
+export type StageModel = {
+  nodes: Record<string, NodeState>;
+  ring?: RingState;
+  logs?: Record<string, LogState>;
+  timeline?: TimelineState;
+};
 /** Which option each step's control is set to, by step index. */
 export type Choices = Record<number, number>;
+
+/** How the ring, logs and timeline change. It lives in figure-model.ts, which the figures and the checks load, so a
+ * lesson drawn only in tiers never downloads it; until it loads, those events change nothing. */
+export type FigureModel = {
+  init(scene: StageScene, model: StageModel): void;
+  apply(model: StageModel, event: StageEvent): void;
+  derive(scene: StageScene, metric: StageMetric, index: number, choices: Choices): MetricValue;
+};
+let figures: FigureModel | null = null;
+export function registerFigureModel(model: FigureModel) { figures = model; }
 
 export function initialModel(scene: StageScene): StageModel {
   const nodes: Record<string, NodeState> = {};
@@ -25,7 +59,9 @@ export function initialModel(scene: StageScene): StageModel {
       light: "idle", readout: "", meter: null, tone: "", down: false, opts: { ...(n.opts ?? {}) },
     };
   }
-  return { nodes };
+  const model: StageModel = { nodes };
+  figures?.init(scene, model);
+  return model;
 }
 
 export function cloneModel(model: StageModel): StageModel {
@@ -34,10 +70,11 @@ export function cloneModel(model: StageModel): StageModel {
     const n = model.nodes[id];
     nodes[id] = { ...n, at: [n.at[0], n.at[1]], opts: { ...n.opts } };
   }
-  return { nodes };
+  const copy: StageModel = { nodes };
+  for (const k of ["ring", "logs", "timeline"] as const) if (model[k]) Object.assign(copy, { [k]: structuredClone(model[k]) });
+  return copy;
 }
 
-/** Apply the lasting part of an event: what's shown, where, and in what state. Packets and notes leave nothing behind. */
 export function applyEvent(model: StageModel, event: StageEvent): void {
   if (event.type === "show") {
     for (const id of event.nodes) model.nodes[id].visible = true;
@@ -59,7 +96,8 @@ export function applyEvent(model: StageModel, event: StageEvent): void {
       if (event.opts) s.opts = { ...s.opts, ...event.opts };
       if (event.at) s.at = event.at;
     }
-  }
+  } else figures?.apply(model, event);
+
 }
 
 export function stepEvents(scene: StageScene, index: number, choices: Choices = {}): StageEvent[] {
@@ -81,11 +119,13 @@ export function stateBefore(scene: StageScene, index: number, choices: Choices =
 /** The numbers shown over the stage after step `index`, carried forward from earlier steps. */
 export function metricsAt(scene: StageScene, index: number, choices: Choices = {}): Record<string, MetricValue> {
   const values: Record<string, MetricValue> = {};
-  for (let s = 0; s <= Math.min(index, scene.steps.length - 1); s++) {
+  const last = Math.min(index, scene.steps.length - 1);
+  for (let s = 0; s <= last; s++) {
     const step = scene.steps[s];
     Object.assign(values, step.metrics ?? {});
     if (step.control) Object.assign(values, step.control.options[choices[s] ?? 0]?.metrics ?? {});
   }
+  if (last >= 0) for (const m of scene.metrics ?? []) if (m.derive) values[m.id] = figures?.derive(scene, m, last, choices) ?? "—";
   return values;
 }
 

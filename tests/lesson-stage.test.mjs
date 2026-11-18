@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readdirSync } from "node:fs";
 import { applyEvent, formatMetric, initialModel, metricsAt, stateBefore, stepEvents } from "../src/lib/lesson-stage/model.ts";
 import { validateScene } from "../src/lib/lesson-stage/validate.ts";
 
@@ -75,14 +74,4 @@ test("the validator catches broken references and long words", () => {
   assert.match(problems, /must start with/);
 });
 
-const dir = new URL("../src/content/lesson-stage/scaling/", import.meta.url);
-for (const file of readdirSync(dir).filter((name) => name.endsWith(".ts") && name !== "index.ts")) {
-  test(`scaling stage ${file} is valid when written`, async () => {
-    const scene = Object.values(await import(new URL(file, dir)))[0];
-    if (!scene) return;
-    assert.equal(scene.id, file.replace(/\.ts$/, ""));
-    assert.deepEqual(validateScene(scene), []);
-    // every step can be reached from the start without errors
-    for (let i = 0; i <= scene.steps.length; i++) stateBefore(scene, i);
-  });
-}
+// Every staged scene in every chapter is validated and played through in lesson-stage-wiring.test.mjs.

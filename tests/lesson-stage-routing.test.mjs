@@ -59,6 +59,20 @@ test("where two links cross, one of them breaks to pass under the other", () => 
   assert.equal(quiet[0].under.length, 1);
 });
 
+test("a link to a part in front of one carrying a log leaves from the face on that part's side instead of wrapping around its tag", () => {
+  // two parts of one tier, the second down the floor's diagonal, the first with a log's strips beside it: however wide
+  // the tags (zoomed out they grow next to their ports) and whichever way the link is listed, it runs from the first
+  // part's right face
+  for (const tag of [96, 110, 134, 160]) for (const lane of [1.3, 1.65, 2.2]) {
+    const strip = { x0: place(1, 0).x + 60, y0: place(1, 0).y - 120, x1: place(1, 0).x + 400, y1: place(1, 0).y - 40 };
+    const a = { ...part("a", place(1, 0), { tag }), more: [strip] }, b = part("b", place(1, lane), { tag });
+    const [ab] = routeLinks([a, b], [{ id: 0, a: "a", b: "b" }], wide);
+    const [ba] = routeLinks([a, b], [{ id: 0, a: "b", b: "a" }], wide);
+    assert.equal(ab.from, "R", `tag ${tag}, lane ${lane}: ${ab.shape}`);
+    assert.equal(ba.to, "R", `tag ${tag}, lane ${lane}: ${ba.shape}`);
+  }
+});
+
 test("a link goes around a part in its way rather than behind it or its tag", () => {
   const nodes = [part("a", place(0, 0)), part("mid", place(1, 0)), part("b", place(2, 0))];
   const [r] = routeLinks(nodes, [{ id: 0, a: "a", b: "b" }], wide);

@@ -1,0 +1,67 @@
+/* The append-only log's strip: a tray of record tiles beside its part. Page neutrals and the pictograms' three face
+   tones; the labs' blue for work done and data on the move, orange only for trouble. Tokens come from the stage root. */
+.logs { pointer-events: none; }
+.stack { transition: opacity .35s; }
+.stack.dim { opacity: .38; }
+
+/* the tray: its top face, its front edge printed like a ruler, and its footprint on the floor along the floor's
+   diagonal, so it lies there like the parts' bases */
+.piece .floor { fill: var(--pk-shadow); stroke: none; }
+.piece .lid { fill: var(--pk-top); stroke: var(--pk-line); stroke-width: 1.1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.piece .end { fill: var(--pk-right); stroke: var(--pk-line); stroke-width: 1.1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.piece .top { fill: var(--pk-left); stroke: var(--pk-line); stroke-width: 1.1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.piece .front { fill: var(--pk-right); stroke: var(--pk-line); stroke-width: 1.1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.label { fill: var(--ink); font-size: 12px; font-weight: 720; letter-spacing: -.005em; transition: fill .3s; }
+.thin .label { fill: var(--muted); font-weight: 650; }
+.offset { fill: var(--muted); font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.ellipsis { fill: var(--muted); font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* a record: a tile standing on the tray */
+.tile .face { fill: var(--pk-top); stroke: var(--pk-line); stroke-width: 1; vector-effect: non-scaling-stroke; transition: fill .3s, stroke .3s; }
+.tile .band { fill: var(--pk-right); stroke: var(--pk-line); stroke-width: 1; vector-effect: non-scaling-stroke; transition: fill .3s, stroke .3s; }
+.text { fill: var(--ink); font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; transition: fill .3s; }
+.strike { stroke: var(--ink-soft); stroke-width: 1.2; vector-effect: non-scaling-stroke; display: none; }
+.tile.work .face { fill: color-mix(in srgb, var(--work) 12%, var(--pk-top)); stroke: var(--work); }
+.tile.work .band { fill: color-mix(in srgb, var(--work) 40%, var(--pk-right)); stroke: var(--work); }
+.tile.hot .face, .tile.cut .face { fill: color-mix(in srgb, var(--hot) 12%, var(--pk-top)); stroke: var(--hot); }
+.tile.hot .band, .tile.cut .band { fill: color-mix(in srgb, var(--hot) 40%, var(--pk-right)); stroke: var(--hot); }
+.tile.quiet .text { fill: var(--muted); }
+.tile.quiet .face { stroke-dasharray: 2.5 2.5; }
+.tile.tomb .face { fill: var(--pk-left); }
+.tile.tomb .text { fill: var(--muted); }
+.tile.tomb .strike { display: inline; }
+.tile.doomed { opacity: .5; }
+.tile.doomed .strike { display: inline; }
+.tile.read .face { stroke-width: 1.8; }
+.tile.lit .face { fill: var(--accent); stroke: var(--accent); }
+.tile.lit .text { fill: var(--on-accent); }
+
+/* the open slot where the next record lands */
+.slot path { fill: none; stroke: var(--line-strong); stroke-width: 1.1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.slot .offset { fill: var(--muted); font-weight: 500; }
+
+/* cursors: a caret under the record a reader is at; a watermark line before a record; a bracket over a stretch */
+.mark { fill: var(--ink); stroke: none; }
+.markLabel { fill: var(--ink); font-size: 10.5px; font-weight: 720; }
+.ptr .mark { stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.line .mark, .br .mark { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.work .mark { fill: var(--work); stroke: var(--work); }
+.line.work .mark, .br.work .mark { fill: none; }
+.work .markLabel { fill: var(--work); }
+.hot .mark { fill: var(--hot); stroke: var(--hot); }
+.line.hot .mark, .br.hot .mark { fill: none; }
+.hot .markLabel { fill: var(--hot); }
+.quiet .mark { fill: var(--muted); stroke: var(--muted); }
+.line.quiet .mark, .br.quiet .mark { fill: none; stroke-dasharray: 2 3; }
+.quiet .markLabel { fill: var(--muted); }
+/* a reader named after a part out of the step's focus dims with it */
+.mark, .markLabel { transition: opacity .35s; }
+.away .mark, .away .markLabel { opacity: .38; }
+
+/* a folded row: a slim tray with its records as bars, for a crowded part's logs the step isn't about */
+.thin .piece .top, .thin .piece .front, .thin .piece .lid, .thin .piece .end { stroke: var(--line-strong); }
+.thin .tile .face { fill: var(--line-strong); stroke: none; }
+.thin .tile .band { fill: none; stroke: none; }
+.thin .tile.work .face { fill: var(--work); }
+.thin .tile.hot .face { fill: var(--hot); }
+.thin .slot path { stroke: var(--line-strong); }

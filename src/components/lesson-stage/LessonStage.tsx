@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 import { createStage, type StageHandle, type StageStatus } from "@/lib/lesson-stage/engine";
+import type { FigureFactory } from "@/lib/lesson-stage/figure";
+import { loadFigures, needsFigures } from "@/lib/lesson-stage/figures";
+import { loadScenePacks, packsFor } from "@/lib/lesson-stage/packs/index.ts";
 import { formatMetric, metricsAt, type Choices } from "@/lib/lesson-stage/model";
 import type { MetricValue, StageScene } from "@/lib/lesson-stage/types";
 import styles from "./LessonStage.module.css";
@@ -15,6 +18,9 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
   const [shown, setShown] = useState(() => formatMetric(value));
   const [flash, setFlash] = useState(false);
   const previous = useRef<MetricValue | undefined>(value);
+  // keyed on what the value says, not its identity: a derived value is a new object each render, and re-running on
+  // one that says the same would cancel a count still running and leave the chip stuck on a number in between
+  const key = JSON.stringify(value ?? null);
   useEffect(() => {
     const from = previous.current;
     previous.current = value;
@@ -36,7 +42,7 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
     if (from !== undefined && value !== undefined) setFlash(true);
     const timer = window.setTimeout(() => setFlash(false), 900);
     return () => { cancelAnimationFrame(frame); window.clearTimeout(timer); };
-  }, [value]);
+  }, [key]);
   const tone = value !== undefined && typeof value === "object" ? value.tone : undefined;
   return <div className={`${styles.chip} ${flash ? styles.flash : ""}`} data-tone={tone || undefined}>
     <span className={styles.chipLabel}>{label}</span>
@@ -63,12 +69,23 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const stage = createStage(host, scene, { onStatus: setStatus, label: `${title}: the system, step by step` });
-    stageRef.current = stage;
-    setReady(true);
-    const linked = /^#step-(\d+)$/.exec(window.location.hash);
-    if (linked && +linked[1] >= 1 && +linked[1] <= scene.steps.length) stage.show(+linked[1] - 1);
-    return () => { stage.destroy(); stageRef.current = null; };
+    let stage: StageHandle | null = null, live = true;
+    const start = (figures: FigureFactory[]) => {
+      if (!live) return;
+      stage = createStage(host, scene, { onStatus: setStatus, label: `${title}: the system, step by step`, figures });
+      stageRef.current = stage;
+      setReady(true);
+      const linked = /^#step-(\d+)$/.exec(window.location.hash);
+      if (linked && +linked[1] >= 1 && +linked[1] <= scene.steps.length) stage.show(+linked[1] - 1);
+    };
+    // a ring, a log or a timeline loads its own code first, and parts from a pack their drawings, so nothing starts as
+    // a placeholder; a scene of core parts in tiers starts at once
+    const packs = packsFor(scene.nodes.map((n) => n.role)).length > 0;
+    if (needsFigures(scene) || packs) {
+      // a pack that fails to load leaves its parts as plain crates (the engine says so); the stage still plays
+      void Promise.all([needsFigures(scene) ? loadFigures(scene) : [], loadScenePacks(scene).catch(() => undefined)]).then(([figures]) => start(figures));
+    } else start([]);
+    return () => { live = false; stage?.destroy(); stageRef.current = null; };
   }, [scene, title]);
 
   useEffect(() => {
