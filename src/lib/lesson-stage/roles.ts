@@ -48,12 +48,12 @@ type RoleInfo = {
 export const ROLES = {
   // core: loaded by every stage
   client: { name: "Client", top: 36, opts: "many" },
-  crowd: { name: "Users", top: 25 },
+  crowd: { name: "Users", top: 27 },
   dns: { name: "DNS", top: 28 },
   balancer: { name: "Load balancer", top: 20 },
-  web: { name: "Web server", top: 48, opts: "big many" },
+  web: { name: "Web server", top: 50, opts: "big many" },
   cache: { name: "Cache", top: 16 },
-  database: { name: "Database", top: 40, opts: "big replica level", fill: true },
+  database: { name: "Database", top: 42, opts: "big replica level", fill: true },
   cdn: { name: "CDN edge", top: 36 },
   storage: { name: "Object storage", top: 40 },
   queue: { name: "Queue", top: 18, opts: "items:0-4" },
@@ -61,54 +61,54 @@ export const ROLES = {
   monitor: { name: "Monitoring", top: 39 },
 
   // devices: what stands at the edges, ours and other people's
-  phone: { name: "Phone", top: 30, pack: "devices", opts: "many items:0-3 level" },
-  sensor: { name: "Sensor", top: 30, pack: "devices", opts: "many" },
+  phone: { name: "Phone", top: 36, pack: "devices", opts: "many items:0-3 level" },
+  sensor: { name: "Sensor", top: 35, pack: "devices", opts: "many" },
   sender: { name: "Outside sender", top: 44, pack: "devices" },
-  external: { name: "Outside service", top: 36, pack: "devices" },
-  mailbox: { name: "Inbox", top: 30, pack: "devices", opts: "items:0-4" },
+  external: { name: "Outside service", top: 38, pack: "devices" },
+  mailbox: { name: "Inbox", top: 34, pack: "devices", opts: "items:0-4" },
 
   // control: what checks, limits and lets through
-  gateway: { name: "API gateway", top: 30, pack: "control", opts: "open" },
-  gate: { name: "Gate", top: 24, pack: "control", opts: "open" },
-  breaker: { name: "Circuit breaker", top: 30, pack: "control", opts: "open" },
-  limiter: { name: "Rate limiter", top: 24, pack: "control", opts: "count:1-3" },
+  gateway: { name: "API gateway", top: 34, pack: "control", opts: "open" },
+  gate: { name: "Gate", top: 34, pack: "control", opts: "open" },
+  breaker: { name: "Circuit breaker", top: 31, pack: "control", opts: "open" },
+  limiter: { name: "Rate limiter", top: 22, pack: "control", opts: "count:1-3" },
   bucket: { name: "Token bucket", top: 32, pack: "control", opts: "level items:0-8", fill: true },
-  counter: { name: "Counter", top: 22, pack: "control" },
-  lock: { name: "Lock", top: 26, pack: "control", opts: "open" },
+  counter: { name: "Counter", top: 23, pack: "control" },
+  lock: { name: "Lock", top: 41, pack: "control", opts: "open" },
 
   // time: clocks, timeouts and leases
-  clock: { name: "Clock", top: 34, pack: "time", opts: "level" },
-  timer: { name: "Timer", top: 32, pack: "time", opts: "level", fill: true },
-  lease: { name: "Lease", top: 36, pack: "time", opts: "level", fill: true },
-  scheduler: { name: "Scheduler", top: 36, pack: "time", opts: "items:0-4" },
+  clock: { name: "Clock", top: 33, pack: "time", opts: "level" },
+  timer: { name: "Timer", top: 43, pack: "time", opts: "level", fill: true },
+  lease: { name: "Lease", top: 40, pack: "time", opts: "level", fill: true },
+  scheduler: { name: "Scheduler", top: 32, pack: "time", opts: "items:0-4" },
 
   // services: machines that do one job
-  socket: { name: "WebSocket server", top: 34, pack: "services", opts: "count:1-8" },
-  fanout: { name: "Fan-out", top: 24, pack: "services", opts: "count:2-6" },
-  idgen: { name: "ID generator", top: 32, pack: "services" },
-  transcoder: { name: "Transcoder", top: 30, pack: "services", opts: "count:1-3" },
-  fetcher: { name: "Fetcher", top: 40, pack: "services" },
-  router: { name: "Router", top: 30, pack: "services", opts: "count:2-4 mark" },
-  coordinator: { name: "Coordinator", top: 30, pack: "services", opts: "count:2-5 items:0-5" },
-  registry: { name: "Registry", top: 36, pack: "services", opts: "count:2-6 items:0-6" },
+  socket: { name: "WebSocket server", top: 43, pack: "services", opts: "items:0-8" },
+  fanout: { name: "Fan-out", top: 28, pack: "services", opts: "count:2-6" },
+  idgen: { name: "ID generator", top: 35, pack: "services" },
+  transcoder: { name: "Transcoder", top: 39, pack: "services", opts: "count:1-3" },
+  fetcher: { name: "Fetcher", top: 41, pack: "services" },
+  router: { name: "Router", top: 37, pack: "services", opts: "count:2-4 mark" },
+  coordinator: { name: "Coordinator", top: 32, pack: "services", opts: "count:2-5 items:0-5" },
+  registry: { name: "Registry", top: 40, pack: "services", opts: "count:2-6 items:0-6" },
 
   // logs: append-only records and what reads them
-  logfile: { name: "Log", top: 24, pack: "logs", opts: "items:0-8 mark" },
-  broker: { name: "Broker", top: 36, pack: "logs", opts: "count:1-6 items:0-6 mark" },
-  consumer: { name: "Consumer group", top: 26, pack: "logs", opts: "count:1-4 mark" },
-  frontier: { name: "URL frontier", top: 36, pack: "logs", opts: "count:2-4 items:0-4 mark" },
-  disk: { name: "Disk", top: 16, pack: "logs" },
+  logfile: { name: "Log", top: 28, pack: "logs", opts: "items:0-8 mark" },
+  broker: { name: "Broker", top: 38, pack: "logs", opts: "count:1-6 items:0-6 mark" },
+  consumer: { name: "Consumer group", top: 31, pack: "logs", opts: "count:1-4 mark" },
+  frontier: { name: "URL frontier", top: 39, pack: "logs", opts: "count:2-4 items:0-4 mark" },
+  disk: { name: "Disk", top: 18, pack: "logs" },
 
   // records: how data is laid out and found
-  memtable: { name: "Memtable", top: 34, pack: "records", opts: "level", fill: true },
-  sstable: { name: "Sorted files", top: 30, pack: "records", opts: "count:1-5" },
-  bloom: { name: "Bloom filter", top: 30, pack: "records", opts: "level" },
-  tree: { name: "Tree", top: 38, pack: "records", opts: "count:2-3 mark" },
-  shard: { name: "Shard", top: 32, pack: "records", opts: "count:2-6 mark" },
-  index: { name: "Index", top: 34, pack: "records", opts: "mark" },
-  columns: { name: "Column store", top: 36, pack: "records", opts: "count:3-6 items:0-6" },
-  row: { name: "Row", top: 26, pack: "records", opts: "count:1-4 locked" },
-  doc: { name: "Document", top: 32, pack: "records", opts: "count:1-3" },
+  memtable: { name: "Memtable", top: 41, pack: "records", opts: "level", fill: true },
+  sstable: { name: "Sorted files", top: 33, pack: "records", opts: "count:1-5" },
+  bloom: { name: "Bloom filter", top: 28, pack: "records", opts: "level" },
+  tree: { name: "Tree", top: 39, pack: "records", opts: "count:2-3 mark" },
+  shard: { name: "Shard", top: 25, pack: "records", opts: "count:2-6 mark" },
+  index: { name: "Index", top: 35, pack: "records", opts: "mark:0-11" },
+  columns: { name: "Column store", top: 43, pack: "records", opts: "count:3-6 items:0-6" },
+  row: { name: "Row", top: 27, pack: "records", opts: "count:1-4 locked" },
+  doc: { name: "Document", top: 37, pack: "records", opts: "count:1-3" },
 } satisfies Record<string, RoleInfo>;
 
 export type StageRole = keyof typeof ROLES;
@@ -144,7 +144,9 @@ export function roleProblems(scene: SceneLike): string[] {
       const range = allowed.get(key);
       if (range && typeof value === "number" && (value < range[0] || value > range[1] || !Number.isInteger(value))) problems.push(`${where} sets "${id}" (${role}) ${key} to ${value}, outside ${range[0]}-${range[1]}`);
       if (key === "level" && typeof value === "number" && (value < 0 || value > 1)) problems.push(`${where} sets "${id}" (${role}) level to ${value}, outside 0-1`);
-      if (key === "mark" && typeof value === "number" && (value < 0 || (merged.count !== undefined && value >= merged.count))) problems.push(`${where} sets "${id}" (${role}) mark to ${value}, but it has ${merged.count ?? "no"} to pick from`);
+      // a mark picks one of the role's `count` parts, or of its `items` when it has no count (a log's entries)
+      const pool = merged.count ?? (/(^| )count/.test(info(role).opts ?? "") ? undefined : merged.items);
+      if (key === "mark" && typeof value === "number" && (value < 0 || (pool !== undefined && value >= pool))) problems.push(`${where} sets "${id}" (${role}) mark to ${value}, but it has ${pool ?? "no"} to pick from`);
     }
     optsOf.set(id, merged);
   };

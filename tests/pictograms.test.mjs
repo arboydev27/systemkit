@@ -14,6 +14,9 @@ for (const file of readdirSync(packDir).filter((f) => f.endsWith(".ts") && f !==
 // the classes the stage colours (LessonStage.module.css), the only ones a drawing may use
 const css = readFileSync(new URL("../src/components/lesson-stage/LessonStage.module.css", import.meta.url), "utf8");
 const CLASSES = new Set([...css.matchAll(/:global\(\.pk \.([a-z][\w-]*)/g)].map((m) => m[1]).concat(["strip", "is-hot"]));
+// PICTOGRAM_PACKS=logs,time checks only the core and those packs (for drawing one pack while others are unfinished)
+const only = (process.env.PICTOGRAM_PACKS ?? "").split(",").filter(Boolean);
+const ROLES_CHECKED = ROLE_IDS.filter((r) => !only.length || !ROLES[r].pack || only.includes(ROLES[r].pack));
 const optionsOf = (role) => (ROLES[role].opts ?? "").split(" ").filter(Boolean);
 
 function wellFormed(svg) {
@@ -39,7 +42,7 @@ function samplesOf(role) {
 }
 
 test("every role has a name, a height and either a core drawing or a pack that draws it", () => {
-  for (const role of ROLE_IDS) {
+  for (const role of ROLES_CHECKED) {
     assert.ok(ROLE_NAMES[role] && ROLE_NAMES[role].length <= 16, `${role} needs a name of at most 16 characters`);
     assert.ok(GLYPH_TOP[role] > 0, `${role} needs a top`);
     const pack = ROLES[role].pack;
@@ -49,13 +52,13 @@ test("every role has a name, a height and either a core drawing or a pack that d
       assert.ok(typeof packs[pack].default[role] === "function", `pack "${pack}" doesn't draw ${role}`);
     }
   }
-  for (const [name, m] of Object.entries(packs)) for (const role of Object.keys(m.default))
+  for (const [name, m] of Object.entries(packs)) if (!only.length || only.includes(name)) for (const role of Object.keys(m.default))
     assert.equal(ROLES[role]?.pack, name, `pack "${name}" draws ${role}, which roles.ts doesn't list in that pack`);
 });
 
 test("drawings are well-formed, use only the stage's classes and carry no colours of their own", () => {
   for (const m of Object.values(packs)) addPack(m.default);
-  for (const role of ROLE_IDS) {
+  for (const role of ROLES_CHECKED) {
     for (const opts of [...samplesOf(role), ...(packs[ROLES[role].pack]?.samples?.[role] ?? [])]) {
       const svg = glyph(role, opts), where = `${role} ${JSON.stringify(opts)}`;
       assert.ok(svg.length > 200, `${where} drew nothing`);

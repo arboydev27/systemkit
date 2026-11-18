@@ -4,7 +4,8 @@
 // Run from the repo root. Core parts show today's drawing (from git ref --today) beside the working tree's; every pack
 // part shows at 108, 48 and 32 px plus the options its pack lists in `samples`. Each new drawing is measured in the
 // page: a part taller than its GLYPH_TOP (roles.ts), or spilling off its base, gets a red note under it.
-// Capture a section with the anatomy skill's drive.mjs, e.g. at 2x:
+// Sections sit side by side, each at the top of the page (drive.mjs element shots start at the viewport's top, so a
+// section lower down would capture the wrong thing). Capture a section with the anatomy skill's drive.mjs, e.g. at 2x:
 //   node ~/.claude/skills/anatomy/scripts/drive.mjs pictograms.html '[["shot","core.png","#core",2]]' --width 1500
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -95,8 +96,9 @@ const section = (id, title, body) => `<section class="section" id="${id}">${["li
 
 const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Pictograms</title><style>
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 1500px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #777; }
-.section { display: grid; grid-template-columns: 1fr 1fr; }
+/* sections sit side by side, each at the top of the page: headless element shots of a section lower down come out wrong */
+body { margin: 0; display: flex; align-items: flex-start; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #777; }
+.section { flex: none; display: grid; grid-template-columns: auto auto; }
 .panel { padding: 26px 26px 30px; background: var(--canvas); color: var(--ink); }
 .light { ${lightTokens} --work: #2a78d6; --hot: #eb6834; }
 .dark { ${lightTokens} ${darkTokens} --work: #3987e5; --hot: #f0733f; }

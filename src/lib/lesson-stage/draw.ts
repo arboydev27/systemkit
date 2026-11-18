@@ -85,8 +85,8 @@ export const led = (u: number, v: number, len = 2.4) => `<path class="led" d="M$
 /** A round light (a lamp, or the mark on a picked element); it follows the status light's colour. */
 export const lamp = (u: number, v: number, r = 0.9) => `<circle class="lamp" cx="${r2(u)}" cy="${r2(v)}" r="${r}"/>`;
 
-/** A soft contact shadow where an object stands on its base. */
-export const halo = (rx: number, ry = rx / 2, dy = 1) => `<ellipse cx="0" cy="${r2(dy)}" rx="${r2(rx)}" ry="${r2(ry)}" fill="url(#sk-halo)"/>`;
+/** A soft contact shadow where an object stands on its base (`dx`, `dy` move it, in screen units, for an item off the centre). */
+export const halo = (rx: number, ry = rx / 2, dy = 1, dx = 0) => `<ellipse cx="${r2(dx)}" cy="${r2(dy)}" rx="${r2(rx)}" ry="${r2(ry)}" fill="url(#sk-halo)"/>`;
 
 export type Turned = { svg: string; sx: number; sb: number; st: number; rx: number; ry: number; rxb: number; ryb: number };
 export type TurnedStyle = { x?: number; y?: number; z?: number; rBottom?: number; bands?: number[]; level?: number; levelHot?: boolean; top?: string; crease?: boolean };
