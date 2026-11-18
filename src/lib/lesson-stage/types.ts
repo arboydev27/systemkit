@@ -37,8 +37,9 @@ type Timing = {
   /** Milliseconds to wait after the events before, when not `with`. */
   gap?: number;
 };
-/** On a timeline: when something happens and how long it takes, in the timeline's units. Left out, it starts when the
- * timeline's last item ended (or with the item before, given `with`) and takes one beat (a message) or half a beat (a mark). */
+/** On a timeline: when something happens and how long it takes, in the timeline's units. Left out, it starts at the
+ * timeline's clock, the latest time any item so far has reached (or with the item before, given `with`), and takes one
+ * beat (a message) or half a beat (a mark). */
 type When = { t?: number; dur?: number };
 /** A colour for a figure's mark: the labs' blue for work done, orange for trouble, muted for the quiet case. */
 export type MarkTone = "work" | "hot" | "quiet";

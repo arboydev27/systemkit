@@ -10,7 +10,7 @@ export const STAGE_LIMITS = {
   // the ring
   ringSize: [8, 1000], ringMarks: 8, tokens: 16, tokenChars: 3, keys: 8, keyChars: 8, dots: 64, walk: 6, arcs: 3, arcChars: 16,
   // logs
-  logs: 8, logsPerPart: 4, records: 40, recordChars: 12, logChars: 16, cursors: 3, cursorChars: 12, brackets: 2, bracketChars: 14,
+  logs: 8, logsPerPart: 6, records: 40, recordChars: 12, logChars: 16, cursors: 3, cursorChars: 12, brackets: 2, bracketChars: 14,
   // the timeline
   lifelines: [2, 6], timelineItems: 40, markChars: 18, spanChars: 14, ticks: 8, unitChars: 4,
 } as const;

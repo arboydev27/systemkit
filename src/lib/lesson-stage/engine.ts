@@ -182,8 +182,14 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   const ov = () => ovs(view.k);
   // Tiers run left to right (top to bottom on a phone); a pool of siblings steps down the floor's diagonal.
   // On a phone the spacing grows with the zoom so the tags and links between rows always have room.
-  const pitch = { tier: 212, lane: 132 };
-  const placeAt = ([t, l]: Place): Point => (narrow ? { x: l * pitch.lane, y: t * pitch.tier } : { x: t * 226 + l * 64, y: l * 104 });
+  // `rows` adds room below a phone row for what a figure lays under its parts (a log's strips), pushing later rows down.
+  const pitch: { tier: number; lane: number; rows: [tier: number, extra: number][] } = { tier: 212, lane: 132, rows: [] };
+  function placeAt([t, l]: Place): Point {
+    if (!narrow) return { x: t * 226 + l * 64, y: l * 104 };
+    let y = t * pitch.tier;
+    for (const [row, extra] of pitch.rows) if (row < t - 1e-6) y += extra;
+    return { x: l * pitch.lane, y };
+  }
   /** Where a part stands in a model: where its figure lays it out (a ring, a timeline), or in the tiers. */
   function spot(id: string, m: StageModel = model): Point {
     for (const f of figs) { const p = f.place?.(id, m); if (p) return p; }
@@ -558,7 +564,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   /** What a phone needs between rows and columns at zoom k: the tallest part, its tag, its pill and a clear stretch of link. */
   function pitchFor(list: string[], models: StageModel[], k: number, notes: Set<string>) {
     const s = ovs(k);
-    let top = 0, tag = 22, pill = false, note = false, wide = 0, under = 0;
+    let top = 0, tag = 22, pill = false, note = false, wide = 0;
     const rows = new Map<number, string[]>();
     for (const m of models) for (const id of list) {
       const n = m.nodes[id];
@@ -567,7 +573,6 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       tag = Math.max(tag, tagHeight(n.detail));
       pill = pill || hasPill(id, m);
       note = note || notes.has(id);
-      for (const f of figs) under = Math.max(under, f.below?.(id, m) ?? 0);
       const row = Math.round(n.at[0] * 10);
       rows.set(row, [...(rows.get(row) ?? []), id]);
     }
@@ -576,9 +581,19 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       if (row.length < 2) continue;
       for (const id of row) { const n = m.nodes[id]; if (n.visible) wide = Math.max(wide, tagWidth(n), hasPill(id, m) ? pillWidth(n) : 0); }
     }
+    // the room a figure takes under a row's parts goes below that row only (every visible part counts, framed or not)
+    const under = new Map<number, number>();
+    if (figs.length) for (const m of models) for (const id of ids) {
+      const n = m.nodes[id];
+      if (!n.visible) continue;
+      let u = 0;
+      for (const f of figs) u = Math.max(u, f.below?.(id, m) ?? 0);
+      if (u) under.set(n.at[0], Math.max(under.get(n.at[0]) ?? 0, u * s));
+    }
     return {
-      tier: Math.max(212, top + 16 + BASE / 2 + PH + (tag + 14 + (pill ? 26 : 0) + (note ? 28 : 0) + 10 + under) * s),
+      tier: Math.max(212, top + 16 + BASE / 2 + PH + (tag + 14 + (pill ? 26 : 0) + (note ? 28 : 0) + 10) * s),
       lane: Math.max(132, (wide + 14) * s),
+      rows: [...under].sort((a, b) => a[0] - b[0]),
     };
   }
   function fit(list: string[], m: StageModel, also?: StageModel, notes: Set<string> = new Set()) {
@@ -628,7 +643,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   let heading: { k: number; x: number; y: number } | null = null;
   function cameraTo(list: string[] | null | undefined, m: StageModel, instant = false, also?: StageModel, notes?: Set<string>) {
     const target = fit(list && list.length ? list : ids, m, also, notes);
-    const repitched = narrow && (Math.abs(target.pitch.tier - pitch.tier) > 1 || Math.abs(target.pitch.lane - pitch.lane) > 1);
+    const rowsMoved = target.pitch.rows.length !== pitch.rows.length || target.pitch.rows.some(([t, e], i) => t !== pitch.rows[i][0] || Math.abs(e - pitch.rows[i][1]) > 1);
+    const repitched = narrow && (Math.abs(target.pitch.tier - pitch.tier) > 1 || Math.abs(target.pitch.lane - pitch.lane) > 1 || rowsMoved);
     Object.assign(pitch, target.pitch);
     if (!instant && !repitched) {
       const v = heading ?? view, pd = pads(), b = target.b;
@@ -720,7 +736,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   /** A part and everything drawn on it: its base and the part above, its tag, load pill and the step's notes. */
   function partBoxes(id: string): Rect[] {
     const s = ov(), p = pos[id], n = routeNode(id, p, model, s), w = HALF_BASE_W;
-    return [{ x0: p.x - w, y0: p.y - n.top - 4, x1: p.x + w, y1: p.y + BASE / 2 + 2 }, n.tag, ...(n.pill ? [n.pill] : []), ...noteBoxes(id)];
+    // what a figure lays beside the part (a log's strip) counts too, so a message pill never rests over it
+    return [{ x0: p.x - w, y0: p.y - n.top - 4, x1: p.x + w, y1: p.y + BASE / 2 + 2 }, n.tag, ...(n.pill ? [n.pill] : []), ...noteBoxes(id), ...(n.more ?? [])];
   }
   /** The box a message pill covers when it rides at `d` along a route. */
   function pillBox(rt: Route, d: number, label: string, kind: FlowKind): Rect {
@@ -996,6 +1013,8 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       const end = stateBefore(scene, i + 1, choices);
       cameraTo(frameOf(i), end, true, undefined, notesOf(i));
       transitionTo(end, token, true).catch(swallow);
+      // the instant transition has put the parts in place: judge again which lie outside the frame (a layout switch moves them)
+      setView(view);
       settleExtras(i);
       report();
     },

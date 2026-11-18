@@ -242,6 +242,14 @@ function score(b: Chosen, all: RouteNode[], placed: Chosen[], opts: RouteOptions
   // On a wide screen tiers run left to right, so a link can reach a base's front; on a phone each tier hangs under
   // the one before, and coming in from behind is the natural way.
   if (!opts.narrow) for (const f of [b.from, b.to]) if (f === "UL" || f === "UR") cost += 45;
+  // A link that leaves a base's front face on one side of its name tag for a part beyond the tag's other side wraps
+  // around the tag, and every message riding it crosses the tag: the face on the far part's side reads better, even
+  // where its run grazes the corner of its own part's tag (zoomed out, tags grow next to their ports), though not
+  // where it would run into another part. Only around a part that carries something beside it (a log's strips), where
+  // the readers have to stand close by, so the routes of stages without one stay exactly as they were.
+  if (wraps(A, B)) for (const [n, f, far] of [[A, b.from, B], [B, b.to, A]] as const) {
+    if ((f === "L" && far.at.x > n.tag.x1) || (f === "R" && far.at.x < n.tag.x0)) cost += 650;
+  }
   cost += b.shape.kind === "I" ? -20 : b.shape.kind === "Z" ? 30 + 20 * Math.abs(b.shape.f - 0.5) : 0;
   if (b.shape.dirs.some((d) => d[1] === "H")) cost += 400;
   let length = 0;
@@ -365,6 +373,9 @@ function reverseI(r: Chosen, tb: number): Built {
   return { ...back, pts: [...back.pts].reverse(), ta: back.tb, tb: back.ta, from: r.from, to: r.to, shape: r.shape };
 }
 
+/** Links to a part with something beside it (a log's strips) are kept from wrapping around a name tag. */
+const wraps = (a: RouteNode, b: RouteNode) => !!(a.more?.length || b.more?.length);
+
 /** A link that still runs into something once the ports are spread looks again for a way through, with the other
  * links where they are and a port of its own that no other link on that face uses. */
 function repair(routes: Chosen[], nodes: RouteNode[], all: Shape[], opts: RouteOptions) {
@@ -375,7 +386,9 @@ function repair(routes: Chosen[], nodes: RouteNode[], all: Shape[], opts: RouteO
     const taken = (n: RouteNode, f: Face) => others.flatMap((o) => [...(o.A === n && o.from === f ? [o.ta] : []), ...(o.B === n && o.to === f ? [o.tb] : [])]);
     const free = (n: RouteNode, f: Face, t: number) => taken(n, f).every((u) => Math.abs(u - t) >= slotFor(f, opts.gap) * 0.75);
     const spots = (f: Face) => { const F = FACES[f], out: number[] = []; for (let t = F.lo; t <= F.hi + 1e-6; t += (F.hi - F.lo) / 6) out.push(t); return out; };
-    let best: Chosen | null = null, bestCost = Infinity;
+    // around a part carrying a log, only a way through that reads better than the route it replaces (a wrap around a
+    // tag can cost more than a graze); elsewhere the cleanest way through, as before
+    let best: Chosen | null = null, bestCost = wraps(r.A, r.B) ? score(r, nodes, others, opts) : Infinity;
     for (const s of all) {
       if (s.kind === "I") continue;
       const first = build(s, r.A, r.B);

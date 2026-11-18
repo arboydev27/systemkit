@@ -17,6 +17,9 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
   const [shown, setShown] = useState(() => formatMetric(value));
   const [flash, setFlash] = useState(false);
   const previous = useRef<MetricValue | undefined>(value);
+  // keyed on what the value says, not its identity: a derived value is a new object each render, and re-running on
+  // one that says the same would cancel a count still running and leave the chip stuck on a number in between
+  const key = JSON.stringify(value ?? null);
   useEffect(() => {
     const from = previous.current;
     previous.current = value;
@@ -38,7 +41,7 @@ function MetricChip({ label, value }: { label: string; value: MetricValue | unde
     if (from !== undefined && value !== undefined) setFlash(true);
     const timer = window.setTimeout(() => setFlash(false), 900);
     return () => { cancelAnimationFrame(frame); window.clearTimeout(timer); };
-  }, [value]);
+  }, [key]);
   const tone = value !== undefined && typeof value === "object" ? value.tone : undefined;
   return <div className={`${styles.chip} ${flash ? styles.flash : ""}`} data-tone={tone || undefined}>
     <span className={styles.chipLabel}>{label}</span>
