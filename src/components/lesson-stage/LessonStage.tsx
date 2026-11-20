@@ -6,7 +6,7 @@ import { createStage, type StageHandle, type StageStatus } from "@/lib/lesson-st
 import type { FigureFactory } from "@/lib/lesson-stage/figure";
 import { loadFigures, needsFigures } from "@/lib/lesson-stage/figures";
 import { loadScenePacks, packsFor } from "@/lib/lesson-stage/packs/index.ts";
-import { formatMetric, metricsAt, type Choices } from "@/lib/lesson-stage/model";
+import { formatMetric, metricsAt, shownMetricStep, type Choices } from "@/lib/lesson-stage/model";
 import type { MetricValue, StageScene } from "@/lib/lesson-stage/types";
 import styles from "./LessonStage.module.css";
 
@@ -143,8 +143,8 @@ export function LessonStage({ scene, title }: { scene: StageScene; title: string
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) stage()?.next(); else stage()?.back(); }
   }
 
-  // The numbers change once the step has played what changes them.
-  const shownStep = status.settled ? step : step - 1;
+  // The numbers change once the step has played what changes them (a step that rewinds the timeline shows its own at once).
+  const shownStep = shownMetricStep(scene, step, status.settled);
   const metrics = shownStep >= 0 ? metricsAt(scene, shownStep, choices) : {};
   const playLabel = status.playing ? "Pause" : status.ended ? "Replay" : "Play";
   const PlayIcon = status.playing ? Pause : status.ended ? RotateCw : Play;

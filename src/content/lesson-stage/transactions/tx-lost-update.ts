@@ -1,8 +1,11 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
 // Lesson "Stop writers overwriting each other": two payments read the same balance and the second write wipes out the
-// first; then the race is replayed with an atomic update (the second writer waits for the row lock) and with
-// compare-and-set (the stale write matches zero rows, and the learner's eye goes to each writer in turn).
+// first (Postgres's repeatable read would abort it, MySQL's would apply it); then the race is replayed with an atomic
+// update (the second writer waits for the row lock, the lock SELECT … FOR UPDATE takes; a debit counts as kept only
+// once committed, and the lock passes from A to B until B commits; the row shows one version card, and a second while an
+// uncommitted write holds its lock, as in tx-read-committed) and with compare-and-set for read and write minutes
+// apart (no lock; the stale write matches zero rows and B retries on 70, and the learner's eye goes to each writer).
 export const txLostUpdateStage: StageScene = {
   id: "tx-lost-update",
   layout: "timeline",
@@ -10,7 +13,7 @@ export const txLostUpdateStage: StageScene = {
   metrics: [{ id: "balance", label: "Balance" }, { id: "kept", label: "Debits kept" }],
   nodes: [
     { id: "a", role: "client", label: "Payment A", detail: "debits $30", at: [0, 0] },
-    { id: "wallet", role: "row", label: "Wallet", detail: "row 7", at: [1, 0] },
+    { id: "wallet", role: "row", label: "Wallet", detail: "row 7", at: [1, 0], opts: { count: 1 } },
     { id: "b", role: "client", label: "Payment B", detail: "debits $50", at: [2, 0] },
   ],
   links: [],
@@ -44,7 +47,7 @@ export const txLostUpdateStage: StageScene = {
     {
       title: "B writes 50 over it",
       short: "B overwrites",
-      text: "B writes the 50 it worked out from its stale read, and commits. The balance should be 20, but it is 50: A’s debit has vanished. Read committed allows this lost update, since nobody saw uncommitted data.",
+      text: "B writes the 50 from its stale read and commits: the balance should be 20 but is 50, and A’s debit has vanished. Read committed allows this lost update; Postgres’s repeatable read would abort B, MySQL’s would apply it.",
       metrics: { balance: "$50", kept: { n: 1, unit: " of 2", tone: "hot" } },
       facts: [["Should be", "$20"], ["Is", "$50"]],
       changes: ["~ Balance 50", "− A’s $30 debit"],
@@ -55,17 +58,18 @@ export const txLostUpdateStage: StageScene = {
       ],
     },
     {
-      title: "Let the database subtract",
+      title: "The database subtracts while B waits",
       short: "Atomic update",
-      text: "Replay the race with UPDATE … SET balance = balance − 30, so the database does the arithmetic. A’s update takes the row lock, makes 70 and reports 1 row. B’s update needs the same lock, so it waits.",
-      metrics: { balance: "$70", kept: { n: 1, unit: " of 2" } },
+      text: "Replay the race with UPDATE … SET balance = balance − 30, so the database does the arithmetic. A’s update takes the row lock, makes 70, not yet committed, and reports 1 row. B’s update needs the same lock, so it waits.",
+      metrics: { balance: "$70", kept: { n: 0, unit: " of 2" } },
+      facts: [["Logic in code", "SELECT … FOR UPDATE"]],
       changes: ["~ Both send an atomic UPDATE", "+ A holds the row lock", "+ B waits", "+ A’s update: 1 row"],
       events: [
         { type: "rewind" },
         { type: "packet", path: ["a", "wallet"], label: "balance − 30" },
         { type: "packet", path: ["b", "wallet"], label: "balance − 50", with: true },
         { type: "span", id: "lock", node: "a", label: "holds row lock", tone: "work" },
-        { type: "state", node: "wallet", opts: { locked: true }, with: true },
+        { type: "state", node: "wallet", opts: { locked: true, count: 2 }, with: true },
         { type: "span", id: "wait", node: "b", label: "waits for lock", tone: "quiet", with: true },
         { type: "mark", node: "wallet", text: "100 → 70", tone: "work", dur: 1.5 },
         { type: "packet", path: ["wallet", "a"], label: "1 row", kind: "response" },
@@ -74,24 +78,28 @@ export const txLostUpdateStage: StageScene = {
     {
       title: "B runs on the new balance",
       short: "Lock passes",
-      text: "A commits and releases the lock. B’s update then runs against the latest value, 70, and leaves 20, so both debits are kept. A guard such as AND balance >= 50 turns too little money into 0 rows updated, never a negative balance.",
+      text: "A commits, and the row lock passes to B. B’s update runs on the latest value, 70, leaves 20 and commits, so both debits are kept. A guard such as AND balance >= 50 turns too little money into 0 rows updated, never a negative balance.",
       metrics: { balance: "$20", kept: { n: 2, unit: " of 2" } },
       facts: [["Guard", "AND balance >= 50"], ["Too little money", "0 rows updated"]],
-      changes: ["− A’s row lock", "~ B’s update runs on 70", "~ Balance 20"],
+      changes: ["~ Row lock passes to B", "~ B’s update runs on 70", "+ B commits 20"],
       events: [
         { type: "packet", path: ["a", "wallet"], label: "COMMIT" },
         { type: "span", id: "lock", end: true },
-        { type: "state", node: "wallet", opts: { locked: false }, with: true },
         { type: "span", id: "wait", end: true, with: true },
+        { type: "span", id: "lock-b", node: "b", label: "holds row lock", tone: "work", with: true },
         { type: "mark", node: "wallet", text: "70 → 20", tone: "work" },
-        { type: "packet", path: ["wallet", "b"], label: "1 row", kind: "response" },
+        { type: "packet", path: ["wallet", "b"], label: "1 row", kind: "response", with: true },
+        { type: "mark", node: "b", text: "commit", tone: "work" },
+        { type: "span", id: "lock-b", end: true, with: true },
+        { type: "state", node: "wallet", opts: { locked: false, count: 1 }, with: true },
       ],
     },
     {
-      title: "Read a version with the balance",
+      title: "Both read 100 at version 7, no lock",
       short: "Read versions",
-      text: "Compare-and-set suits logic that can’t fit one statement, such as a form left open for minutes. Replay the race once more: both payments read the balance with its version, 100 at version 7, and hold no lock.",
+      text: "A form left open for minutes shouldn’t hold a lock: writers would queue behind it, as they do behind SELECT … FOR UPDATE. Replay the race with compare-and-set: both payments read 100 at version 7 and hold no lock.",
       metrics: { balance: "$100", kept: { n: 0, unit: " of 2" } },
+      facts: [["Form open for minutes", "compare-and-set"]],
       changes: ["~ Each read returns a version", "~ No lock held"],
       events: [
         { type: "rewind" },
@@ -116,11 +124,11 @@ export const txLostUpdateStage: StageScene = {
     {
       title: "The stale write changes nothing",
       short: "Stale write fails",
-      text: "B’s write also asks for version 7, but the row is at version 8 now, so it matches zero rows and changes nothing. B must re-read 70 and recompute, not resend.",
+      text: "B’s write also asks for version 7, but the row is now at version 8, so it matches zero rows and changes nothing. B re-reads 70 and recomputes 20 rather than resending, so its debit isn’t lost. Under heavy contention, retries pile up.",
       metrics: { balance: "$70", kept: { n: 1, unit: " of 2" } },
-      facts: [["Repeatable read", "Postgres aborts B"]],
+      facts: [["B’s debit", "retried on 70"], ["Heavy contention", "retries pile up"]],
       focus: ["b", "wallet"],
-      changes: ["− B’s write: 0 rows", "~ B re-reads, then retries"],
+      changes: ["− B’s write: 0 rows", "~ B re-reads 70, then retries"],
       events: [
         { type: "packet", path: ["b", "wallet"], label: "50 if v7" },
         { type: "packet", path: ["wallet", "b"], label: "0 rows", kind: "hot" },

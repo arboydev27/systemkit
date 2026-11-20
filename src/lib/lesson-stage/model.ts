@@ -129,6 +129,14 @@ export function metricsAt(scene: StageScene, index: number, choices: Choices = {
   return values;
 }
 
+/** Whose numbers the chips show while step `index` plays (`settled` false) and once it has: they change once the step has
+ * played what changes them, so while it plays they are the step before's. A step that starts by rewinding the timeline
+ * clears the picture those numbers describe and tells the story again, so it shows its own from the start. */
+export function shownMetricStep(scene: StageScene, index: number, settled: boolean): number {
+  if (settled || index < 0) return index;
+  return scene.steps[index]?.events[0]?.type === "rewind" ? index : index - 1;
+}
+
 export function formatMetric(value: MetricValue | undefined, n?: number): string {
   if (value === undefined) return "—";
   if (typeof value === "string") return value;
