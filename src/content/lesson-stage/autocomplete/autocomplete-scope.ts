@@ -55,7 +55,7 @@ export const autocompleteScopeStage: StageScene = {
       ],
     },
     {
-      title: "A 100 ms pause sends the request",
+      title: "A 100 ms pause sends each request",
       short: "Debounce",
       text: "The Client debounces: it waits for a pause in typing before it sends. With an example 100 ms debounce, someone who pauses only after “cam” and “camera” sends two requests instead of six, each tagged with a sequence number.",
       facts: [["Debounce", "100 ms (example)"], ["Sent", "2 of 6"]],
@@ -79,7 +79,7 @@ export const autocompleteScopeStage: StageScene = {
       text: "Replies can arrive out of order. The reply to #1 is slow and lands after the reply to #2. Cancelling #1 can race a request that has already finished, so the Client shows only the newest sequence number: #2 stays, #1 is dropped.",
       facts: [["Shows", "#2, the newest"], ["Drops", "#1, stale"]],
       metrics: { requests: 2, shows: "“camera”" },
-      changes: ["+ #2’s reply lands first", "− #1’s late reply"],
+      changes: ["+ #2’s reply lands first", "~ #1’s late reply dropped"],
       events: [
         { type: "rewind" },
         { type: "packet", path: ["client", "api"], label: "“cam” #1", t: 0 },
@@ -92,7 +92,7 @@ export const autocompleteScopeStage: StageScene = {
     {
       title: "The server gets 100 ms of a 200 ms budget",
       short: "Latency budget",
-      text: "Target a high percentile from keystroke to visible list, not a server average. In an example budget of 200 ms from the request, an 80 ms mobile round trip and 20 ms of rendering leave the server 100 ms at p99. Very short prefixes can be disproportionately expensive: they cover large candidate sets.",
+      text: "Target a high percentile from keystroke to visible list, not a server average. In an example budget of 200 ms from the request, an 80 ms mobile round trip and 20 ms of rendering leave the server 100 ms at p99.",
       facts: [["Budget", "200 ms from request"], ["Network", "80 ms round trip"], ["Render", "20 ms"]],
       metrics: { server: { n: 100, unit: " ms" } },
       changes: ["+ 80 ms on the network", "+ 20 ms to render", "~ Server gets 100 ms"],
@@ -113,7 +113,7 @@ export const autocompleteScopeStage: StageScene = {
       text: "You may not need any of this. A country picker with 200 fixed entries ships its list with the page and filters it in the browser: no request to debounce, no stale reply to drop, no server budget.",
       facts: [["List", "200 entries"], ["Filter", "in the browser"]],
       metrics: { requests: 0, shows: "local matches", server: "none" },
-      changes: ["+ 200 entries in the page", "− Requests to the Query API"],
+      changes: ["+ 200 entries in the page", "~ No requests to the Query API"],
       events: [
         { type: "rewind" },
         { type: "mark", node: "client", text: "200 in the page", t: 0 },

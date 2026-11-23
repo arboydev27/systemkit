@@ -102,6 +102,7 @@ export const autocompletePipelineStage: StageScene = {
       text: "Tonight the Index builder, a batch job often run in Spark, builds ranked prefix lists from the Term counts. It writes them to the Snapshot store as an immutable snapshot, v812, with 20.2 million prefixes in this example. The Query API still serves v811.",
       focus: ["counts", "builder", "snapshots"],
       frame: ["collector", "builder", "snapshots", "api"],
+      facts: [["Snapshot", "v812, immutable"], ["Serving", "still v811"]],
       metrics: { prefixes: "20.2M", serving: "v811" },
       changes: ["+ Index builder, Snapshot store, Query API", "+ v812 written, immutable", "~ Query API still serving v811"],
       events: [
@@ -111,7 +112,7 @@ export const autocompletePipelineStage: StageScene = {
         { type: "move", at: { counts: [2, -1] }, with: true },
         { type: "show", nodes: ["builder", "snapshots", "api"] },
         { type: "cursor", log: "versions", id: "api", at: 811, label: "serving" },
-        { type: "packet", path: ["counts", "builder"], label: "counts by term" },
+        { type: "packet", path: ["counts", "builder"], label: "counts by term", kind: "work" },
         { type: "state", node: "builder", light: "on" },
         { type: "append", log: "versions", from: "builder", records: [{ text: "v812", tone: "quiet" }] },
         { type: "note", node: "builder", text: "v812 written", tone: "work" },
@@ -137,7 +138,7 @@ export const autocompletePipelineStage: StageScene = {
       ],
     },
     {
-      title: "Query API switches, keeping v811",
+      title: "The Query API switches, keeping v811",
       short: "Switch",
       text: "The Query API’s serving nodes load v812, pass a health check, and only then switch, so every read sees one consistent version. v811 stays in the Snapshot store: rolling back means moving the serving pointer back to it.",
       focus: ["snapshots", "api"],

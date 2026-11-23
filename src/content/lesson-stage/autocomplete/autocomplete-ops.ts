@@ -43,7 +43,7 @@ export const autocompleteOpsStage: StageScene = {
     {
       title: "A term needs 100 people before it shows",
       short: "Eligibility",
-      text: "Raw searches can hold names, phone numbers and medical worries, so collect little and keep it briefly. The Build policy admits a term only after, say, 100 distinct users search it. One person’s private query stays out, and so does a script submitting one phrase 50,000 times: it is still one user.",
+      text: "Raw searches can hold names, phone numbers and medical worries. The Build policy admits a term only after, say, 100 distinct users search it. One person’s private query stays out, and so does a script submitting one phrase 50,000 times: it is still one user.",
       focus: ["counts", "policy"],
       frame: ["client", "filter", "api", "counts", "policy", "snapshots"],
       facts: [["Threshold", "100 distinct users"], ["Script", "50,000 searches, 1 user"]],
@@ -78,8 +78,8 @@ export const autocompleteOpsStage: StageScene = {
     {
       title: "09:05: the Policy filter hides it now",
       short: "Suppress",
-      text: "A fast denylist in the serving path suppresses the suggestion within minutes. By 09:05 the phrase is on the Policy filter’s denylist, which removes it from every list on the way out. Snapshot v812 and the term counts still hold it.",
-      focus: ["client", "filter", "api", "snapshots"],
+      text: "A fast denylist in the serving path suppresses the suggestion within minutes. By 09:05 the phrase is on the Policy filter’s denylist, which removes it from every list on the way out. Snapshot v812 and the Term counts still hold it.",
+      focus: ["client", "filter", "api", "snapshots", "counts"],
       frame: ["client", "filter", "api", "counts", "policy", "snapshots"],
       facts: [["Suppressed", "09:05"], ["Still in", "v812 and the counts"]],
       metrics: { time: "09:05", unsafe: 0 },
@@ -102,7 +102,7 @@ export const autocompleteOpsStage: StageScene = {
       frame: ["client", "filter", "api", "counts", "policy", "snapshots"],
       facts: [["Build policy", "phrase excluded"], ["Term counts", "aggregates cleaned"]],
       metrics: { time: "same day" },
-      changes: ["+ Phrase excluded at build", "− Phrase in the aggregates"],
+      changes: ["+ Phrase excluded at build", "~ Aggregates cleaned"],
       events: [
         { type: "state", node: "client", light: "idle" },
         { type: "state", node: "filter", light: "idle", with: true },
@@ -113,7 +113,7 @@ export const autocompleteOpsStage: StageScene = {
       ],
     },
     {
-      title: "Next morning, v813 is checked without it",
+      title: "Next morning: v813 is checked without it",
       short: "Verify",
       text: "The next morning’s build reads the cleaned counts through the Build policy and writes snapshot v813. The team verifies that v813 omits the phrase. Had the source been left alone, the phrase would have come back with this build.",
       focus: ["counts", "policy", "snapshots"],

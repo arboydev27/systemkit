@@ -50,14 +50,14 @@ export const autocompletePrefixStage: StageScene = {
     {
       title: "Ranking the terms below is a separate cost",
       short: "Top two",
-      text: "With example counts car 900, card 700, cat 600, care 400 and cup 100, the node for “ca” has four descendants. The Trie ranks them, and the Client gets the top two, car and card. At this size, ranking is easy.",
+      text: "With example counts car 900, card 700, cat 600, care 400 and cup 100, the node for “ca” has four descendants, and the top two, car and card, go back to the Client. At this size, ranking is easy.",
       facts: [["Below “ca”", "4 terms"], ["Top two", "car, card"]],
       metrics: { scanned: 4 },
       changes: ["+ 4 terms ranked below “ca”", "+ Top two: car, card"],
       events: [
         { type: "note", node: "trie", text: "car, card, cat, care" },
         { type: "state", node: "trie", light: "work", with: true },
-        { type: "packet", path: ["trie", "api"], label: "car 900, card 700", kind: "response" },
+        { type: "packet", path: ["trie", "api"], label: "car, card", kind: "response" },
         { type: "packet", path: ["api", "client"], label: "top 2", kind: "response" },
         { type: "note", node: "client", text: "shows car, card", tone: "work" },
       ],
@@ -73,7 +73,7 @@ export const autocompletePrefixStage: StageScene = {
       changes: ["+ “s” sent", "~ 1 edge to reach, millions to sort"],
       events: [
         { type: "packet", path: ["client", "api", "trie"], label: "“s”" },
-        { type: "state", node: "trie", light: "hot", tone: "hot", opts: { mark: 2 } },
+        { type: "state", node: "trie", light: "hot", tone: "hot", opts: { mark: undefined } },
         { type: "note", node: "trie", text: "millions to sort", tone: "hot", with: true },
       ],
     },
@@ -112,8 +112,8 @@ export const autocompletePrefixStage: StageScene = {
     {
       title: "A trie matches only from the start",
       short: "Prefix only",
-      text: "The Client types “york”, looking for “new york”. The Trie, like the Prefix cache, is keyed by prefix: it follows “york” from the root, at most four edges, and never reaches “new york” under “n”. Matching a word inside a term means indexing each word or using n-grams, at more memory.",
-      focus: ["api", "trie"],
+      text: "The Client types “york”, looking for “new york”. The Trie follows “york” from the root, at most four edges, and never reaches “new york” under “n”. Matching a word inside a term means indexing each word or using n-grams, at more memory.",
+      focus: ["client", "api", "trie"],
       frame: ["client", "api", "cache", "trie"],
       facts: [["Not found", "“new york”"], ["Fix", "index each word, n-grams"]],
       metrics: { edges: "≤ 4", scanned: "—" },
@@ -129,22 +129,22 @@ export const autocompletePrefixStage: StageScene = {
     {
       title: "A small catalog can use a B-tree range",
       short: "B-tree range",
-      text: "For a small catalog, a B-tree on the lowercased term in Postgres may suffice. The Query API reads the Terms table from “ca” up to “cb”: 4 rows, car, card, care and cat. A compressed trie or a finite state transducer may fit better, depending on vocabulary, update rate and language.",
+      text: "For a small catalog, a B-tree on the lowercased term in Postgres may suffice. The Query API reads the Terms table from “ca” up to “cb” and gets car, card, care and cat. A compressed trie or a sparse map may fit better, depending on vocabulary size, update rate and language.",
       focus: ["api", "table"],
       frame: ["client", "api", "table", "trie"],
       facts: [["Range", "ca ≤ term < cb"], ["Index", "B-tree on lower(term)"]],
       metrics: { edges: "—", scanned: 4, memory: "no lists" },
-      changes: ["− Prefix cache", "+ Terms table, a B-tree on term", "+ 4 rows read from “ca” up to “cb”"],
+      changes: ["~ Terms table in place of the Prefix cache", "+ B-tree on the lowercased term", "+ 4 rows read from “ca” up to “cb”"],
       // One request rides all the way to the table and the reply all the way back, so with reduced motion each rests on
       // its own cable: “ca” on the short API–table cable, the four rows on the long Client–API one.
       events: [
         { type: "hide", nodes: ["cache"] },
-        { type: "state", node: "trie", light: "idle", with: true },
+        { type: "state", node: "trie", light: "idle", opts: { mark: undefined }, with: true },
         { type: "show", nodes: ["table"] },
         { type: "packet", path: ["client", "api", "table"], label: "“ca”" },
         { type: "state", node: "table", light: "work", readout: "4 rows" },
         { type: "note", node: "table", text: "“ca” up to “cb”", tone: "work", with: true },
-        { type: "packet", path: ["table", "api", "client"], label: "car, card, care, cat", kind: "response" },
+        { type: "packet", path: ["table", "api", "client"], label: "4 rows", kind: "response" },
       ],
     },
   ],

@@ -30,7 +30,7 @@ export const autocompleteTrafficStage: StageScene = {
   ],
   steps: [
     {
-      title: "48 million suggestion reads a day",
+      title: "Typing makes 48 million reads a day",
       short: "Daily reads",
       text: "Two million active people make six searches a day each, and after debouncing the client sends four suggestion requests per search. That is 48 million reads a day, about 556 a second on average, all arriving at the Query API.",
       focus: ["users", "api"],

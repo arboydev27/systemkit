@@ -71,7 +71,7 @@ export const autocompleteRankStage: StageScene = {
       metrics: { stored: 5 },
       changes: ["+ top 5 for “cam” in the Prefix cache", "~ Scores written as weights"],
       events: [
-        { type: "packet", path: ["builder", "cache"], label: "top 5 for “cam”", kind: "work" },
+        { type: "packet", path: ["builder", "cache"], label: "top 5", kind: "work" },
         { type: "state", node: "cache", light: "work" },
         { type: "note", node: "cache", text: "5 stored", tone: "work", with: true },
         { type: "state", node: "builder", light: "idle", with: true },
@@ -90,10 +90,10 @@ export const autocompleteRankStage: StageScene = {
         { type: "packet", path: ["client", "filter", "cache"], label: "“cam”" },
         { type: "packet", path: ["cache", "filter"], label: "top 5", kind: "response" },
         { type: "state", node: "filter", light: "on", opts: { open: "half" } },
-        { type: "note", node: "filter", text: "1 blocked", with: true },
+        { type: "note", node: "filter", text: "1 blocked, 4 left", with: true },
         { type: "packet", path: ["filter", "client"], label: "top 4", kind: "hot" },
+        // no note over the Client: on a 375×667 phone one zooms the camera out until the Index builder fades
         { type: "state", node: "client", light: "hot" },
-        { type: "note", node: "client", text: "only 4 shown", tone: "hot", with: true },
       ],
     },
     {
@@ -122,8 +122,8 @@ export const autocompleteRankStage: StageScene = {
     },
     {
       title: "Spare candidates take four times the space",
-      short: "Cost",
-      text: "Twenty candidates instead of five quadruple the list storage, so size the spare from how often filters actually remove entries. Personal search history is a different product again: it needs account-aware access and private caching.",
+      short: "Storage cost",
+      text: "Twenty candidates instead of five quadruple the list storage, so size the spare from how often filters actually remove entries. Public popularity and personal history are different products: personal suggestions need account-aware access and private caching.",
       focus: ["cache", "filter"],
       frame: ["client", "filter", "cache", "counts", "builder"],
       facts: [["Stored", "20 vs 5"], ["Storage", "4×"]],

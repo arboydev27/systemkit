@@ -7,6 +7,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // (770/s each) fix the heat without touching the ranges. When s–z outgrows a node's memory it splits into sa–sm and
 // sn–sz under a versioned map (v1 → v2, an example), and “sa” now goes to Shard sa–sm. Then “s” spans both halves: the
 // Query API asks both, merges their top-K lists (both from ranking version v812), and waits for the slower shard.
+// In step texts each range's en dash is followed by a word joiner (U+2060), so the steps panel never breaks “sn–sz”.
 export const autocompleteScaleStage: StageScene = {
   id: "autocomplete-scale",
   intro: "Watch 5,600 reads a second spread over three prefix ranges, then see what replicas, a split and a spanning prefix each cost.",
@@ -46,7 +47,7 @@ export const autocompleteScaleStage: StageScene = {
     {
       title: "A range map sends each prefix to a shard",
       short: "Route",
-      text: "Shard only when one machine can’t hold the index or replicas can’t absorb the reads: an 8 GB index may need only replicas of one full copy. Otherwise a prefix range map assigns terms to shards, and “sa” goes to Shard s–z.",
+      text: "Shard only when one machine can’t hold the index or replicas can’t absorb the reads: an 8 GB index may need only replicas of one full copy. Otherwise a prefix range map assigns terms to shards, and “sa” goes to Shard s–⁠z.",
       focus: ["api", "map", "sZ"],
       frame: ["api", "map", "aI", "jR", "sZ"],
       facts: [["8 GB index", "replicas may do"], ["Ranges", "a–i, j–r, s–z"]],
@@ -55,7 +56,7 @@ export const autocompleteScaleStage: StageScene = {
       events: [
         { type: "packet", path: ["api", "map"], label: "“sa”" },
         { type: "state", node: "map", light: "on", opts: { mark: 2 } },
-        { type: "note", node: "map", text: "“sa” → s–z", with: true },
+        { type: "note", node: "map", text: "“sa” → s–⁠z", with: true },
         { type: "packet", path: ["map", "sZ"], label: "“sa”" },
         { type: "state", node: "sZ", light: "on" },
         { type: "packet", path: ["sZ", "map", "api"], label: "top 5", kind: "response" },
@@ -65,7 +66,7 @@ export const autocompleteScaleStage: StageScene = {
     {
       title: "Equal letter ranges carry unequal load",
       short: "Hot range",
-      text: "Equal alphabet ranges are often unbalanced: common first letters draw more reads. Of an example 5,600 reads a second, s–z gets 45%, 2,520 a second, and a–i and j–r 1,540 each. A node handles 1,000, so every shard is over, s–z most.",
+      text: "Equal alphabet ranges are often unbalanced: common first letters draw more reads. Of an example 5,600 reads a second, s–⁠z gets 45%, 2,520 a second, and a–⁠i and j–⁠r 1,540 each. A node handles 1,000, so every shard is over, s–⁠z most.",
       facts: [["One node", "1,000/s"], ["s–z share", "45%"]],
       metrics: { reads: { n: 5600, unit: "/s" }, hot: { n: 2520, unit: "/s", tone: "hot" } },
       changes: ["~ 5,600 reads/s", "~ s–z: 2,520/s, 45% of reads", "~ a–i, j–r: 1,540/s each"],
@@ -89,7 +90,7 @@ export const autocompleteScaleStage: StageScene = {
     {
       title: "Replicas spread the reads, ranges unchanged",
       short: "Replicas",
-      text: "Three replicas for s–z (840 a second each) and two each for a–i and j–r (770 each) keep every node under 1,000. If memory is fine, replicas fix the heat without touching the ranges. Measure bytes, request rate and CPU per range to choose.",
+      text: "Three replicas for s–⁠z (840 a second each) and two each for a–⁠i and j–⁠r (770 each) keep every node under 1,000. If memory is fine, replicas fix the heat without touching the ranges. Measure bytes, request rate and CPU per range to choose.",
       facts: [["s–z", "3 replicas"], ["a–i, j–r", "2 replicas each"]],
       metrics: { hot: { n: 2520, unit: "/s" } },
       changes: ["+ s–z: 3 replicas, 840/s each", "+ a–i, j–r: 2 replicas, 770/s each", "~ Ranges unchanged"],
@@ -109,7 +110,7 @@ export const autocompleteScaleStage: StageScene = {
     {
       title: "Split a range under a versioned map",
       short: "Split",
-      text: "When a range outgrows one node’s memory, split it: here s–z becomes sa–sm and sn–sz. The routing map is versioned during the move, v1 to v2 in this example, so every read follows one consistent map. Under v2, “sa” goes to the new Shard sa–sm.",
+      text: "When a range outgrows one node’s memory, split it: here s–⁠z becomes sa–⁠sm and sn–⁠sz. The routing map is versioned during the move, v1 to v2 in this example, so every read follows one consistent map. Under v2, “sa” goes to the new Shard sa–⁠sm.",
       focus: ["api", "map", "sA", "sZ"],
       frame: ["api", "map", "aI", "jR", "sA", "sZ"],
       facts: [["Map", "v1 → v2 (example)"], ["s–z", "sa–sm and sn–sz"]],
@@ -130,8 +131,8 @@ export const autocompleteScaleStage: StageScene = {
     },
     {
       title: "A prefix across shards fans out and merges",
-      short: "Fan out",
-      text: "No one shard now holds every candidate for “s”, so the Query API asks both Shard sa–sm and Shard sn–sz and merges their top-K results, much as Elasticsearch merges across its shards. Both lists must come from the same ranking version, v812.",
+      short: "Fanout and merge",
+      text: "No one shard now holds every candidate for “s”, so the Query API asks both Shard sa–⁠sm and Shard sn–⁠sz and merges their top-K results, much as Elasticsearch merges across its shards. Both lists must come from the same ranking version, v812.",
       focus: ["api", "map", "sA", "sZ"],
       frame: ["api", "map", "aI", "jR", "sA", "sZ"],
       facts: [["“s” spans", "2 shards"], ["Ranking", "v812 on both"]],
@@ -157,7 +158,7 @@ export const autocompleteScaleStage: StageScene = {
     {
       title: "The slowest shard sets the pace",
       short: "Fanout cost",
-      text: "A fanned-out read is as slow as its slowest shard, here Shard sn–sz. Keeping a prefix’s descendants together avoids fanout but concentrates storage and traffic; precomputed lists for very short prefixes, in a small separate table, avoid it where it’s broadest.",
+      text: "A fanned-out read is as slow as its slowest shard, here Shard sn–⁠sz. Keeping a prefix’s descendants together avoids fanout but can concentrate storage and traffic; precomputed lists for very short prefixes, in a small separate table, avoid it where it’s broadest.",
       focus: ["api", "map", "sA", "sZ"],
       frame: ["api", "map", "aI", "jR", "sA", "sZ"],
       facts: [["Merge waits for", "the slowest shard"], ["Short prefixes", "own small table"]],
