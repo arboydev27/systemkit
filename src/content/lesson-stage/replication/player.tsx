@@ -8,4 +8,5 @@ export const players: Players = {
   "rc-lag": dynamic(() => import("./rc-lag").then(played)),
   "rc-failover": dynamic(() => import("./rc-failover").then(played)),
   "rc-multi": dynamic(() => import("./rc-multi").then(played)),
+  "rc-leaderless": dynamic(() => import("./rc-leaderless").then(played)),
 };
