@@ -14,11 +14,14 @@ export const seLogStage: StageScene = {
     { id: "unsynced", label: "Unsynced", derive: { lag: ["file", "fsync"] } },
   ],
   // The App reaches both stores along straight cables: the log file up and to the right with its strip beyond it, the
-  // index down and to the right with its pill. On a phone the two share the row under the App, the strip beneath them.
+  // index down and to the right with its pill, well clear of the strip. The log file's cable climbs steeply enough that
+  // a read resting on it clears the log file's tag; it passes over the App, so the App carries no notes in the last
+  // step. On a phone the two share the row under the App, the log file on the left, so the strip beneath them starts
+  // under it.
   nodes: [
     { id: "app", role: "web", label: "App", detail: "parcel tracking", at: [0, 0] },
-    { id: "disk", role: "disk", label: "Log file", detail: "on disk", at: [0.9, 1.75] },
-    { id: "index", role: "index", label: "Hash index", detail: "in memory", at: [0.9, -0.83] },
+    { id: "disk", role: "disk", label: "Log file", detail: "on disk", at: [1, -1.3] },
+    { id: "index", role: "index", label: "Hash index", detail: "in memory", at: [1, 1.2] },
   ],
   links: [{ from: "app", to: "disk" }, { from: "app", to: "index" }],
   logs: [{ id: "file", node: "disk", step: 4096 }],
@@ -66,21 +69,21 @@ export const seLogStage: StageScene = {
       ],
     },
     {
-      title: "Every key lives in memory",
+      title: "A restart means rebuilding the map",
       short: "Rebuild on restart",
       text: "The hash index holds every key in memory, so all the keys must fit, and a restart empties it. The App rebuilds the map by reading the whole file from the start: 8841 maps to 0, then to 4096, as the later record wins.",
       facts: [["In memory", "every key"], ["After a restart", "read the whole file"]],
       changes: ["− Map emptied by a restart", "+ Rebuilt by reading the file", "~ 8841 → 4096 again"],
       events: [
         { type: "state", node: "index", light: "idle", readout: "empty", opts: { mark: undefined } },
-        { type: "note", node: "app", text: "restart", with: true },
+        { type: "note", node: "index", text: "lost on restart", with: true },
         { type: "cursor", log: "file", id: "app", at: 0, label: "rebuild" },
         { type: "read", log: "file", at: 0, to: "app" },
         { type: "packet", path: ["app", "index"], label: "8841 → 0" },
         // the scan reads on while the map takes the first entry
-        { type: "state", node: "index", light: "on", readout: "8841 → 0" },
         { type: "cursor", log: "file", id: "app", at: 4096, with: true },
         { type: "read", log: "file", at: 4096, to: "app", with: true },
+        { type: "state", node: "index", light: "on", readout: "8841 → 0" },
         { type: "packet", path: ["app", "index"], label: "8841 → 4096" },
         { type: "cursor", log: "file", id: "app", at: "end", with: true },
         { type: "state", node: "index", readout: "8841 → 4096" },
@@ -104,17 +107,19 @@ export const seLogStage: StageScene = {
     {
       title: "A returned write isn’t safe yet",
       short: "Not synced",
-      text: "The App writes parcels 1203 and 5170, and write() returns for each. The records may only have reached the operating system’s cache, past the synced line; only fsync makes them safe. The same holds for the write-ahead log that protects larger engines.",
+      text: "The App writes parcels 1203 and 5170, and write() returns for each. They may only have reached the operating system’s cache, past the synced line; only fsync makes them safe. Larger engines fsync a write-ahead log the same way before changing their main files, so recovery can replay it.",
       focus: ["app", "disk"],
       frame: ["app", "disk", "index"],
       facts: [["Synced", "8841 shipped"], ["Not synced", "1203, 5170"]],
-      changes: ["+ 1203 new, 5170 new", "~ Both past the synced line"],
+      changes: ["+ 1203 new, 5170 new", "~ Both past the synced line", "~ Index: 3 keys"],
       metrics: { records: 3, keys: 3 },
       events: [
         { type: "cursor", log: "file", id: "fsync", at: "end", label: "synced", line: true },
         { type: "append", log: "file", from: "app", records: [{ text: "1203 new", key: "1203" }] },
         { type: "packet", path: ["disk", "app"], label: "write() ok", kind: "response" },
         { type: "append", log: "file", from: "app", records: [{ text: "5170 new", key: "5170" }] },
+        // the index takes the new keys quietly while it stays out of focus
+        { type: "state", node: "index", readout: "3 keys", with: true },
         { type: "packet", path: ["disk", "app"], label: "write() ok", kind: "response" },
         { type: "note", node: "disk", text: "in OS cache" },
       ],
@@ -122,7 +127,7 @@ export const seLogStage: StageScene = {
     {
       title: "Only synced records survive a crash",
       short: "Crash or sync",
-      text: "Try both. A power cut loses the tail past the line, 1203 and 5170, and 8841 shipped survives, since earlier records are never rewritten. With fsync first, one sync makes both durable before either is confirmed: engines group commits because a sync per commit is slow.",
+      text: "Try both. A power cut empties the map and loses the tail past the line, 1203 and 5170; 8841 shipped survives, since earlier records are never rewritten. With fsync first, one sync makes both durable before either is confirmed: engines often group commits, as a sync per commit is slow.",
       facts: [["Safe", "what is synced"], ["fsync calls", "1 for 2 commits"]],
       changes: ["− Power cut: the unsynced tail", "~ fsync: both durable at once"],
       events: [],
@@ -137,7 +142,8 @@ export const seLogStage: StageScene = {
               { type: "note", node: "disk", text: "power cut", tone: "hot", with: true },
               { type: "state", node: "index", light: "idle", readout: "empty", with: true },
               { type: "truncate", log: "file", after: 4096 },
-              { type: "note", node: "app", text: "1203, 5170 lost", tone: "hot" },
+              // marks on the strip rather than notes on the App, whose cable to the log file climbs past its notes
+              { type: "bracket", log: "file", id: "kept", from: 4096, to: 4096, label: "survives" },
             ],
           },
           {
@@ -146,7 +152,7 @@ export const seLogStage: StageScene = {
               { type: "packet", path: ["app", "disk"], label: "fsync" },
               { type: "cursor", log: "file", id: "fsync", at: "end" },
               { type: "packet", path: ["disk", "app"], label: "2 commits durable", kind: "response" },
-              { type: "note", node: "app", text: "1 fsync, 2 commits", tone: "work", with: true },
+              { type: "bracket", log: "file", id: "group", from: 8192, to: 12288, label: "1 fsync", tone: "work", with: true },
             ],
           },
         ],
