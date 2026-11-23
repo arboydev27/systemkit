@@ -1,0 +1,179 @@
+import type { StageScene } from "../../../lib/lesson-stage/types";
+
+// Lesson "Compare engines by what they amplify": one App sends the same row to a B-tree and an LSM tree, each with its
+// own disk. Scattered updates on 16 KB pages make a 100-byte row cost a 16 KB page write, about 160×, plus the log; the
+// LSM tree's four 10× levels rewrite a byte up to about 10 times each, up to about 40× (up to 4 KB for that row). At
+// 4 KB rows the B-tree drops to about 4× and the LSM tree stays near 40× (up to 160 KB): the winner flips. Reads lean
+// the other way (one path against several files, here found in the third), space too (about 1.5× against 1.1× live
+// data), so start from the workload and benchmark.
+export const seChooseStage: StageScene = {
+  id: "se-choose",
+  intro: "Send the same row to a B-tree and an LSM tree, and compare what each one writes, reads and stores for it.",
+  metrics: [
+    { id: "row", label: "Row size" },
+    { id: "bt", label: "B-tree writes" },
+    { id: "lsm", label: "LSM writes" },
+  ],
+  // The App on the left; each engine in its own lane with its disk behind it, the B-tree up the floor's diagonal and
+  // the LSM tree down it. On a phone the engines share the second row and their disks the third, in two columns.
+  nodes: [
+    { id: "app", role: "web", label: "App", detail: "100 B rows", at: [0, 0] },
+    { id: "btree", role: "tree", label: "B-tree", detail: "16 KB pages", at: [1, -0.85], opts: { count: 2 } },
+    { id: "lsm", role: "sstable", label: "LSM tree", detail: "4 levels, 10× each", at: [1, 0.85], opts: { count: 4 } },
+    { id: "bdisk", role: "disk", label: "B-tree disk", detail: "pages", at: [2.2, -0.85] },
+    { id: "ldisk", role: "disk", label: "LSM disk", detail: "sorted files", at: [2.2, 0.85] },
+  ],
+  links: [
+    { from: "app", to: "btree" },
+    { from: "app", to: "lsm" },
+    { from: "btree", to: "bdisk" },
+    { from: "lsm", to: "ldisk" },
+  ],
+  steps: [
+    {
+      title: "Three ratios say more than “faster”",
+      short: "Three ratios",
+      text: "“Faster” means little without a workload. The App sends the same 100-byte row to a B-tree and an LSM tree. Compare bytes written per byte sent, storage reads per query, and bytes on disk per live byte. No design minimizes all three.",
+      facts: [["Write amp", "bytes written per byte"], ["Read amp", "reads per query"], ["Space amp", "disk per live byte"]],
+      metrics: { row: "100 B" },
+      changes: ["+ One 100 B row to each engine"],
+      events: [
+        { type: "packet", path: ["app", "btree"], label: "100 B row" },
+        { type: "packet", path: ["app", "lsm"], label: "100 B row", with: true },
+        { type: "state", nodes: ["btree", "lsm"], light: "on" },
+        { type: "note", node: "app", text: "same row to both", with: true },
+      ],
+    },
+    {
+      title: "A B-tree writes 16 KB for a 100 B row",
+      short: "B-tree writes",
+      text: "Updates land all over a table far larger than memory, one changed row per flushed page. So the B-tree writes a whole 16 KB page for the 100-byte row: a write amplification of about 160, plus the log. That eats disk bandwidth and wears SSDs.",
+      focus: ["app", "btree", "bdisk"],
+      frame: ["app", "btree", "lsm", "bdisk", "ldisk"],
+      facts: [["Row", "100 B"], ["Page written", "16 KB"], ["Write amp", "about 160×, plus log"]],
+      metrics: { bt: { n: 160, unit: "×" } },
+      changes: ["+ 16 KB page write for a 100 B row", "~ B-tree writes about 160×"],
+      events: [
+        { type: "state", nodes: ["btree", "lsm"], light: "idle" },
+        { type: "packet", path: ["app", "btree"], label: "100 B row" },
+        { type: "state", node: "btree", light: "on", opts: { count: 2, mark: 1 } },
+        { type: "packet", path: ["btree", "bdisk"], label: "16 KB page" },
+        { type: "state", node: "bdisk", light: "on", readout: "16 KB + log" },
+      ],
+    },
+    {
+      title: "An LSM tree rewrites a byte at each level",
+      short: "LSM writes",
+      text: "The LSM tree writes the row out in a sorted file, then compaction merges it down four levels, each ten times larger than the last. A byte is rewritten up to about 10 times per level: up to about 40 times in all, plus the log.",
+      focus: ["app", "lsm", "ldisk"],
+      frame: ["app", "btree", "lsm", "bdisk", "ldisk"],
+      facts: [["Levels", "4, each 10× larger"], ["Per level", "up to 10 rewrites"], ["Write amp", "up to 40×, plus log"]],
+      metrics: { lsm: { n: 40, unit: "×" } },
+      changes: ["+ Sorted file, then merges down 4 levels", "~ LSM tree writes up to about 40×"],
+      events: [
+        { type: "packet", path: ["app", "lsm"], label: "100 B row" },
+        { type: "state", node: "lsm", light: "on" },
+        { type: "packet", path: ["lsm", "ldisk"], label: "sorted file" },
+        { type: "state", node: "ldisk", light: "on" },
+        { type: "packet", path: ["lsm", "ldisk"], label: "merges, 4 levels" },
+        { type: "note", node: "lsm", text: "up to 10× per level" },
+        { type: "state", node: "ldisk", readout: "≤ 4 KB + log", with: true },
+      ],
+    },
+    {
+      title: "At 4 KB rows the winner flips",
+      short: "Row size",
+      text: "Make the rows 4 KB. Each 16 KB page write now carries a whole 4 KB row, so the B-tree drops to about 4×. The LSM tree’s cost is per byte, so it stays near 40×: the winner flips. Pick 100 B rows to compare. Key-order inserts also help a B-tree: each page fills before it is flushed.",
+      changes: ["~ 4 KB rows: B-tree about 4×", "~ LSM tree about 40× at either size"],
+      events: [],
+      control: {
+        label: "Row size",
+        options: [
+          {
+            label: "4 KB rows",
+            metrics: { row: "4 KB", bt: { n: 4, unit: "×" }, lsm: { n: 40, unit: "×" } },
+            events: [
+              { type: "state", node: "app", detail: "4 KB rows" },
+              { type: "state", nodes: ["btree", "lsm", "bdisk", "ldisk"], light: "idle", readout: "", with: true },
+              { type: "packet", path: ["app", "btree"], label: "4 KB row" },
+              { type: "packet", path: ["app", "lsm"], label: "4 KB row", with: true },
+              { type: "packet", path: ["btree", "bdisk"], label: "16 KB page" },
+              { type: "packet", path: ["lsm", "ldisk"], label: "merges, 4 levels", with: true },
+              { type: "state", node: "bdisk", light: "on", readout: "16 KB + log" },
+              { type: "state", node: "ldisk", light: "on", readout: "≤ 160 KB + log", with: true },
+              { type: "note", node: "btree", text: "writes less now", tone: "work", with: true },
+            ],
+          },
+          {
+            label: "100 B rows",
+            metrics: { row: "100 B", bt: { n: 160, unit: "×" }, lsm: { n: 40, unit: "×" } },
+            events: [
+              { type: "state", node: "app", detail: "100 B rows" },
+              { type: "state", nodes: ["btree", "lsm", "bdisk", "ldisk"], light: "idle", readout: "", with: true },
+              { type: "packet", path: ["app", "btree"], label: "100 B row" },
+              { type: "packet", path: ["app", "lsm"], label: "100 B row", with: true },
+              { type: "packet", path: ["btree", "bdisk"], label: "16 KB page" },
+              { type: "packet", path: ["lsm", "ldisk"], label: "merges, 4 levels", with: true },
+              { type: "state", node: "bdisk", light: "on", readout: "16 KB + log" },
+              { type: "state", node: "ldisk", light: "on", readout: "≤ 4 KB + log", with: true },
+              { type: "note", node: "lsm", text: "writes less", tone: "work", with: true },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      title: "Reads lean the other way",
+      short: "Reads",
+      text: "A B-tree lookup follows one path, root to leaf. An LSM lookup checks files newest first until it finds the key, here in the third. Bloom filters narrow that gap for point reads, not for range scans, which merge every level.",
+      facts: [["B-tree", "one path"], ["LSM tree", "several files"], ["Bloom filters", "point reads only"]],
+      changes: ["+ One lookup on each engine", "~ B-tree reads 1 path, LSM tree 3 files"],
+      events: [
+        { type: "state", nodes: ["btree", "lsm", "bdisk", "ldisk"], light: "idle", readout: "" },
+        { type: "state", node: "btree", opts: { mark: undefined }, with: true },
+        { type: "packet", path: ["app", "btree"], label: "get key" },
+        { type: "packet", path: ["app", "lsm"], label: "get key", with: true },
+        { type: "state", nodes: ["btree", "lsm"], light: "on" },
+        { type: "packet", path: ["btree", "bdisk"], label: "root → leaf" },
+        { type: "packet", path: ["lsm", "ldisk"], label: "file 1", with: true },
+        { type: "state", node: "btree", light: "work", opts: { count: 2, mark: 1 }, gap: 0 },
+        { type: "state", node: "bdisk", readout: "1 path", with: true },
+        { type: "packet", path: ["lsm", "ldisk"], label: "file 2", gap: 120 },
+        { type: "packet", path: ["lsm", "ldisk"], label: "file 3", gap: 120 },
+        { type: "state", node: "lsm", light: "work", gap: 0 },
+        { type: "state", node: "ldisk", readout: "3 files", with: true },
+        { type: "note", node: "lsm", text: "found in file 3", tone: "work", with: true },
+      ],
+    },
+    {
+      title: "Part-full pages cost the B-tree space",
+      short: "Space",
+      text: "Space amplification is bytes on disk per byte of live data. Randomly filled B-tree pages are often about two-thirds full, so the B-tree takes near 1.5 times its live data. This LSM tree can run near 1.1 times.",
+      focus: ["btree", "lsm", "bdisk", "ldisk"],
+      frame: ["app", "btree", "lsm", "bdisk", "ldisk"],
+      facts: [["B-tree", "about 1.5× live data"], ["LSM tree", "about 1.1×"]],
+      changes: ["~ B-tree pages about two-thirds full", "~ B-tree 1.5×, LSM tree 1.1× on disk"],
+      events: [
+        { type: "state", nodes: ["btree", "lsm"], light: "idle" },
+        { type: "state", node: "btree", opts: { mark: undefined }, with: true },
+        { type: "state", nodes: ["bdisk", "ldisk"], light: "on", readout: "", with: true },
+        { type: "note", node: "btree", text: "pages two-thirds full" },
+        { type: "state", node: "bdisk", readout: "1.5× live data", with: true },
+        { type: "state", node: "ldisk", readout: "1.1× live data" },
+      ],
+    },
+    {
+      title: "Start from the workload, then benchmark",
+      short: "Choose",
+      text: "No engine wins all three. Start by favoring an LSM tree for write-heavy small records and a B-tree for read-heavy range queries, then benchmark with real data.",
+      facts: [["Many small writes", "LSM tree"], ["Many range reads", "B-tree"], ["Then", "benchmark"]],
+      changes: ["~ LSM tree for write-heavy small records", "~ B-tree for read-heavy range queries"],
+      events: [
+        { type: "state", nodes: ["bdisk", "ldisk"], light: "idle", readout: "" },
+        { type: "state", nodes: ["btree", "lsm"], light: "work", with: true },
+        { type: "note", node: "lsm", text: "small writes", tone: "work" },
+        { type: "note", node: "btree", text: "range reads", tone: "work", with: true },
+      ],
+    },
+  ],
+};
