@@ -14,14 +14,17 @@ export const seLsmStage: StageScene = {
   ],
   // The App writes to the WAL, down the floor's diagonal, and to the memtable, across. The memtable, the Bloom filters
   // and the sorted files step down one tier, each strip to the right of its part; the files stand close under the
-  // memtable until the filters arrive and they step down to make room, so every cable bends once, clear of the strips
-  // (with the files at lane 1 from the start, the memtable's cable to them zigzags round File 2's strip).
+  // memtable until the filters arrive and they step down to make room, so the cables keep clear of the strips (with the
+  // files at lane 1 from the start, the memtable's cable to them zigzags round File 2's strip). While the filters show a
+  // readout their cable from the memtable jogs round its tag, since a cable that bends once into the filters' back runs
+  // under the pill; the filters arrive with one, so the cable is drawn that way and never reshapes in front of the learner.
+  // The filters stay at tier 1, since on a phone a tier past 1 drops them below the row's strips.
   // On a phone the App and the WAL share the first row, the memtable, filters and files the second.
   nodes: [
     { id: "app", role: "web", label: "App", detail: "parcel tracking", at: [0, -1.3] },
     { id: "wal", role: "disk", label: "Write-ahead log", detail: "on disk", at: [-0.1, 0.4] },
     { id: "mem", role: "memtable", label: "Memtable", detail: "in memory", at: [1, -1.5], opts: { level: 0 } },
-    { id: "bloom", role: "bloom", label: "Bloom filters", detail: "one per file", at: [1, -0.4], appear: 5 },
+    { id: "bloom", role: "bloom", label: "Bloom filters", detail: "one per file", at: [1, -0.2], appear: 5 },
     { id: "sst", role: "sstable", label: "Sorted files", detail: "immutable, on disk", at: [1, -0.1], opts: { count: 1 } },
   ],
   links: [
@@ -46,7 +49,7 @@ export const seLsmStage: StageScene = {
     {
       title: "Each write goes to the log, then memory",
       short: "Log, then memory",
-      text: "An LSM tree never edits a file, since inserting into the middle of a sorted one is expensive. The App writes parcel 8841 as sent: it goes on the end of the write-ahead log at offset 0, so a crash can’t lose it, then into the memtable, a sorted table in memory.",
+      text: "An LSM tree never edits a file: inserting into the middle of a sorted one is expensive. File 1, flushed earlier, holds 1203 new and 4410 new. The App writes parcel 8841 as sent, first to the end of the write-ahead log at offset 0, so a crash can’t lose it, then to the memtable, sorted in memory.",
       focus: ["app", "wal", "mem"],
       frame: ["app", "wal", "mem", "sst"],
       facts: [["Record", "8841 sent"], ["WAL offset", "0"]],
@@ -84,7 +87,7 @@ export const seLsmStage: StageScene = {
       metrics: { files: 2 },
       events: [
         { type: "state", node: "mem", opts: { level: 1 } },
-        { type: "note", node: "mem", text: "64 MB: full", with: true },
+        { type: "note", node: "mem", text: "flushed at 64 MB", with: true },
         { type: "state", node: "sst", opts: { count: 2 } },
         { type: "state", node: "mem", opts: { level: 0 }, with: true },
         { type: "flush", from: "mem", to: "f2", with: true },
@@ -118,6 +121,7 @@ export const seLsmStage: StageScene = {
       short: "Write a tombstone",
       text: "Deleting 4410 edits no file: a tombstone goes into the WAL at offset 2 and into the memtable. A read of 4410 meets the tombstone first and answers not found. File 1 still holds 4410 new, now hidden.",
       focus: ["app", "wal", "mem", "sst"],
+      facts: [["WAL offset", "2"], ["4410 reads", "not found"]],
       changes: ["+ Tombstone for 4410 at WAL offset 2", "~ 4410 reads as not found", "~ File 1’s 4410 new hidden"],
       metrics: { reads: 0 },
       events: [
@@ -139,7 +143,9 @@ export const seLsmStage: StageScene = {
       changes: ["+ A Bloom filter per file", "~ 7702 ruled out, no file read"],
       metrics: { reads: 0 },
       events: [
-        { type: "show", nodes: ["bloom"], at: { sst: [1, 1] } },
+        { type: "show", nodes: ["bloom"], at: { sst: [1, 1.2] } },
+        // the filters arrive with a readout, so their cable is routed round it from the start (see the parts above)
+        { type: "state", node: "bloom", readout: "10 bits per key", with: true },
         { type: "packet", path: ["app", "mem", "bloom"], label: "GET 7702" },
         { type: "note", node: "mem", text: "no 7702", with: true },
         { type: "state", node: "bloom", light: "work", readout: "definitely absent" },
@@ -171,25 +177,37 @@ export const seLsmStage: StageScene = {
       title: "Files pile up when writes outrun compaction",
       short: "Falling behind",
       text: "Compaction costs disk bandwidth, CPU and free space while it merges. When writes outrun it, flushed files pile up and reads slow, since each has more files to check; engines such as RocksDB then throttle incoming writes until compaction catches up.",
-      focus: ["app", "mem", "sst"],
+      focus: ["app", "wal", "mem", "sst"],
       frame: ["app", "wal", "mem", "bloom", "sst"],
-      changes: ["+ File 4 and File 5, not merged yet", "~ Reads check more files", "~ Writes throttled"],
+      facts: [["Not merged yet", "Files 4 and 5"], ["Writes", "throttled"]],
+      changes: ["+ File 4 and File 5, not merged yet", "~ WAL offsets 3 and 4 written, then discarded", "~ Reads check more files", "~ Writes throttled"],
       metrics: { files: { n: 3, tone: "hot" } },
       events: [
         { type: "stream", every: 240, routes: [{ path: ["app", "wal"] }, { path: ["app", "mem"] }] },
-        // the writes ride the stream; the memtable fills and flushes twice while compaction lags
-        { type: "state", node: "mem", opts: { level: 0.6 } },
-        { type: "append", log: "mem", records: [{ text: "2210 new", key: "2210" }, { text: "6620 new", key: "6620" }], with: true },
-        { type: "state", node: "sst", opts: { count: 2 }, gap: 200 },
+        // the writes ride the stream, each to the WAL and then the memtable, which flushes twice while compaction lags.
+        // One record per flush keeps the WAL's strip short of the Sorted files' tag. As in step 3, each WAL record is
+        // struck as the file holding it lands and the WAL compacts away what is struck, so it ends empty: its truncation
+        // follows the flushes, not the lagging compaction. Log events play one at a time: two started together in the
+        // one log figure undo each other's tiles until both land (a strike started with a flush puts the record back in
+        // the memtable and drops its flight), so each strike follows its flush at once. The WAL compacts as the App
+        // throttles: that part change starts first, which the log figure allows.
+        { type: "append", log: "wal", records: [{ text: "2210 new", key: "2210" }], with: true },
+        { type: "state", node: "mem", opts: { level: 0.6 }, gap: 0 },
+        { type: "append", log: "mem", records: [{ text: "2210 new", key: "2210" }], with: true },
+        { type: "state", node: "sst", opts: { count: 2 }, gap: 120 },
         { type: "state", node: "mem", opts: { level: 0 }, with: true },
         { type: "flush", from: "mem", to: "f4", with: true },
-        { type: "state", node: "mem", opts: { level: 0.6 }, gap: 200 },
-        { type: "append", log: "mem", records: [{ text: "1450 new", key: "1450" }, { text: "9013 new", key: "9013" }], with: true },
-        { type: "state", node: "sst", opts: { count: 3 }, light: "hot", tone: "hot", gap: 200 },
+        { type: "record", log: "wal", at: 3, tomb: true, gap: 0 },
+        { type: "append", log: "wal", records: [{ text: "6620 new", key: "6620" }], gap: 120 },
+        { type: "state", node: "mem", opts: { level: 0.6 }, gap: 0 },
+        { type: "append", log: "mem", records: [{ text: "6620 new", key: "6620" }], with: true },
+        { type: "state", node: "sst", opts: { count: 3 }, light: "hot", tone: "hot", gap: 120 },
         { type: "state", node: "mem", opts: { level: 0 }, with: true },
         { type: "flush", from: "mem", to: "f5", with: true },
-        { type: "state", node: "app", light: "hot", tone: "hot" },
+        { type: "record", log: "wal", at: 4, tomb: true, gap: 0 },
+        { type: "state", node: "app", light: "hot", tone: "hot", gap: 0 },
         { type: "note", node: "app", text: "writes throttled", tone: "hot", with: true },
+        { type: "compact", log: "wal", with: true },
       ],
     },
   ],
