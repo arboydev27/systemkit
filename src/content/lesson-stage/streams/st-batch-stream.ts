@@ -99,16 +99,19 @@ export const stBatchStreamStage: StageScene = {
       frame: ["files", "nightly", "payments", "stream"],
       changes: ["+ Card payments, a log still growing", "+ Stream job, reading as payments land", "~ No last record"],
       events: [
-        { type: "state", node: "nightly", light: "idle", readout: "" },
+        // the two parts arrive with their strip, a payment landing on it and the stream job's cursor on the first payment
+        // it hasn't read
+        { type: "state", node: "nightly", light: "idle", readout: "", with: true },
         { type: "state", node: "stream", light: "on", with: true },
+        { type: "append", log: "pay", records: [{ text: "•5521" }], with: true },
         { type: "cursor", log: "pay", id: "stream", at: 48203, label: "stream job", with: true },
-        { type: "read", log: "pay", at: 48203, to: "stream" },
-        { type: "cursor", log: "pay", id: "stream", at: "end" },
-        { type: "append", log: "pay", records: [{ text: "•5521" }] },
-        { type: "read", log: "pay", at: 48204, to: "stream" },
-        { type: "cursor", log: "pay", id: "stream", at: "end" },
-        { type: "append", log: "pay", records: [{ text: "•7702" }], gap: 160 },
-        { type: "append", log: "pay", records: [{ text: "•3378" }], gap: 160 },
+        // each time the job takes a payment and moves on, another lands past its cursor
+        { type: "read", log: "pay", at: 48203, to: "stream", gap: 200 },
+        { type: "cursor", log: "pay", id: "stream", at: 48204, with: true },
+        { type: "append", log: "pay", records: [{ text: "•7702" }], with: true },
+        { type: "read", log: "pay", at: 48204, to: "stream", gap: 200 },
+        { type: "cursor", log: "pay", id: "stream", at: 48205, with: true },
+        { type: "append", log: "pay", records: [{ text: "•3378" }], with: true },
         { type: "note", node: "payments", text: "no last record", with: true },
       ],
     },
@@ -126,16 +129,18 @@ export const stBatchStreamStage: StageScene = {
         { type: "read", log: "pay", at: 48206, with: true },
         { type: "cursor", log: "pay", id: "stream", at: "end", with: true },
         { type: "append", log: "pay", records: [{ text: "•4417" }, { text: "•4417" }], gap: 200 },
-        { type: "state", node: "stream", readout: "•4417: 2 orders", gap: 200 },
+        { type: "state", node: "stream", readout: "•4417: 2", gap: 200 },
         { type: "cursor", log: "pay", id: "stream", at: "end", with: true },
         { type: "append", log: "pay", records: [{ text: "•4417" }, { text: "•4417" }, { text: "•4417" }], gap: 200 },
-        { type: "state", node: "stream", readout: "•4417: 5 in 2 min", gap: 200 },
+        { type: "state", node: "stream", readout: "•4417: 5", gap: 200 },
         { type: "cursor", log: "pay", id: "stream", at: "end", with: true },
-        // the fifth trips the check, and the stream job stops all five orders inside the two minutes
-        { type: "state", node: "stream", light: "work", gap: 160 },
+        // the fifth trips the check, and the stream job stops all five orders inside the two minutes. The count moves from
+        // the readout into the note, since the engine stacks a note right over a part's readout and the two would crowd;
+        // the note stays short because on a phone the stream job sits at the stage's right edge
+        { type: "state", node: "stream", light: "work", readout: "", gap: 160 },
         { type: "record", log: "pay", at: 48211, tone: "hot", with: true },
         { type: "bracket", log: "pay", id: "card", from: 48207, to: 48211, label: "2 minutes", tone: "hot", gap: 120 },
-        { type: "note", node: "stream", text: "stopped in time", tone: "work", with: true },
+        { type: "note", node: "stream", text: "count 5: stopped", tone: "work", with: true },
         { type: "note", node: "nightly", text: "up to a day late", with: true },
       ],
     },
@@ -148,7 +153,8 @@ export const stBatchStreamStage: StageScene = {
       changes: ["~ Compute that never stops", "+ State that must survive crashes", "~ Out-of-order events, harder reprocessing"],
       events: [
         { type: "state", node: "nightly", light: "idle", readout: "20 min a day" },
-        { type: "state", node: "stream", light: "on", readout: "never stops", with: true },
+        // the stream job's traffic shows it never stopping; a readout beside it would run into the note over Card payments
+        { type: "state", node: "stream", light: "on", readout: "", with: true },
         { type: "bracket", log: "pay", id: "card", remove: true, with: true },
         { type: "record", log: "pay", at: 48211, tone: "", gap: 0 },
         { type: "stream", every: 520, routes: [{ path: ["payments", "stream"], kind: "work" }] },
@@ -157,28 +163,31 @@ export const stBatchStreamStage: StageScene = {
         { type: "append", log: "pay", records: [{ text: "•1186" }], gap: 200 },
         { type: "append", log: "pay", records: [{ text: "•3051" }], gap: 200 },
         { type: "note", node: "stream", text: "needs durable state", with: true },
-        { type: "note", node: "payments", text: "out of order", with: true },
+        { type: "note", node: "payments", text: "can be out of order", with: true },
       ],
     },
     {
       title: "Ask what changes an hour sooner",
       short: "Choose",
-      text: "Ask what decision changes if the number arrives an hour sooner. Try each job: payouts and the ledger gain nothing, so they stay nightly; a stolen card and a live dashboard labeled provisional need the stream. Many systems run both, the nightly job keeping the number of record.",
+      text: "Ask what decision changes if the number arrives an hour sooner. Try each number: payouts and the ledger gain nothing, so they stay nightly; fraud on a stolen card and a live ops dashboard labeled provisional need the stream. Many systems run both, the nightly job keeping the number of record.",
       frame: ["files", "nightly", "payments", "stream"],
       facts: [["Nightly job", "the number of record"], ["Stream job", "early, provisional"]],
       changes: ["~ Payouts and ledger stay nightly", "~ Stolen cards and dashboards stream", "+ Both run, batch keeps the record"],
       events: [
         { type: "state", node: "nightly", light: "idle", readout: "", detail: "number of record" },
-        { type: "state", node: "stream", light: "idle", readout: "", detail: "early, provisional", with: true },
+        // the stream job keeps running beside the nightly one; an option lights the job its number needs. Each option
+        // carries the payments' traffic, since choosing another option doesn't restart a stream of the step's own
+        { type: "state", node: "stream", light: "on", readout: "", detail: "early, provisional", with: true },
       ],
       control: {
-        label: "Job",
+        label: "Number",
         options: [
           {
-            label: "Payouts",
+            label: "Payout",
             events: [
               { type: "state", node: "nightly", light: "work" },
               { type: "note", node: "nightly", text: "paid once a day", with: true },
+              { type: "stream", every: 900, routes: [{ path: ["payments", "stream"], kind: "work" }], with: true },
             ],
           },
           {
@@ -186,20 +195,23 @@ export const stBatchStreamStage: StageScene = {
             events: [
               { type: "state", node: "nightly", light: "work" },
               { type: "note", node: "nightly", text: "needs a closed day", with: true },
+              { type: "stream", every: 900, routes: [{ path: ["payments", "stream"], kind: "work" }], with: true },
             ],
           },
           {
-            label: "Stolen card",
+            label: "Fraud",
             events: [
               { type: "state", node: "stream", light: "work" },
               { type: "note", node: "stream", text: "act before shipping", with: true },
+              { type: "stream", every: 900, routes: [{ path: ["payments", "stream"], kind: "work" }], with: true },
             ],
           },
           {
-            label: "Dashboard",
+            label: "Live ops",
             events: [
               { type: "state", node: "stream", light: "work" },
               { type: "note", node: "stream", text: "labeled provisional", with: true },
+              { type: "stream", every: 900, routes: [{ path: ["payments", "stream"], kind: "work" }], with: true },
             ],
           },
         ],
