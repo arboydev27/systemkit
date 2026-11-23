@@ -9,7 +9,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // stays near the middle of the row, so its load pill doesn't push Cache 2's link round the far side.
 export const hashModuloStage: StageScene = {
   id: "hash-modulo",
-  intro: "Watch four caches share keys by hash(key) mod 4, then see one failure send most reads to the database.",
+  intro: "Watch four caches share keys by hash(key) mod 4, then see one failure send most reads to the Database.",
   metrics: [{ id: "rule", label: "Rule" }, { id: "moved", label: "Keys moved" }, { id: "db", label: "Database reads" }],
   nodes: [
     { id: "app", role: "web", label: "App servers", detail: "hash(key) mod 4", at: [0, -0.3], opts: { many: true } },
@@ -35,15 +35,17 @@ export const hashModuloStage: StageScene = {
       short: "Hash mod 4",
       text: "Each app server picks a cache with hash(key) mod 4, sharing nothing but N. A key hashing to 14 gives 14 mod 4 = 2, so it lives on Cache 2; key 17 gives 1, so Cache 1. Kafka’s default partitioner uses the same idea, since partition counts rarely change.",
       focus: ["app", "c1", "c2"],
-      frame: ["app", "c0", "c1", "c2", "c3"],
+      frame: ["app", "c0", "c1", "c2", "c3", "db"],
       facts: [["Rule", "hash(key) mod 4"], ["Key 14", "14 mod 4 = 2"], ["Key 17", "17 mod 4 = 1"]],
       metrics: { rule: "mod 4" },
       changes: ["+ Key 14 on Cache 2", "+ Key 17 on Cache 1"],
       events: [
-        // The app servers do the arithmetic, so it floats over them, and the two caches it picks light up. The Database
-        // isn't framed: with it, a 375 phone hasn't the height for a note at 10 px. A note over Cache 1 or 2 would sit
-        // just under the tag of the cache above it on a wide screen, so the caches carry none here.
-        { type: "note", node: "app", text: "mod 4: 14 → 2, 17 → 1" },
+        // The app servers do the arithmetic, so its results float over them, and the two caches it picks light up. The
+        // chip and the app servers' detail already say mod 4, so the note gives only the results, clear of Cache 0's tag
+        // on a wide screen. Every part is framed, so a phone keeps the Database in view instead of cutting it at the
+        // playback bar. A note over Cache 1 or 2 would sit just under the tag of the cache above it on a wide screen, so
+        // the caches carry none here.
+        { type: "note", node: "app", text: "14 → 2, 17 → 1" },
         { type: "packet", path: ["app", "c2"], label: "get key 14" },
         { type: "state", node: "c2", light: "on" },
         { type: "packet", path: ["app", "c1"], label: "get key 17" },
@@ -73,18 +75,18 @@ export const hashModuloStage: StageScene = {
       ],
     },
     {
-      title: "Cache 3 fails and the rule becomes mod 3",
+      title: "Mod 3 keeps key 14 on Cache 2",
       short: "Cache 3 fails",
       text: "Cache 3 fails, and the service switches to hash(key) mod 3. Key 14 stays put: 14 mod 4 and 14 mod 3 are both 2, so its read still hits Cache 2. Not every key moves.",
       focus: ["app", "c2", "c3"],
-      frame: ["app", "c0", "c1", "c2", "c3"],
+      frame: ["app", "c0", "c1", "c2", "c3", "db"],
       facts: [["Rule", "hash(key) mod 3"], ["Key 14", "14 mod 3 = 2: stays"]],
-      metrics: { rule: "mod 3" },
+      // the steps follow single keys until the storm's size comes in step 5, so the chip waits for it
+      metrics: { rule: "mod 3", db: "—" },
       changes: ["− Cache 3", "~ Rule: mod 4 → mod 3", "~ Key 14 stays on Cache 2"],
       events: [
-        // The Database isn't framed, so a 375 phone has the height for the notes; its pill goes, or a wide screen,
-        // framing the same parts, would cut it at the stage's edge. Cache 1 is dimmed, so the note over Cache 2 can't
-        // be read as its own.
+        // The Database's pill and meter go with the chip's number: what it reads now waits for step 5. Cache 1 is
+        // dimmed, so the note over Cache 2 can't be read as its own.
         { type: "state", nodes: ["c0", "c1", "c2"], light: "idle" },
         { type: "state", node: "db", readout: "", meter: null, with: true },
         { type: "state", node: "c3", down: true, light: "hot", tone: "hot", with: true },
@@ -142,15 +144,17 @@ export const hashModuloStage: StageScene = {
     {
       title: "Adding a cache moves most keys too",
       short: "Adding a cache",
-      text: "After the caches refill, a new, empty Cache 3 makes it mod 4: 75% of keys move again, another miss storm. N to N+1 keeps only about 1 key in N+1, so 9 to 10 moves about 90%. A durable store must migrate them. Modulo suits stable membership or a cheap cold start.",
+      text: "After the caches refill, a new, empty Cache 3 makes it mod 4: 75% of keys move again, and the Database is back at 77,500 reads a second. N to N+1 keeps only about 1 key in N+1, so 9 to 10 moves about 90%, which a durable store must migrate. Modulo suits stable membership or cheap cold starts.",
       facts: [["N → N+1", "about 1 in N+1 stays"], ["3 → 4", "75% move"], ["9 → 10", "about 90% move"]],
       metrics: { rule: "mod 4", moved: { n: 75, unit: "%", tone: "hot" } },
-      changes: ["+ New, empty Cache 3", "~ Rule: mod 3 → mod 4", "~ 75% of keys move again"],
+      changes: ["+ New, empty Cache 3", "~ Rule: mod 3 → mod 4", "~ 75% of keys move again", "~ Database: 10,000 → 77,500/s"],
       events: [
         // the refilled caches bring the database back to normal before the new cache sets off a second storm
         { type: "state", nodes: ["c0", "c1", "c2"], light: "work" },
         { type: "state", node: "db", light: "on", readout: "10,000 reads/s", meter: 0.13, tone: "", with: true },
-        { type: "state", node: "c3", down: false, light: "on", tone: "", detail: "new, empty", gap: 500 },
+        // long enough for the return to normal to register before the second storm
+        { type: "pause", ms: 900 },
+        { type: "state", node: "c3", down: false, light: "on", tone: "", detail: "new, empty" },
         { type: "state", node: "app", detail: "hash(key) mod 4", with: true },
         { type: "state", nodes: ["c0", "c1", "c2"], light: "on" },
         { type: "state", node: "db", light: "hot", readout: "77,500/s ≈ 8× normal", meter: 1, tone: "hot", with: true },
