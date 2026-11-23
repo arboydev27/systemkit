@@ -17,7 +17,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // chunk it fetched, so it wouldn't ask again), and the dedup step gets a control so the leak shows in the picture.
 export const driveDownloadStage: StageScene = {
   id: "drive-download",
-  intro: "Watch the Laptop sync a 400 MB file by fetching only what changed, then see one inserted byte undo the saving.",
+  intro: "Watch a laptop sync a 400 MB file by fetching only what changed, then see one inserted byte undo the saving.",
   metrics: [
     { id: "bytes", label: "To download" },
     { id: "changed", label: "Changed" },
@@ -136,11 +136,11 @@ export const driveDownloadStage: StageScene = {
     {
       title: "Chunks named by their hash cache safely",
       short: "Edge cache",
-      text: "A CDN edge now stands in front of Object storage. Each chunk is named by the hash of its bytes, so its content never changes and the edge can keep it. The signed URL still authorizes this private file. The current-revision pointer does change, so it gets a short lifetime.",
+      text: "A CDN edge stands in front of Object storage. Each chunk is named by the hash of its bytes, so it never changes and the edge can keep it. The signed URL still authorizes this private file. The current-revision pointer changes, so it gets a short lifetime.",
       focus: ["laptop", "cdn", "storage", "api"],
       frame: ["laptop", "api", "cdn", "storage", "manifest"],
       metrics: { bytes: "—", changed: "—" },
-      changes: ["+ CDN edge", "+ 9c1e kept at the edge", "~ Current revision: short lifetime"],
+      changes: ["+ CDN edge", "+ Chunk kept at the edge", "~ Current revision: short lifetime"],
       events: [
         { type: "state", nodes: ["laptop", "storage"], light: "idle" },
         { type: "state", node: "manifest", light: "idle", readout: "", with: true },
@@ -160,7 +160,7 @@ export const driveDownloadStage: StageScene = {
       focus: ["laptop", "api"],
       frame: ["laptop", "api", "cdn", "storage", "manifest"],
       facts: [["This account", "reveals nothing"], ["All accounts", "reveals the file exists"]],
-      changes: ["~ Dedup checks one account", "− Signal about other accounts"],
+      changes: ["~ Dedup checks one account", "~ No signal about other accounts"],
       events: [
         { type: "state", nodes: ["cdn", "storage"], light: "idle" },
       ],

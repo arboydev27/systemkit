@@ -114,7 +114,7 @@ export const driveSyncStage: StageScene = {
       ],
     },
     {
-      title: "A crash before the cursor is saved",
+      title: "The laptop crashes before saving its cursor",
       short: "Crash",
       text: "The Laptop crashes after applying both events but before saving its cursor. A device advances its cursor only after its local state is durable, so the saved position still says 5,120, with two events after it.",
       focus: ["laptop", "db"],

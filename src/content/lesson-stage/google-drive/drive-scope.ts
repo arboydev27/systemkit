@@ -9,7 +9,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // which says little about bytes stored. Last, without sync, Object storage with signed URLs may be the whole system.
 export const driveScopeStage: StageScene = {
   id: "drive-scope",
-  intro: "Size a file service from its daily uploads, then see which numbers mislead.",
+  intro: "Watch a file service sized from its daily uploads, then see which numbers mislead.",
   metrics: [
     { id: "uploads", label: "Peak uploads" },
     { id: "data", label: "Peak data" },
@@ -40,7 +40,7 @@ export const driveScopeStage: StageScene = {
     {
       title: "Sync moves files as opaque bytes",
       short: "Five jobs",
-      text: "A file service has five jobs: upload, download, sync, revision history and sharing. The Laptop uploads a file; the File API puts its bytes in Object storage and its name and revision in Metadata DB, and the Phone syncs it. Sync treats files as opaque bytes and never merges keystrokes.",
+      text: "A file service has five jobs: upload, download, sync, revision history and sharing. The Laptop uploads a file, the File API stores its bytes and its name, and the Phone syncs it. Sync treats files as opaque bytes and never merges keystrokes.",
       facts: [["Clarify", "size, offline edits, retention"], ["Separate problem", "collaborative editing"]],
       changes: ["+ Bytes in Object storage", "+ Name and revision in Metadata DB", "+ File synced to the Phone"],
       events: [
@@ -57,14 +57,14 @@ export const driveScopeStage: StageScene = {
       ],
     },
     {
-      title: "18M uploads a day: 210/s, 420/s at peak",
+      title: "18M uploads a day reach 420/s at peak",
       short: "Operations",
       text: "Size operations first. As an example, 6 million daily users upload three files each: about 18 million uploads a day, or 210 upload starts a second on average. If peak is twice the average, the File API sees about 420 a second.",
       focus: ["users", "api"],
       frame: ["users", "api", "db", "storage"],
       facts: [["Daily users", "6 million"], ["Uploads", "3 each a day"], ["Average", "210/s"]],
       metrics: { uploads: { n: 420, unit: "/s" } },
-      changes: ["− Laptop and Phone", "+ 18 million uploads a day", "+ 210/s average, 420/s at peak"],
+      changes: ["~ Users in place of the devices", "+ 18 million uploads a day", "+ 210/s average, 420/s at peak"],
       events: [
         { type: "hide", nodes: ["laptop", "phone"] },
         { type: "state", nodes: ["api", "db", "storage"], light: "idle", with: true },
@@ -80,7 +80,7 @@ export const driveScopeStage: StageScene = {
       ],
     },
     {
-      title: "Bytes: 14.4 TB a day, 330 MB/s at peak",
+      title: "Uploads add 14.4 TB a day, 330 MB/s at peak",
       short: "Bytes",
       text: "Size bytes separately. At 800 KB a file, 18 million uploads add 14.4 TB of new originals to Object storage each day, before versions and replicas. At the 420/s peak, the File API carries about 330 MB of file data a second.",
       focus: ["api", "storage"],
@@ -89,7 +89,7 @@ export const driveScopeStage: StageScene = {
       metrics: { data: { n: 330, unit: " MB/s" } },
       changes: ["+ 14.4 TB of originals a day", "+ 330 MB/s at peak", "~ Before versions and replicas"],
       events: [
-        { type: "stream", every: 160, routes: [{ path: ["users", "api", "storage"], kind: "work" }] },
+        { type: "stream", every: 160, routes: [{ path: ["users", "api", "storage"] }] },
         { type: "state", node: "api", light: "work", with: true },
         { type: "state", node: "storage", light: "work", readout: "14.4 TB/day", with: true },
         { type: "note", node: "api", text: "330 MB/s at peak" },
@@ -106,7 +106,7 @@ export const driveScopeStage: StageScene = {
       metrics: { year: "16 PB" },
       changes: ["+ 5.3 PB of originals a year", "+ 16 PB with 3 full copies"],
       events: [
-        { type: "stream", every: 220, routes: [{ path: ["api", "storage"], kind: "work" }] },
+        { type: "stream", every: 220, routes: [{ path: ["api", "storage"] }] },
         { type: "state", node: "storage", readout: "5.3 PB a year", with: true },
         { type: "pause", ms: 1200 },
         { type: "state", node: "storage", readout: "16 PB a year" },
@@ -128,17 +128,17 @@ export const driveScopeStage: StageScene = {
         { type: "state", node: "storage", readout: "", light: "idle", with: true },
         { type: "state", node: "phone", detail: "4 GB video", light: "on", opts: { level: 0.1 } },
         { type: "show", nodes: ["phone"], with: true },
-        { type: "stream", every: 260, routes: [{ path: ["users", "api"], w: 2 }, { path: ["phone", "api"], w: 1, kind: "work" }] },
+        { type: "stream", every: 260, routes: [{ path: ["users", "api"], w: 2 }, { path: ["phone", "api"], w: 1 }] },
         // A note, not a load pill: on a wide screen a pill sits right of the Phone, under the File API's tag.
         { type: "state", node: "phone", opts: { level: 0.3 }, with: true },
-        { type: "note", node: "phone", text: "20 Mbit/s uplink" },
+        { type: "note", node: "phone", text: "4 GB at 20 Mbit/s" },
         { type: "note", node: "api", text: "session open 27 min", with: true },
       ],
     },
     {
       title: "Quota promised is not bytes stored",
       short: "Quota",
-      text: "Reserved quota is not occupied storage. 40 million accounts with 15 GB each promise 600 PB, a number in Metadata DB that says little about the 16 PB a year uploads actually write. Estimate from uploads, file sizes, versions, retention and copies.",
+      text: "Reserved quota is not occupied storage. 40 million accounts with 15 GB each promise 600 PB, a number in Metadata DB that says little about the 16 PB a year uploads write, copies included. Estimate from uploads, file sizes, versions, retention and copies.",
       focus: ["db", "storage"],
       frame: ["users", "phone", "api", "db", "storage"],
       facts: [["Accounts", "40 million"], ["Quota each", "15 GB"], ["Promised", "600 PB"]],
@@ -158,7 +158,9 @@ export const driveScopeStage: StageScene = {
       text: "Sync is the expensive part, with a change log and device state to run. If a product needs only upload and download, Object storage with signed URLs may be the whole system: Users upload and the Phone downloads straight from it.",
       frame: ["users", "phone", "storage"],
       facts: [["Without sync", "no change log or device state"], ["Access", "signed URLs"]],
-      changes: ["− File API", "− Metadata DB", "+ Signed URLs straight to Object storage"],
+      // Another product: the chips stop showing this one's sizing, as drive-download's last steps do.
+      metrics: { uploads: "—", data: "—", year: "—" },
+      changes: ["~ No File API or Metadata DB", "+ Signed URLs straight to Object storage"],
       events: [
         { type: "hide", nodes: ["api", "db"] },
         { type: "move", at: { storage: [1, 0] }, with: true },
@@ -170,7 +172,7 @@ export const driveScopeStage: StageScene = {
         { type: "state", node: "storage", light: "work" },
         { type: "packet", path: ["storage", "phone"], label: "file bytes", kind: "response" },
         { type: "state", node: "phone", light: "work", opts: { level: 1 }, with: true },
-        { type: "note", node: "storage", text: "no change log to run" },
+        { type: "note", node: "storage", text: "signed URLs, no change log" },
       ],
     },
   ],

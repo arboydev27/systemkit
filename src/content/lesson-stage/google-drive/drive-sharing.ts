@@ -18,11 +18,11 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // The plan puts the search step before the tradeoff (the lesson has the tradeoff first) so the control can come last.
 export const driveSharingStage: StageScene = {
   id: "drive-sharing",
-  intro: "Watch a shared file’s bytes keep flowing after the Viewer is removed, then choose how fast access should end.",
+  intro: "Watch a shared file’s bytes keep flowing after the viewer is removed, then choose how fast access should end.",
   metrics: [
     { id: "clock", label: "Clock" },
     { id: "expires", label: "URL expires" },
-    { id: "after", label: "After revoke" },
+    { id: "after", label: "Open after revoke" },
   ],
   nodes: [
     { id: "viewer", role: "client", label: "Viewer", detail: "shared with", at: [0, 0] },
@@ -39,7 +39,7 @@ export const driveSharingStage: StageScene = {
   ],
   steps: [
     {
-      title: "Every request passes the access check",
+      title: "Every path must pass the access check",
       short: "Check",
       text: "The Viewer asks the File API to list a shared folder. The File API first asks the Access check for the Viewer’s effective permission: direct and inherited rules combined. The same check comes before reading metadata, issuing a download URL or accepting a write.",
       focus: ["viewer", "api", "gate"],
@@ -102,7 +102,7 @@ export const driveSharingStage: StageScene = {
       frame: ["viewer", "api", "storage", "gate"],
       facts: [["Revoked", "10:05"]],
       metrics: { clock: "10:05" },
-      changes: ["− Viewer removed at 10:05", "~ New URLs refused"],
+      changes: ["~ Viewer removed at 10:05", "~ New URLs refused"],
       events: [
         { type: "state", node: "storage", light: "idle" },
         { type: "state", node: "gate", light: "on", opts: { open: false }, with: true },
@@ -158,11 +158,12 @@ export const driveSharingStage: StageScene = {
       short: "Revocation speed",
       text: "Pick how fast access ends. With 15-minute URLs the old one works until 10:15. One-minute URLs cut that to a minute but mean more API calls and re-issuing during long downloads. An edge check ends access at once but adds a lookup and a dependency to every read.",
       focus: ["viewer", "api", "storage", "gate"],
-      frame: ["viewer", "api", "storage", "gate", "search"],
+      frame: ["viewer", "api", "storage", "gate"],
       facts: [["15-min URL", "open to 10:15"], ["1-min URL", "open ≤1 min"], ["Edge check", "closed at once"]],
       changes: ["~ How long the old URL lasts"],
       events: [
-        { type: "state", nodes: ["api", "search"], light: "idle" },
+        { type: "hide", nodes: ["search"] },
+        { type: "state", node: "api", light: "idle", with: true },
       ],
       control: {
         label: "Revocation",

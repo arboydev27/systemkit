@@ -15,12 +15,12 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 export const driveConflictsStage: StageScene = {
   id: "drive-conflicts",
   layout: "timeline",
-  intro: "Watch a phone and a laptop edit revision 12 offline, see which edit publishes and what becomes of the other, then replay it two other ways.",
+  intro: "Watch a phone and a laptop edit revision 12 offline, see what becomes of each edit, then replay it two other ways.",
   metrics: [{ id: "current", label: "Current" }, { id: "kept", label: "Edits kept" }],
   nodes: [
-    { id: "phone", role: "phone", label: "Phone", detail: "edits rev 12", at: [0, 0] },
+    { id: "phone", role: "phone", label: "Phone", detail: "has rev 12", at: [0, 0] },
     { id: "db", role: "database", label: "Metadata DB", detail: "current rev 12", at: [1, 0] },
-    { id: "laptop", role: "client", label: "Laptop", detail: "edits rev 12", at: [2, 0] },
+    { id: "laptop", role: "client", label: "Laptop", detail: "has rev 12", at: [2, 0] },
   ],
   links: [],
   steps: [
@@ -28,7 +28,7 @@ export const driveConflictsStage: StageScene = {
       title: "Both devices start from revision 12",
       short: "Same base",
       text: "The Phone and the Laptop both sync a file at revision 12, the current revision in Metadata DB. Then both go offline, so neither sees what the other does next.",
-      metrics: { current: "rev 12", kept: { n: 0, unit: " of 2" } },
+      metrics: { current: "rev 12" },
       facts: [["Both start from", "rev 12"]],
       changes: ["+ Phone has rev 12", "+ Laptop has rev 12", "+ Both offline"],
       events: [
@@ -47,6 +47,7 @@ export const driveConflictsStage: StageScene = {
       events: [
         { type: "mark", node: "phone", text: "edit on rev 12" },
         { type: "mark", node: "laptop", text: "edit on rev 12", with: true },
+        { type: "state", nodes: ["phone", "laptop"], detail: "edits rev 12", with: true },
       ],
     },
     {
@@ -54,9 +55,9 @@ export const driveConflictsStage: StageScene = {
       short: "Phone first",
       text: "The Phone reconnects first and commits with base 12. Metadata DB compares that base with the current revision, a check called compare-and-set. 12 matches 12, so the Phone’s edit publishes as revision 13, a new immutable version.",
       focus: ["phone", "db"],
-      metrics: { current: "rev 13", kept: { n: 1, unit: " of 2" } },
+      metrics: { current: "rev 13" },
       facts: [["Base = current", "12 = 12"], ["Publishes", "rev 13, immutable"]],
-      changes: ["~ Phone back online", "+ Revision 13 published"],
+      changes: ["~ Phone back online", "+ Rev 13 published"],
       events: [
         { type: "span", id: "phone-off", end: true },
         { type: "packet", path: ["phone", "db"], label: "commit, base 12" },
@@ -68,17 +69,17 @@ export const driveConflictsStage: StageScene = {
     {
       title: "The laptop’s stale base becomes a copy",
       short: "Conflict copy",
-      text: "The Laptop reconnects and commits with base 12, but the current revision is now 13, so the check fails. Its bytes aren’t written over 13: they’re kept as a conflicted copy beside it. The user compares, merges where the format allows, or chooses, so the copies cost people time.",
+      text: "The Laptop reconnects and commits with base 12, but the current revision is now 13, so the check fails. Its bytes are kept as a conflicted copy beside 13. The user compares, merges where the format allows, or chooses: the cost falls on people.",
       focus: ["db", "laptop"],
       metrics: { current: "rev 13", kept: { n: 2, unit: " of 2" } },
       facts: [["Base ≠ current", "12 ≠ 13"], ["In Dropbox", "a “conflicted copy” file"]],
-      changes: ["~ Laptop back online", "+ Conflicted copy beside revision 13"],
+      changes: ["~ Laptop back online", "+ Conflicted copy beside rev 13"],
       events: [
         { type: "span", id: "laptop-off", end: true },
         { type: "packet", path: ["laptop", "db"], label: "commit, base 12" },
         { type: "mark", node: "db", text: "12 ≠ 13", tone: "hot" },
         { type: "state", node: "db", detail: "rev 13 + 1 copy", with: true },
-        { type: "packet", path: ["db", "laptop"], label: "conflicted copy", kind: "response" },
+        { type: "packet", path: ["db", "laptop"], label: "copy kept", kind: "response" },
       ],
     },
     {
@@ -87,7 +88,7 @@ export const driveConflictsStage: StageScene = {
       text: "Replay it with silent last-writer-wins, where the latest upload replaces the rest with no base check. The Phone publishes revision 13, then the Laptop’s upload overwrites it, and the Phone’s edit is gone. It can be acceptable for data that is cheap to regenerate, such as cached thumbnails.",
       metrics: { current: "laptop’s edit", kept: { n: 1, unit: " of 2", tone: "hot" } },
       facts: [["Base check", "none"], ["Can be fine for", "cached thumbnails"]],
-      changes: ["~ No base check", "~ Laptop’s upload replaces revision 13", "− Phone’s edit"],
+      changes: ["~ No base check", "~ Laptop’s upload replaces rev 13", "− Phone’s edit"],
       events: [
         { type: "rewind" },
         { type: "state", node: "db", detail: "current rev 12", gap: 0 },
@@ -115,7 +116,7 @@ export const driveConflictsStage: StageScene = {
       focus: ["phone", "db"],
       metrics: { current: "deleted", kept: "—" },
       facts: [["Tombstone", "says it was deleted"], ["Kept under", "the file’s stable ID"]],
-      changes: ["~ Laptop offline with revision 13", "− File deleted", "+ Tombstone"],
+      changes: ["~ Laptop offline with rev 13", "~ File deleted", "+ Tombstone"],
       events: [
         { type: "rewind" },
         { type: "state", node: "phone", detail: "deletes the file", gap: 0 },
@@ -130,10 +131,10 @@ export const driveConflictsStage: StageScene = {
     {
       title: "The tombstone keeps the file deleted",
       short: "Stays deleted",
-      text: "The Laptop reconnects still holding revision 13. Metadata DB finds the tombstone and answers that the file was deleted, so the Laptop removes its local copy. Without a tombstone, that copy would look like a file the server has never seen, and syncing it would bring the deleted file back.",
+      text: "The Laptop reconnects holding revision 13. Metadata DB finds the tombstone and answers that the file was deleted, so the Laptop removes its local copy. Without a tombstone, that copy would look like a file the server has never seen, and syncing would bring the file back.",
       focus: ["db", "laptop"],
       facts: [["With a tombstone", "copy removed"], ["Without one", "the file comes back"]],
-      changes: ["~ Laptop back online", "− Laptop’s local copy"],
+      changes: ["~ Laptop back online", "~ Laptop’s local copy removed"],
       events: [
         { type: "span", id: "laptop-off", end: true },
         { type: "packet", path: ["laptop", "db"], label: "have rev 13" },

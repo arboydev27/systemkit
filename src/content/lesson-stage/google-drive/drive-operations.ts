@@ -23,7 +23,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // steps 3 and 4, which frame two rows, and Metadata DB's "corrupt at 08:00" while step 5 plays, gone by its end.
 export const driveOperationsStage: StageScene = {
   id: "drive-operations",
-  intro: "Take the file service through an outage, a reconnect storm and a restore, and see what each needs to recover.",
+  intro: "Follow the file service through an outage, a reconnect storm and a restore, and see what each needs to recover.",
   metrics: [
     { id: "reconnects", label: "Reconnects" },
     { id: "asof", label: "Metadata as of" },
@@ -66,7 +66,7 @@ export const driveOperationsStage: StageScene = {
         { type: "state", node: "replica", light: "work" },
         { type: "note", node: "replica", text: "check lag first", with: true },
         { type: "state", node: "storage", light: "on" },
-        { type: "note", node: "storage", text: "3 copies", with: true },
+        { type: "note", node: "storage", text: "3 copies per block", with: true },
         { type: "note", node: "api", text: "replace if failed", with: true },
       ],
     },
@@ -90,7 +90,7 @@ export const driveOperationsStage: StageScene = {
       ],
     },
     {
-      title: "A million retries in one minute",
+      title: "Retries in the same minute make a storm",
       short: "Storm",
       text: "The Notifier comes back, and 1 million Devices reconnect and catch up through the File API. If all of them retry in the same minute, that is about 16,700 requests a second: a reconnection storm.",
       focus: ["devices", "api", "notifier"],
@@ -125,7 +125,7 @@ export const driveOperationsStage: StageScene = {
       text: "Corruption at 08:00 forces a restore of the 02:00 metadata backup. Object storage still holds the blocks uploaded in the six hours after 02:00, but Metadata DB has no rows for them. The Reconciler compares the two and finds those orphans.",
       focus: ["db", "storage", "reconciler"],
       facts: [["Corrupted", "08:00"], ["Restored to", "02:00"], ["Blocks without rows", "6 hours’ worth"]],
-      metrics: { asof: "02:00" },
+      metrics: { asof: "02:00", reconnects: "—" },
       changes: ["− Metadata after 02:00", "+ Reconciler", "~ 6 hours of blocks without rows"],
       events: [
         { type: "state", nodes: ["devices", "api"], light: "idle", readout: "" },
@@ -191,7 +191,8 @@ export const driveOperationsStage: StageScene = {
         { type: "packet", path: ["api", "db"], label: "commit" },
         { type: "state", node: "db", light: "on" },
         { type: "packet", path: ["api", "notifier", "devices"], label: "change event", kind: "work" },
-        { type: "state", node: "devices", light: "work" },
+        // The trace's end shows in the Devices' detail: a note over them would cover the Monitoring tag on a wide screen.
+        { type: "state", node: "devices", light: "work", detail: "change arrives" },
         { type: "state", node: "monitor", light: "work", with: true },
         { type: "note", node: "monitor", text: "sync lag · resets", with: true },
       ],
