@@ -144,6 +144,8 @@ function apply(model: StageModel, event: StageEvent): void {
       for (const l of sources) { l.records = []; l.cursors = []; l.brackets = []; l.visible = false; }
       log.records = merged;
       log.seg = merged.length ? 1 : 0;
+      // the merged file is written, so it is there to see
+      if (merged.length) log.visible = true;
     } else if (event.type === "truncate") {
       log.records = log.records.filter((r) => r.offset <= event.after);
       log.next = Math.min(log.next, event.after + log.step);

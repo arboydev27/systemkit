@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyEvent, initialModel, metricsAt, shownMetricStep, stateBefore } from "../src/lib/lesson-stage/model.ts";
+import { applyEvent, initialModel, metricsAt, shownMetricStep, stateBefore, stepEvents } from "../src/lib/lesson-stage/model.ts";
 import { compacted, preferenceList, ringMoved, ringOwner, ringShare, scatter, timelineSpan } from "../src/lib/lesson-stage/figure-model.ts";
 import { validateScene } from "../src/lib/lesson-stage/validate.ts";
 
@@ -143,6 +143,30 @@ test("merging logs empties and hides them; roll, truncate and record change a lo
   applyEvent(m, { type: "truncate", log: "b", after: m.logs.b.records[2].offset });
   assert.deepEqual(m.logs.b.records.map((r) => r.text), ["k2", "j", "late"]);
   assert.equal(m.logs.b.next, m.logs.b.records[2].offset + 1);
+});
+
+test("a log with its own `appear` shows at the start of its step, unless that step writes into it", () => {
+  const scene = {
+    ...logScene,
+    logs: [...logScene.logs, { id: "wal", node: "broker", label: "WAL", appear: 1 }, { id: "out", node: "broker", label: "Merged", appear: 2 }],
+    steps: [logScene.steps[0], logScene.steps[1], { ...logScene.steps[2], events: [...logScene.steps[2].events, { type: "compact", log: "out", merge: ["sst"] }] }],
+  };
+  assert.equal(stateBefore(scene, 1).logs.wal.visible, false);
+  assert.equal(stepEvents(scene, 1)[0].type, "append");
+  assert.equal(stateBefore(scene, 2).logs.wal.visible, true);
+  assert.deepEqual(stateBefore(scene, 2).logs.wal.records, []);
+  // "out" is written in its own step (a compaction into it), so it arrives then, not before the step's first event
+  assert.ok(!stepEvents(scene, 2).some((e) => e.type === "append" && e.log === "out"));
+  assert.equal(stateBefore(scene, 3).logs.out.visible, true);
+});
+
+test("a compaction into a hidden log shows it", () => {
+  const m = initialModel({ ...logScene, logs: [{ id: "a", node: "broker", records: [{ text: "k1", key: "k" }] }, { id: "b", node: "broker", appear: 2 }] });
+  assert.equal(m.logs.b.visible, false);
+  applyEvent(m, { type: "compact", log: "b", merge: ["a"] });
+  assert.deepEqual(m.logs.b.records.map((r) => r.text), ["k1"]);
+  assert.equal(m.logs.b.visible, true);
+  assert.equal(m.logs.a.visible, false);
 });
 
 test("a valid log scene passes, and log mistakes are caught", () => {
