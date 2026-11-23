@@ -48,12 +48,12 @@ export const hashVnodesStage: StageScene = {
       ],
     },
     {
-      title: "Three tokens each even out the shares",
+      title: "Three virtual nodes each even out the shares",
       short: "Three tokens",
-      text: "Each machine now holds three tokens, so its stretches are scattered round the ring and their sizes average out: A owns 24%, B 25%, C 26%, D 25%. With random positions it takes more tokens: the spread shrinks with the square root of tokens per machine.",
+      text: "Each machine now holds three tokens, its virtual nodes, so its stretches scatter round the ring: A owns 24%, B 25%, C 26%, D 25%. These positions are picked to balance; random ones need many more tokens, since the spread shrinks with the square root of tokens per machine.",
       metrics: { largest: { n: 26, unit: "%" }, smallest: { n: 24, unit: "%" }, tokens: 12 },
       facts: [["Shares", "A 24 · B 25 · C 26 · D 25%"], ["16 tokens each", "spread ≈ 25% of mean"], ["100 tokens each", "spread ≈ 10% of mean"]],
-      changes: ["+ 3 tokens per machine", "~ Largest share 40% → 26%", "~ Smallest share 15% → 24%"],
+      changes: ["~ 1 → 3 tokens per machine", "~ Largest share 40% → 26%", "~ Smallest share 15% → 24%"],
       events: [
         // the single tokens go and the twelve are dealt in one go: a new layout to compare, not data moving. A part's
         // change runs first in a group, since a token event that ends later would play over it
@@ -85,8 +85,8 @@ export const hashVnodesStage: StageScene = {
       events: [
         { type: "state", node: "c", down: true, meter: null },
         { type: "token", remove: ["C1", "C2", "C3"], with: true },
-        // each slice is marked with the token it leaves and the one that owns it now, one after another: a ring event
-        // keeps the model it started from, so it must be the last of a group and only one per group
+        // each slice is marked with the token it leaves and the one that owns it now, one after another so each can be
+        // read as it lands
         { type: "state", node: "a", meter: 0.34 },
         { type: "state", node: "b", meter: 0.33, with: true },
         { type: "state", node: "d", meter: 0.33, with: true },
@@ -103,13 +103,16 @@ export const hashVnodesStage: StageScene = {
       facts: [["E1 at 15", "6 from A1"], ["E2 at 44", "9 from B1"], ["E3 at 66", "9 from D2"]],
       changes: ["+ Node E: 3 tokens, 24%", "~ A 28% · B 24% · D 24%"],
       events: [
-        // E arrives holding nothing yet, its readout already in place so it doesn't shift when it fills
-        { type: "hide", nodes: ["c"] },
+        // step 3's three slice marks clear together as C leaves and E arrives, so the join starts at once. E arrives
+        // holding nothing yet, its readout already in place so it doesn't shift when it fills. The part changes come
+        // after the arcs: three ring events started together each play from the ring as the group began, and a part
+        // change drawn after them keeps all three marks up until they land together
+        { type: "arc", id: "s1", remove: true },
+        { type: "arc", id: "s2", remove: true, with: true },
+        { type: "arc", id: "s3", remove: true, with: true },
         { type: "state", node: "e", meter: 0, with: true },
+        { type: "hide", nodes: ["c"], with: true },
         { type: "show", nodes: ["e"], with: true },
-        { type: "arc", id: "s1", remove: true, with: true },
-        { type: "arc", id: "s2", remove: true, gap: 0 },
-        { type: "arc", id: "s3", remove: true, gap: 0 },
         { type: "token", add: [{ id: "E1", node: "e", at: 15, label: "E1" }, { id: "E2", node: "e", at: 44, label: "E2" }, { id: "E3", node: "e", at: 66, label: "E3" }] },
         { type: "state", node: "e", meter: 0.24 },
         { type: "state", node: "a", meter: 0.28, with: true },
@@ -118,11 +121,11 @@ export const hashVnodesStage: StageScene = {
       ],
     },
     {
-      title: "Each token is one more entry to track",
+      title: "More tokens mean more entries and peers",
       short: "The cost",
-      text: "Every token is a ring entry that routing, membership updates and repair must track: A alone has three. 1,000 machines with 256 tokens each make 256,000, while balance improves only with the square root. Cassandra cut its default from 256 to 16 in 4.0.",
+      text: "Every token is a ring entry that routing, membership and repair must track: A alone has three; 1,000 machines with 256 each make 256,000. A also shares ranges with more peers, so two failures at once are likelier to hit two copies of some range. Cassandra cut its default from 256 to 16 in 4.0.",
       focus: ["a"],
-      facts: [["1,000 × 256 tokens", "256,000 ring entries"], ["Cassandra 4.0", "256 → 16 tokens"], ["A1 · A2 · A3", "1 machine, no copies"]],
+      facts: [["1,000 × 256 tokens", "256,000 ring entries"], ["Cassandra 4.0", "256 → 16 tokens"], ["2× hardware", "≈ 2× tokens, measure load"]],
       events: [
         { type: "note", node: "a", text: "3 ring entries, 1 machine" },
       ],
