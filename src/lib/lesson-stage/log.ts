@@ -566,7 +566,7 @@ export const logFigure: FigureFactory = (ctx) => {
 
   // ---------- records flying from one strip to another (a flush, a merge), over everything ----------
   const flightG = el("g", { class: styles.logs }, ctx.layers.top);
-  type Flight = { g: SVGGElement; face: SVGPathElement; band: SVGPathElement; text: SVGTextElement; from: Point; w0: number; to: () => { p: Point; w: number } | null; now: Num };
+  type Flight = { g: SVGGElement; face: SVGPathElement; band: SVGPathElement; text: SVGTextElement; strike: SVGLineElement; from: Point; w0: number; to: () => { p: Point; w: number } | null; now: Num };
   let flights: Flight[] = [];
   const nodeOfLog = (id: string) => specs.find((l) => l.id === id)?.node ?? "";
   /** A record lifts off where it stands and lands on its tile in another strip, which shows once it is there. */
@@ -575,8 +575,10 @@ export const logFigure: FigureFactory = (ctx) => {
     const band = el("path", { class: styles.band }, g), face = el("path", { class: styles.face }, g);
     const text = el("text", { class: styles.text, "text-anchor": "middle" }, g);
     text.textContent = rec.text;
+    // a tombstone keeps its strike on the way (the class shows it only on a tombstone)
+    const strike = el("line", { class: styles.strike }, g);
     const f: Flight = {
-      g, face, band, text, from, w0, now: { t: 0 },
+      g, face, band, text, strike, from, w0, now: { t: 0 },
       to() {
         const rd = rowOf(toLog), t = rd && (rd.tiles.get(toKey) ?? [...rd.tiles.values()].filter((x) => !x.gone).pop());
         return rd && t ? { p: tileWorld(rd, t), w: cfgOf(nodeOfLog(toLog)).tileW } : null;
@@ -594,6 +596,9 @@ export const logFigure: FigureFactory = (ctx) => {
       f.band.setAttribute("d", roundRect(0, LOG.tileH - 3.2, w, LOG.band + 3.2, 3.2));
       f.face.setAttribute("d", roundRect(0, 0, w, LOG.tileH, 3.2));
       f.text.setAttribute("x", String(fmt(w / 2))); f.text.setAttribute("y", String(fmt(LOG.tileH / 2 + 3.7)));
+      const tw = Math.min(w - 10, (f.text.textContent ?? "").length * LOG.mono);
+      f.strike.setAttribute("x1", String(fmt(w / 2 - tw / 2 - 1))); f.strike.setAttribute("x2", String(fmt(w / 2 + tw / 2 + 1)));
+      f.strike.setAttribute("y1", String(fmt(LOG.tileH / 2))); f.strike.setAttribute("y2", String(fmt(LOG.tileH / 2)));
     }
   }
 
