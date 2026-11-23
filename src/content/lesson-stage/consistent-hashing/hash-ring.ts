@@ -1,7 +1,8 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
 // Lesson "Place keys and nodes on a ring": a ring of 100 positions, three nodes' tokens, and four keys finding their
-// owner clockwise, one of them past the top and one exactly on a token.
+// owner clockwise, one of them past the top and one exactly on a token. The app servers that hash the keys stand at the
+// centre, drawn as in every lesson of the chapter that has them.
 export const hashRingStage: StageScene = {
   id: "hash-ring",
   layout: "ring",
@@ -9,7 +10,7 @@ export const hashRingStage: StageScene = {
   ring: { size: 100, marks: [0, 25, 50, 75] },
   metrics: [{ id: "key", label: "Key hash" }, { id: "owner", label: "Owner" }],
   nodes: [
-    { id: "app", role: "client", label: "App", detail: "hashes each key", at: [0, 0] },
+    { id: "app", role: "web", label: "App servers", detail: "hash each key", at: [0, 0], opts: { many: true } },
     { id: "a", role: "cache", label: "Node A", detail: "token at 20", at: [20, 1] },
     { id: "b", role: "cache", label: "Node B", detail: "token at 50", at: [50, 1] },
     { id: "c", role: "cache", label: "Node C", detail: "token at 80", at: [80, 1] },
@@ -27,43 +28,43 @@ export const hashRingStage: StageScene = {
     {
       title: "A key walks clockwise to its owner",
       short: "Key 15",
-      text: "The app hashes a key to 15 and walks clockwise from there. The first token it meets is A at 20, so node A owns the key.",
+      text: "An app server hashes a key to 15 and walks clockwise from there. The first token it meets is A at 20, so Node A owns the key.",
       focus: ["app", "a"],
       metrics: { key: 15, owner: "A" },
-      changes: ["+ Key 15 on node A"],
+      changes: ["+ Key 15 on Node A"],
       events: [{ type: "key", id: "k15", at: 15, label: "15", from: "app" }],
     },
     {
       title: "The next token clockwise wins",
       short: "Key 63",
-      text: "A key at 63 sits between B at 50 and C at 80. Walking clockwise it meets C first, so C owns it, even though B is nearer the other way.",
+      text: "A key at 63 sits between B at 50 and C at 80. Walking clockwise it meets C first, so Node C owns it, even though B is nearer the other way.",
       focus: ["app", "c"],
       metrics: { key: 63, owner: "C" },
-      changes: ["+ Key 63 on node C"],
+      changes: ["+ Key 63 on Node C"],
       events: [{ type: "key", id: "k63", at: 63, label: "63", from: "app" }],
     },
     {
       title: "Past the top, the walk wraps round",
       short: "Key 91",
-      text: "A key at 91 is past the last token. The walk carries on past 99 to 0 and meets A at 20, the lowest token, so A owns it too.",
+      text: "A key at 91 is past the last token. The walk carries on past 99 to 0 and meets A at 20, the lowest token, so Node A owns it too.",
       focus: ["app", "a"],
       metrics: { key: 91, owner: "A" },
-      changes: ["+ Key 91 on node A"],
+      changes: ["+ Key 91 on Node A"],
       events: [{ type: "key", id: "k91", at: 91, label: "91", from: "app" }],
     },
     {
       title: "A token owns its own position",
       short: "Key 50",
-      text: "A key hashing to exactly 50 lands on B’s token. Under the common rule a token owns its own position, so B takes it. Every client must break ties the same way.",
+      text: "A key hashing to exactly 50 lands on B’s token. Under the common rule a token owns its own position, so Node B takes it. Every app server must break ties the same way.",
       focus: ["app", "b"],
       metrics: { key: 50, owner: "B" },
-      changes: ["+ Key 50 on node B"],
+      changes: ["+ Key 50 on Node B"],
       events: [{ type: "key", id: "k50", at: 50, label: "50", from: "app" }],
     },
     {
       title: "Find the successor by binary search",
       short: "Binary search",
-      text: "The app never steps through positions. It keeps the tokens sorted, 20, 50, 80, and binary-searches for the first one at or after the hash. For 63 it checks the middle token, 50, which is too low, then 80. That is about 10 comparisons for 1,000 tokens.",
+      text: "The app servers never step through positions. Each keeps the tokens sorted, 20, 50, 80, and binary-searches for the first one at or after the hash. For 63 it checks the middle token, 50, which is too low, then 80. That is about 10 comparisons for 1,000 tokens.",
       focus: ["app", "c"],
       metrics: { key: 63, owner: "C" },
       facts: [["Sorted tokens", "20, 50, 80"], ["1,000 tokens", "≈ 10 comparisons"]],
