@@ -1,3 +1,3 @@
 // Replication and Read Consistency: lessons that play as an animated stage, by diagram id. To add one, write <id>.ts beside this file,
 // add its id here and add its line to player.tsx.
-export const staged: readonly string[] = ["rc-lag"];
+export const staged: readonly string[] = ["rc-lag", "rc-failover"];
