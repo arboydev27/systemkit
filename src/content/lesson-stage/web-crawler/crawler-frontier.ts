@@ -1,17 +1,205 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
-// PLACEHOLDER: its author replaces this whole scene.
+// Lesson "Schedule useful URLs": a popular page adds 10,000 links on its own host, host A, which allows 1 request per
+// second, so they need about 2.8 hours (10,000 s). In one breadth-first FIFO queue they either flood host A or hold the
+// Fetch worker to host A's pace while host B's links wait behind them. The frontier splits the decision: a Prioritizer
+// ranks links by value (which URLs matter), and a URL frontier with a row per host and a Host timer says when each may
+// go (Mercator: priority queues in front, per-host politeness queues behind). The selector sends host B's URL while
+// host A waits, host A's once its second is up (9,999 left), and low-priority host C's so it isn't starved. Queued and
+// leased state is durable and comes back after a restart. Last, a Bloom filter at 10 bits per URL holds 1 billion URLs
+// in 1.25 GB with about 1% false positives, and each false positive skips a page never fetched. Hosts A, B and C and
+// their rows (A on top) are example names from the chapter plan.
 export const crawlerFrontierStage: StageScene = {
   id: "crawler-frontier",
-  intro: "Placeholder scene.",
-  nodes: [
-    { id: "client", role: "client", label: "Client", at: [0, 0] },
-    { id: "api", role: "web", label: "Server", at: [1, 0] },
+  intro: "Watch 10,000 links for one host jam a single queue, then see the frontier sort them by value and by host.",
+  metrics: [
+    { id: "qa", label: "Host A queue" },
+    { id: "drain", label: "Drain time" },
+    { id: "seen", label: "Seen set" },
   ],
-  links: [{ from: "client", to: "api" }],
+  // The path runs along lane 0: Parser → FIFO queue (later the Prioritizer, in the same place) → Fetch worker, which
+  // moves on to tier 3.3 when the URL frontier arrives between them. The Parser, done with its links, steps off then
+  // and comes back for the last step, where the worker and the host step off. The side parts stand down the diagonal
+  // in lane 1.7, so on a phone they form one right-hand column: the URL-seen set between the Parser and the Prioritizer,
+  // the Host timer beside the frontier it paces, Web host A beside the worker. On a wide screen the timer's pill lies to
+  // its right, under the worker's tag, and the extra 0.3 tier keeps it clear of Web host A; notes go on lane-0 parts,
+  // whose tops are open. Five parts at most on stage.
+  // Phone rows: Parser | (URL-seen set, last step only) | FIFO queue, later Prioritizer | Fetch worker + Web host A
+  // until the frontier comes, then URL frontier + Host timer | Fetch worker + Web host A.
+  nodes: [
+    { id: "parser", role: "worker", label: "Parser", detail: "popular page", at: [0, 0] },
+    { id: "fifo", role: "queue", label: "FIFO queue", detail: "one line for all", at: [1, 0], opts: { items: 0 } },
+    { id: "prio", role: "worker", label: "Prioritizer", detail: "ranks by value", at: [1, 0], appear: 3 },
+    { id: "seen", role: "bloom", label: "URL-seen set", detail: "Bloom filter", at: [0.5, 1.7], appear: 7, opts: { level: 0.4 } },
+    { id: "frontier", role: "frontier", label: "URL frontier", detail: "rows per host", at: [2, 0], appear: 4, opts: { count: 3, items: 0 } },
+    { id: "timer", role: "timer", label: "Host timer", detail: "host A: 1 s", at: [2, 1.7], appear: 4 },
+    { id: "fetcher", role: "fetcher", label: "Fetch worker", detail: "leases a URL", at: [2, 0] },
+    { id: "host", role: "external", label: "Web host A", detail: "1 request/s", at: [2, 1.7] },
+  ],
+  links: [
+    { from: "parser", to: "fifo" },
+    { from: "fifo", to: "fetcher" },
+    { from: "fetcher", to: "host" },
+    { from: "parser", to: "prio", unless: "seen" },
+    { from: "parser", to: "seen" },
+    { from: "seen", to: "prio" },
+    { from: "prio", to: "frontier" },
+    { from: "frontier", to: "fetcher" },
+    { from: "frontier", to: "timer" },
+  ],
   steps: [
-    { title: "One", short: "One", text: "Placeholder.", events: [{ type: "packet", path: ["client", "api"], label: "request" }] },
-    { title: "Two", short: "Two", text: "Placeholder.", events: [{ type: "packet", path: ["api", "client"], label: "reply", kind: "response" }] },
-    { title: "Three", short: "Three", text: "Placeholder.", events: [{ type: "note", node: "api", text: "placeholder" }] },
+    {
+      title: "10,000 links for one host join one FIFO",
+      short: "One FIFO",
+      text: "The Parser reads a popular page on host A and finds 10,000 links to host A’s own pages. A breadth-first crawler puts them all in one FIFO queue, first in, first out, and host B’s links, found next, line up behind them.",
+      focus: ["parser", "fifo"],
+      frame: ["parser", "fifo", "fetcher", "host"],
+      facts: [["Host A links", "10,000"], ["Order", "first in, first out"]],
+      metrics: { qa: 10000 },
+      changes: ["+ 10,000 host-A URLs in one FIFO", "+ Host B’s URLs behind them"],
+      events: [
+        { type: "state", node: "parser", light: "on" },
+        { type: "packet", path: ["parser", "fifo"], label: "10,000 host-A links" },
+        { type: "state", node: "fifo", light: "on", opts: { items: 3 }, readout: "10,000 for host A" },
+        { type: "packet", path: ["parser", "fifo"], label: "host B links" },
+        { type: "state", node: "fifo", opts: { items: 4 } },
+        { type: "note", node: "fifo", text: "host B behind", with: true },
+      ],
+    },
+    {
+      title: "At full speed, they flood host A",
+      short: "Flood",
+      text: "The Fetch worker takes the next URL in line as fast as it can, and the next 10,000 are all for host A. Host A allows 1 request a second, but one FIFO knows nothing about hosts, so nothing holds the line back.",
+      focus: ["fifo", "fetcher", "host"],
+      frame: ["parser", "fifo", "fetcher", "host"],
+      facts: [["Host A allows", "1 request/s"], ["The worker takes", "next in line"]],
+      changes: ["~ Host A flooded past 1 request/s"],
+      events: [
+        { type: "state", node: "parser", light: "idle" },
+        { type: "state", node: "fetcher", light: "on", with: true },
+        { type: "state", node: "host", light: "hot", tone: "hot", readout: "flooded", with: true },
+        { type: "note", node: "host", text: "allows 1/s", tone: "hot", with: true },
+        { type: "stream", every: 170, routes: [{ path: ["fifo", "fetcher", "host"], kind: "hot" }] },
+      ],
+    },
+    {
+      title: "Held to 1 request/s, the rest wait 2.8 h",
+      short: "Stall",
+      text: "Held to host A’s 1 request a second instead, the 10,000 URLs need about 2.8 hours. The Fetch worker sits blocked between requests, and host B’s links, with any important page found later, wait behind them the whole time.",
+      focus: ["fifo", "fetcher", "host"],
+      frame: ["parser", "fifo", "fetcher", "host"],
+      facts: [["10,000 URLs", "≈ 2.8 hours"], ["Host B", "waits behind"]],
+      metrics: { drain: "2.8 h" },
+      changes: ["~ Host A held to 1 request/s", "~ Worker blocked between requests", "~ Host B waits about 2.8 hours"],
+      events: [
+        { type: "state", node: "host", light: "on", tone: "", readout: "1 request/s" },
+        { type: "state", node: "fetcher", readout: "blocked", with: true },
+        { type: "note", node: "fifo", text: "host B waits", tone: "hot", with: true },
+        { type: "stream", every: 1000, routes: [{ path: ["fifo", "fetcher", "host"] }] },
+      ],
+    },
+    {
+      title: "Priority says which URLs matter",
+      short: "Priority",
+      text: "So split the decision. The Prioritizer takes the place of the single line and ranks each link by the product’s goal: important or recently changed pages first. Priority answers which URLs matter, not when a host may be fetched.",
+      focus: ["parser", "prio"],
+      frame: ["parser", "prio", "fetcher", "host"],
+      changes: ["− FIFO queue", "+ Prioritizer", "~ Links ranked by value"],
+      events: [
+        { type: "hide", nodes: ["fifo"] },
+        { type: "state", node: "host", light: "idle", tone: "", readout: "", with: true },
+        { type: "state", node: "fetcher", light: "idle", readout: "", with: true },
+        { type: "show", nodes: ["prio"] },
+        { type: "state", node: "parser", light: "on" },
+        { type: "packet", path: ["parser", "prio"], label: "10,000 host-A links" },
+        { type: "packet", path: ["parser", "prio"], label: "host B, C links", gap: 160 },
+        { type: "state", node: "prio", light: "on" },
+        { type: "note", node: "prio", text: "important first", tone: "work", with: true },
+      ],
+    },
+    {
+      title: "Host queues say when a URL may go",
+      short: "Host queues",
+      text: "Behind it, the URL frontier keeps a row per host: A on top, then B, then C. The Host timer holds each host’s next-eligible time, the earliest its next request may go; host A’s is 1 second away. The Mercator research crawler used this split: priority queues in front, per-host politeness queues behind.",
+      focus: ["prio", "frontier", "timer"],
+      frame: ["prio", "frontier", "timer", "fetcher", "host"],
+      facts: [["Row 1", "host A: 10,000"], ["Row 2", "host B"], ["Row 3", "host C, low priority"]],
+      changes: ["+ URL frontier, a row per host", "+ Host timer", "~ Host A next in 1 s"],
+      events: [
+        { type: "hide", nodes: ["parser"] },
+        { type: "show", nodes: ["frontier", "timer"], at: { fetcher: [3.3, 0], host: [3.3, 1.7] }, with: true },
+        { type: "packet", path: ["prio", "frontier"], label: "10,000 for host A" },
+        { type: "packet", path: ["prio", "frontier"], label: "host B, C URLs", gap: 160 },
+        { type: "state", node: "frontier", light: "on", opts: { items: 3 } },
+        { type: "note", node: "frontier", text: "rows: host A, B, C", with: true },
+        { type: "state", node: "timer", light: "on", meter: 1, readout: "next in 1 s" },
+      ],
+    },
+    {
+      title: "Pick a valuable URL whose host is eligible",
+      short: "Selector",
+      text: "A selector takes the most valuable URL whose host is eligible. Host A must wait, so host B’s URL goes first; once host A’s second is up, its URL goes. Low-priority host C still gets a turn instead of starving. The cost: state for every host, and a selector that skips waiting hosts quickly.",
+      focus: ["frontier", "timer", "fetcher", "host"],
+      frame: ["prio", "frontier", "timer", "fetcher", "host"],
+      facts: [["Fairness", "host C gets a turn"], ["Cost", "state for every host"]],
+      metrics: { qa: 9999 },
+      changes: ["+ Host B’s URL while host A waits", "+ Host A’s URL once eligible", "+ Host C’s URL, not starved"],
+      events: [
+        { type: "state", node: "prio", light: "idle" },
+        { type: "state", node: "timer", meter: 0.5, readout: "host A waits", with: true },
+        { type: "state", node: "frontier", opts: { mark: 1 }, with: true },
+        { type: "packet", path: ["frontier", "fetcher"], label: "host B URL" },
+        { type: "state", node: "fetcher", light: "on", with: true },
+        { type: "state", node: "timer", light: "work", meter: 0, readout: "eligible" },
+        { type: "state", node: "frontier", opts: { mark: 0 }, with: true },
+        { type: "packet", path: ["frontier", "fetcher", "host"], label: "host A URL" },
+        { type: "state", node: "host", light: "on", readout: "1 request/s" },
+        { type: "state", node: "timer", light: "on", meter: 1, readout: "next in 1 s", with: true },
+        { type: "state", node: "frontier", opts: { mark: 2 }, gap: 200 },
+        { type: "packet", path: ["frontier", "fetcher"], label: "host C URL" },
+        { type: "note", node: "frontier", text: "host C not starved", tone: "work", with: true },
+      ],
+    },
+    {
+      title: "Queued and leased state survives a restart",
+      short: "Durable",
+      text: "The URL frontier keeps queued and leased URLs in durable storage, with small memory buffers for hot operations. For each URL it records why it waits, when it may run, its retries and its next recrawl. After a restart nothing is lost: host A still has 9,999 waiting.",
+      focus: ["frontier"],
+      frame: ["prio", "frontier", "timer", "fetcher", "host"],
+      facts: [["Per URL", "why waiting, when it may run"], ["Also", "retries, next recrawl"]],
+      changes: ["− URL frontier restarts", "~ Queued and leased URLs restored", "~ Host A still has 9,999 waiting"],
+      events: [
+        { type: "state", node: "host", light: "idle", readout: "" },
+        { type: "state", node: "fetcher", light: "idle", with: true },
+        { type: "state", node: "timer", light: "idle", with: true },
+        { type: "state", node: "frontier", light: "hot", tone: "hot", down: true, readout: "restarting", opts: { mark: undefined } },
+        { type: "pause", ms: 700 },
+        { type: "state", node: "frontier", light: "work", tone: "", down: false, readout: "" },
+        { type: "note", node: "frontier", text: "queued + leased kept", tone: "work", with: true },
+      ],
+    },
+    {
+      title: "A Bloom filter rejects seen URLs cheaply",
+      short: "Bloom filter",
+      text: "The URL-seen set is a Bloom filter, a compact bit array: 10 bits per URL hold a billion URLs in 1.25 GB. It answers “definitely new” or “probably seen”, and about 1% of new URLs get “probably seen”: link 2 is skipped, never fetched. Where losing a page matters, don’t make it the only test.",
+      focus: ["parser", "seen", "prio"],
+      frame: ["parser", "seen", "prio", "frontier", "timer"],
+      facts: [["Bits per URL", "10"], ["1 billion URLs", "1.25 GB"], ["False positives", "about 1%"]],
+      metrics: { seen: "1.25 GB" },
+      changes: ["+ URL-seen set, a Bloom filter", "+ Link 1 definitely new", "− Link 2 skipped, never fetched"],
+      events: [
+        { type: "hide", nodes: ["fetcher", "host"] },
+        { type: "state", node: "frontier", light: "idle", with: true },
+        { type: "state", node: "timer", meter: null, readout: "", opts: { level: 1 }, with: true },
+        { type: "show", nodes: ["parser", "seen"] },
+        { type: "state", node: "parser", light: "on" },
+        { type: "packet", path: ["parser", "seen"], label: "is link 1 new?" },
+        { type: "state", node: "seen", light: "work", opts: { level: 0.45 } },
+        { type: "packet", path: ["seen", "prio"], label: "definitely new", kind: "work" },
+        { type: "packet", path: ["parser", "seen"], label: "is link 2 new?" },
+        { type: "state", node: "seen", light: "hot" },
+        { type: "note", node: "seen", text: "new, but skipped", tone: "hot", with: true },
+      ],
+    },
   ],
 };
