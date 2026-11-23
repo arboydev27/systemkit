@@ -27,7 +27,7 @@ export const hashReplicasStage: StageScene = {
   steps: [
     {
       title: "The first token clockwise owns the key",
-      short: "Owner",
+      short: "Key 8’s owner",
       text: "Nodes A, B and C hold three tokens each, scattered round the ring. A key hashing to 8 walks clockwise and meets A1 at 12 first, so Node A owns it. Where its copies go is a separate choice.",
       focus: ["app", "a"],
       metrics: { copies: "A" },
@@ -67,7 +67,7 @@ export const hashReplicasStage: StageScene = {
     {
       title: "One hot key overloads its owner",
       short: "Hot key",
-      text: "Key 8 now gets 60,000 reads/s, and every one lands on its owner, Node A, which handles 20,000. Virtual nodes spread many keys, but they can’t split one key: more tokens would only move it whole.",
+      text: "Key 8 now gets 60,000 reads a second, and every one lands on its owner, Node A, which handles 20,000. Virtual nodes spread many keys, but they can’t split one key: more tokens would only move it whole.",
       focus: ["app", "a"],
       metrics: { reads: { n: 60000, unit: "/s", tone: "hot" } },
       facts: [["Key 8", "60,000 reads/s"], ["Each node", "20,000 reads/s"]],
@@ -83,7 +83,7 @@ export const hashReplicasStage: StageScene = {
     {
       title: "A one-second cache absorbs the reads",
       short: "Cache it",
-      text: "Each of the 200 app servers keeps key 8 for one second, so each sends Node A at most one read a second: 200 reads/s instead of 60,000. The price: a reader may see a value up to a second old.",
+      text: "Each of the 200 app servers keeps key 8 for one second, so each sends Node A at most one read a second: 200 in all instead of 60,000. The price: a reader may see a value up to a second old.",
       focus: ["app", "a"],
       metrics: { reads: { n: 200, unit: "/s" } },
       facts: [["200 servers × 1/s", "≤ 200 reads/s"], ["Staleness", "up to 1 s"]],

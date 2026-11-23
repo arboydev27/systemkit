@@ -46,9 +46,9 @@ export const hashModuloStage: StageScene = {
         // playback bar. A note over Cache 1 or 2 would sit just under the tag of the cache above it on a wide screen, so
         // the caches carry none here.
         { type: "note", node: "app", text: "14 → 2, 17 → 1" },
-        { type: "packet", path: ["app", "c2"], label: "get key 14" },
+        { type: "packet", path: ["app", "c2"], label: "GET key 14" },
         { type: "state", node: "c2", light: "on" },
-        { type: "packet", path: ["app", "c1"], label: "get key 17" },
+        { type: "packet", path: ["app", "c1"], label: "GET key 17" },
         { type: "state", node: "c1", light: "on" },
       ],
     },
@@ -92,7 +92,7 @@ export const hashModuloStage: StageScene = {
         { type: "state", node: "c3", down: true, light: "hot", tone: "hot", with: true },
         { type: "state", node: "app", detail: "hash(key) mod 3", light: "on" },
         { type: "note", node: "app", text: "14 mod 3 = 2", with: true },
-        { type: "packet", path: ["app", "c2"], label: "get key 14" },
+        { type: "packet", path: ["app", "c2"], label: "GET key 14" },
         { type: "note", node: "c2", text: "hit", tone: "work" },
         { type: "state", node: "c2", light: "work", with: true },
         { type: "packet", path: ["c2", "app"], label: "key 14", kind: "response" },
@@ -112,7 +112,7 @@ export const hashModuloStage: StageScene = {
         // phone); a pill over Cache 2 would bend its link round the app servers, so the miss shows where it lands.
         { type: "state", nodes: ["c0", "c2"], light: "idle" },
         { type: "state", node: "c1", light: "on", readout: "has 17", with: true },
-        { type: "packet", path: ["app", "c2"], label: "get key 17" },
+        { type: "packet", path: ["app", "c2"], label: "GET key 17" },
         { type: "packet", path: ["c2", "db"], label: "read key 17" },
         { type: "state", node: "db", light: "on", readout: "miss from Cache 2", meter: null },
         { type: "packet", path: ["db", "c2", "app"], label: "key 17", kind: "response" },

@@ -11,7 +11,7 @@ export const hashMembershipStage: StageScene = {
     marks: [0, 25, 50, 75],
     tokens: [{ id: "A", node: "a", at: 20, label: "A" }, { id: "B", node: "b", at: 50, label: "B" }, { id: "C", node: "c", at: 80, label: "C" }],
   },
-  metrics: [{ id: "moved", label: "Moved", derive: { moved: true } }, { id: "expected", label: "Expected" }, { id: "a", label: "A owns", derive: { share: "a" } }],
+  metrics: [{ id: "moved", label: "Keys moved", derive: { moved: true } }, { id: "expected", label: "Expected" }, { id: "a", label: "A owns", derive: { share: "a" } }],
   nodes: [
     { id: "a", role: "database", label: "Node A", detail: "token at 20", at: [20, 1] },
     { id: "b", role: "database", label: "Node B", detail: "token at 50", at: [50, 1] },
@@ -22,15 +22,16 @@ export const hashMembershipStage: StageScene = {
   steps: [
     {
       title: "Each token owns one stretch",
-      short: "Ownership",
+      short: "Who owns what",
       text: "Forty keys are spread round the ring. A owns 81 to 20, the 40 positions back to C. B owns 21 to 50 and C owns 51 to 80, 30 each.",
       facts: [["A", "81–20 · 40%"], ["B", "21–50 · 30%"], ["C", "51–80 · 30%"]],
+      changes: ["+ 40 keys"],
       events: [{ type: "scatter", count: 40, seed: 7 }],
     },
     {
-      title: "D hashes to 35",
+      title: "D at 35 will take 21–35 from B",
       short: "D arrives",
-      text: "A new node D hashes to 35, between A at 20 and B at 50. Once it joins it will own 21 to 35, which B owns today. Nothing has moved yet.",
+      text: "Node D, a new node, hashes to 35, between A at 20 and B at 50. Once it joins it will own 21 to 35, which B owns today. Nothing has moved yet.",
       focus: ["d", "b"],
       changes: ["+ Node D, not yet on the ring"],
       events: [{ type: "arc", id: "take", from: 20, to: 35, label: "21–35 → D", tone: "work" }],

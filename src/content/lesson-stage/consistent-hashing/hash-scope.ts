@@ -38,7 +38,7 @@ export const hashScopeStage: StageScene = {
   steps: [
     {
       title: "Hash the key to find its owner",
-      short: "Placement",
+      short: "Placement rule",
       text: "A cache spreads its keys over four nodes. To read user:7, an app server runs a placement function: it hashes the key, gets Node B, and asks Node B directly. No central service is asked; Memcached clients work this way, and its servers don’t know about each other.",
       focus: ["app", "b"],
       frame: ["app", "a", "b", "c", "d"],
@@ -109,7 +109,7 @@ export const hashScopeStage: StageScene = {
     },
     {
       title: "Measure bytes and requests, not just keys",
-      short: "Measure",
+      short: "Measure load",
       text: "Key count alone called this cluster balanced. Monitoring that also tracks bytes and request rate on every node shows Node C at 47.5% of reads. Hot keys skew requests, and a few very large values can skew memory the same way.",
       frame: ["app", "a", "b", "c", "d", "mon"],
       facts: [["Watch", "keys · bytes · req/s"], ["Node C", "25% keys, 47.5% reads"]],
@@ -132,7 +132,7 @@ export const hashScopeStage: StageScene = {
     },
     {
       title: "Placement only names an owner",
-      short: "Limits",
+      short: "Placement limits",
       text: "Node B fails, and the function still sends user:7 to Node B. Placement copies no data, detects no failure and guarantees no availability; replicas and failure detection do that. And if one machine with a standby can hold your data, you may not need placement at all.",
       focus: ["app", "b"],
       frame: ["app", "a", "b", "c", "d"],

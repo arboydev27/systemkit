@@ -97,7 +97,7 @@ export const hashOperateStage: StageScene = {
     },
     {
       title: "B refuses a range it no longer owns",
-      short: "Redirect",
+      short: "B redirects",
       text: "With a versioned map the mismatch shows: App 2’s read carries v41. Under v42 Node B no longer owns 21 to 35, so it refuses with a redirect, as Redis Cluster’s MOVED and ASK do. The redirect corrects App 2’s map, and it reads 8 from Node D.",
       focus: ["app2", "b", "d"],
       frame: ["map", "app1", "app2", "b", "d"],
@@ -116,7 +116,7 @@ export const hashOperateStage: StageScene = {
     },
     {
       title: "Watch map versions, copy progress and skew",
-      short: "Monitor",
+      short: "What to watch",
       text: "Monitoring tracks what goes wrong during change: apps on an old map version, migration progress, and skew in keys, bytes and requests per node. Where partitions are stable and centrally managed, a fixed map may be simpler: Redis Cluster assigns 16,384 hash slots explicitly.",
       facts: [["Watch", "versions · copy · skew"], ["Fixed map", "16,384 slots"]],
       changes: ["+ Monitoring", "~ Traffic split over B and D"],
