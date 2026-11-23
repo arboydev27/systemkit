@@ -4,23 +4,36 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // membership view they share; 100 million keys sit 25 million to a node, yet a viral post's 1,000 keys pull 30% of reads
 // onto Node C, which serves 47.5% against 17.5% elsewhere; so measure bytes and request rate too, and placement alone
 // neither copies data nor notices a failed node.
+// Places: the nodes stand 1.25 lanes apart, as hash-modulo's caches do, so a phone's row of four fits. Unlike there,
+// every node carries a pill, and a pill over Node C bends its link round the top of the app servers on a phone if they
+// sit off the middle lane; so the app servers stay at lane 0 and the nodes stand 1.4 tiers out, which on a wide screen
+// lets Node A's link run straight into it instead of hooking round its tag. App→A still runs under the note above the
+// app servers there; raising them enough to clear it (about half a lane) bends Node C's link on a phone, so they stay.
+// Monitoring has a link from every node and stands at [3, 1], far enough right of Node D that on a wide screen all four
+// reach it from behind and meet there: a link into its front would run under its wide tag. Its readout takes over from
+// the node pills, which step 5 clears: each sits up-right of its node, in the way of those links.
 export const hashScopeStage: StageScene = {
   id: "hash-scope",
   intro: "Watch app servers hash keys to four cache nodes, then see equal key counts hide very unequal work.",
   metrics: [{ id: "keys", label: "Node C’s keys" }, { id: "reads", label: "Node C’s reads" }],
   nodes: [
     { id: "app", role: "web", label: "App servers", detail: "hash(key) → node", at: [0, 0], opts: { many: true } },
-    { id: "a", role: "cache", label: "Node A", at: [1.2, -1.8] },
-    { id: "b", role: "cache", label: "Node B", at: [1.2, -0.6] },
-    { id: "c", role: "cache", label: "Node C", at: [1.2, 0.6] },
-    { id: "d", role: "cache", label: "Node D", at: [1.2, 1.8] },
-    { id: "mon", role: "monitor", label: "Monitoring", detail: "keys · bytes · req/s", at: [2.6, 0], appear: 4 },
+    { id: "a", role: "cache", label: "Node A", at: [1.4, -1.875] },
+    { id: "b", role: "cache", label: "Node B", at: [1.4, -0.625] },
+    { id: "c", role: "cache", label: "Node C", at: [1.4, 0.625] },
+    { id: "d", role: "cache", label: "Node D", at: [1.4, 1.875] },
+    { id: "mon", role: "monitor", label: "Monitoring", detail: "keys · bytes · req/s", at: [3, 1], appear: 4 },
   ],
   links: [
     { from: "app", to: "a" },
     { from: "app", to: "b" },
     { from: "app", to: "c" },
     { from: "app", to: "d" },
+    // drawn only while Monitoring is on the stage
+    { from: "a", to: "mon" },
+    { from: "b", to: "mon" },
+    { from: "c", to: "mon" },
+    { from: "d", to: "mon" },
   ],
   steps: [
     {
@@ -30,7 +43,7 @@ export const hashScopeStage: StageScene = {
       focus: ["app", "b"],
       frame: ["app", "a", "b", "c", "d"],
       facts: [["Rule", "hash(key) → node"], ["Asks", "no central service"]],
-      changes: ["+ user:7 → Node B", "~ No lookup on the path"],
+      changes: ["+ user:7 → Node B", "~ Clients decide, not a service"],
       events: [
         { type: "note", node: "app", text: "hash(user:7) → Node B" },
         { type: "packet", path: ["app", "b"], label: "GET user:7" },
@@ -40,7 +53,7 @@ export const hashScopeStage: StageScene = {
       ],
     },
     {
-      title: "Every app server needs the same view",
+      title: "Share one view; move few keys on change",
       short: "Same view",
       text: "The rule gives one answer only if every app server holds the same membership view, the current list of nodes: A, B, C, D. It should also move few keys when that list changes, since a moved cache entry costs a miss and a moved durable partition a bulk copy.",
       frame: ["app", "a", "b", "c", "d"],
@@ -78,11 +91,12 @@ export const hashScopeStage: StageScene = {
       frame: ["app", "a", "b", "c", "d"],
       // 47.5% would round to 48 as a number, so the half rides in the unit.
       metrics: { reads: { n: 47, unit: ".5%", tone: "hot" } },
-      facts: [["Viral keys", "1,000 on Node C"], ["Node C", "30% + 17.5% = 47.5%"]],
+      facts: [["Viral keys", "1,000 on Node C"], ["Node C", "30% + 17.5% = 47.5%"], ["Keys per node", "still 25 million"]],
       changes: ["+ 1,000 viral keys draw 30%", "~ Node C serves 47.5%", "~ Others serve 17.5% each"],
       events: [
-        { type: "state", node: "c", light: "hot", tone: "hot", readout: "47.5%" },
-        { type: "state", nodes: ["a", "b", "d"], light: "on", readout: "17.5%", with: true },
+        // The pills keep "25M keys": equal key counts beside unequal work is the point. Node C's light, the hot traffic
+        // and the reads chip carry the skew; a hot tone would turn its "25M keys" pill orange, as if the keys were wrong.
+        { type: "state", node: "c", light: "hot" },
         { type: "note", node: "app", text: "1,000 viral keys → Node C", tone: "hot", with: true },
         {
           // 12 + 7 of 40 requests reach Node C (47.5%), 7 of 40 each other node (17.5%)
@@ -102,13 +116,18 @@ export const hashScopeStage: StageScene = {
       changes: ["+ Monitoring per node", "~ Keys even, reads skewed"],
       events: [
         { type: "show", nodes: ["mon"] },
-        { type: "state", node: "mon", light: "hot", readout: "reads skewed", tone: "hot" },
+        // Monitoring now reports for the nodes, so their pills give way to its readout
+        { type: "state", nodes: ["a", "b", "c", "d"], readout: "", with: true },
         {
-          type: "stream", every: 220, routes: [
+          type: "stream", every: 220, with: true, routes: [
             { path: ["app", "c"], w: 12, kind: "hot" },
             { path: ["app", "a"], w: 7 }, { path: ["app", "b"], w: 7 }, { path: ["app", "c"], w: 7 }, { path: ["app", "d"], w: 7 },
           ],
         },
+        // every node is wired to Monitoring; only Node C's report stands out, so only it travels (four labels piled up
+        // where the links meet)
+        { type: "packet", path: ["c", "mon"], label: "47.5%", kind: "hot" },
+        { type: "state", node: "mon", light: "work", readout: "keys even · C 47.5% reads", tone: "hot" },
       ],
     },
     {
