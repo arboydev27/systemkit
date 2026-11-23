@@ -11,12 +11,14 @@ export const seBtreeStage: StageScene = {
   intro: "Follow parcel 8841 down a B-tree to its page and change it in memory, then see the log and a checkpoint bring a torn page back.",
   metrics: [
     { id: "dirty", label: "Dirty pages" },
-    { id: "replay", label: "Log to replay", derive: { lag: ["wal", "checkpoint"] } },
+    { id: "replay", label: "Past checkpoint", derive: { lag: ["wal", "checkpoint"] } },
   ],
-  // The buffer pool stands between the App and the disk: the B-tree up and to the right on one straight cable, far
-  // enough out that messages resting at the foot of the log's cable keep clear of its tag, and the write-ahead log down
-  // and to the right with its strip under it. On a phone the two share the last row either side of the pool, so notes
-  // over the tree stay short.
+  // The buffer pool stands between the App and the disk: the B-tree up and to the right on one straight cable, and the
+  // write-ahead log down and to the right with its strip under it. Messages resting on the log's cable keep clear of
+  // the pool's tag only while the log carries no note. On a phone the two share the last row either side of the pool
+  // (rows of their own make the camera zoom out while a step plays), so notes over the tree stay short. Swapping the
+  // lanes puts the phone strip under the log, but on a wide screen the strip then crosses the pool (below), floats
+  // over the App (left) or zooms the camera out (right), so the phone strip starts under the tree until it is anchored.
   nodes: [
     { id: "app", role: "web", label: "App", detail: "parcel tracking", at: [0, 0], appear: 1 },
     { id: "pool", role: "cache", label: "Buffer pool", detail: "pages in memory", at: [1, 0], appear: 1 },
@@ -35,7 +37,7 @@ export const seBtreeStage: StageScene = {
       short: "Pages",
       text: "Postgres and InnoDB keep data in B-trees of fixed-size pages, 8 KB and 16 KB by default. Each page holds sorted keys and references to child pages; leaves hold the rows or pointers to them. At an example 400 entries a page, three levels reach 64 million entries, four 25.6 billion.",
       facts: [["Page size", "8 KB or 16 KB"], ["3 levels", "64 million entries"], ["4 levels", "25.6 billion"]],
-      changes: ["+ Root, inner and leaf pages", "~ 400 entries per page"],
+      changes: ["+ Root, inner and leaf pages", "~ 400 entries a page"],
       events: [
         { type: "state", node: "tree", light: "on", readout: "400 entries a page" },
         { type: "note", node: "tree", text: "3 levels: 64 million" },
@@ -53,7 +55,7 @@ export const seBtreeStage: StageScene = {
         { type: "packet", path: ["app", "pool"], label: "read 8841" },
         { type: "state", node: "pool", light: "work" },
         { type: "note", node: "pool", text: "root, inner: in memory", tone: "work", with: true },
-        { type: "packet", path: ["pool", "tree"], label: "read leaf page" },
+        { type: "packet", path: ["pool", "tree"], label: "read leaf" },
         { type: "state", node: "tree", light: "work", opts: { count: 2, mark: 1 } },
         { type: "note", node: "tree", text: "1 disk read", tone: "work", with: true },
         { type: "packet", path: ["tree", "pool", "app"], label: "8841 packed", kind: "response" },
@@ -62,7 +64,7 @@ export const seBtreeStage: StageScene = {
     {
       title: "A change dirties its page and is logged",
       short: "Update",
-      text: "Parcel 8841 ships. Its leaf page changes in the buffer pool and is now dirty, to be written back to the same place later. Overwriting in place is risky, so the change first goes in the write-ahead log, synced at commit: the commit is safe though the page is only in memory.",
+      text: "Parcel 8841 ships. Its leaf page changes in the buffer pool and is now dirty, to be written back in place later. That is risky, so the change first goes in the write-ahead log, past the last checkpoint’s mark, synced at commit: the commit is safe though the page is only in memory.",
       facts: [["Logged", "8841 shipped"], ["Dirty", "8841’s leaf page"]],
       changes: ["~ 8841’s leaf page dirty in memory", "+ 8841 shipped in the log, synced", "~ 1 record past the last checkpoint"],
       metrics: { dirty: 1 },
@@ -72,22 +74,22 @@ export const seBtreeStage: StageScene = {
         { type: "state", node: "pool", light: "work" },
         // the last checkpoint, taken before this story starts: everything logged from here on is what recovery replays
         { type: "cursor", log: "wal", id: "checkpoint", at: "end", label: "checkpoint", line: true, with: true },
+        // synced at commit: the log's own reply is what tells the App its commit is safe
         { type: "append", log: "wal", from: "pool", records: [{ text: "8841 shipped", key: "8841" }] },
-        { type: "note", node: "wal", text: "synced at commit", tone: "work" },
-        { type: "packet", path: ["wal", "pool", "app"], label: "commit ok", kind: "response" },
+        { type: "packet", path: ["wal", "pool", "app"], label: "synced, commit ok", kind: "response" },
       ],
     },
     {
       title: "A full page splits in two",
       short: "Split",
-      text: "Parcel 8850 belongs in 8841’s leaf, which is full, so the leaf splits in two and the parent gains a key for the new page; a full parent would split too. Both changes are logged, and 3 pages are now dirty: two leaves and the parent.",
+      text: "Parcel 8850 belongs in 8841’s leaf, which is full, so the leaf splits in two and the parent gains a key for the new page; a full parent would split too. The split and 8850 are logged, and 3 pages are now dirty: two leaves and the parent.",
       facts: [["Leaf", "1 page → 2"], ["Parent", "gains a key"], ["Dirty pages", "3"]],
-      changes: ["+ A new leaf page", "~ Parent gains a key", "+ Leaf split, 8850 new in the log"],
+      changes: ["+ A new leaf page, in memory", "~ Parent gains a key", "+ Leaf split, 8850 new in the log"],
       metrics: { dirty: 3 },
       events: [
         { type: "packet", path: ["app", "pool"], label: "8850 new" },
-        { type: "note", node: "tree", text: "leaf split" },
-        { type: "state", node: "tree", light: "work", opts: { count: 3, mark: 2 }, with: true },
+        { type: "state", node: "pool", light: "work" },
+        { type: "note", node: "pool", text: "3 dirty", tone: "work", with: true },
         { type: "append", log: "wal", from: "pool", records: [{ text: "leaf split" }] },
         { type: "append", log: "wal", from: "pool", records: [{ text: "8850 new", key: "8850" }], gap: 120 },
       ],
@@ -95,13 +97,13 @@ export const seBtreeStage: StageScene = {
     {
       title: "A checkpoint writes dirty pages in place",
       short: "Checkpoint",
-      text: "A checkpoint writes the 3 dirty pages back, each over its old copy in the same place on disk, and moves its mark to the log’s end. After a crash, recovery replays only the log past the mark: nothing now.",
+      text: "A checkpoint writes the 3 dirty pages to disk, each in its fixed place, and moves its mark to the log’s end. After a crash, recovery replays only the log past the mark: nothing now.",
       facts: [["Written", "3 pages, in place"], ["Replay from", "the checkpoint"]],
       changes: ["~ 3 pages written back in place", "~ Checkpoint moved to the log’s end", "− Dirty pages"],
       metrics: { dirty: 0 },
       events: [
-        { type: "packet", path: ["pool", "tree"], label: "write 3 pages", kind: "work" },
-        { type: "state", node: "tree", light: "work" },
+        { type: "packet", path: ["pool", "tree"], label: "3 pages", kind: "work" },
+        { type: "state", node: "tree", light: "work", opts: { count: 3, mark: 2 } },
         { type: "note", node: "tree", text: "in place", tone: "work", with: true },
         { type: "state", node: "pool", light: "on" },
         { type: "cursor", log: "wal", id: "checkpoint", at: "end" },
@@ -120,7 +122,6 @@ export const seBtreeStage: StageScene = {
         { type: "state", node: "pool", light: "work" },
         { type: "append", log: "wal", from: "pool", records: [{ text: "page copy", tone: "work" }] },
         { type: "append", log: "wal", from: "pool", records: [{ text: "1203 packed", key: "1203" }], gap: 120 },
-        { type: "note", node: "pool", text: "whole page logged", tone: "work" },
       ],
     },
     {
@@ -131,7 +132,8 @@ export const seBtreeStage: StageScene = {
       changes: ["− Buffer pool, lost with the power", "~ 1203’s page torn on disk"],
       metrics: { dirty: { n: 1, unit: " lost", tone: "hot" } },
       events: [
-        { type: "packet", path: ["pool", "tree"], label: "1203’s page", kind: "work" },
+        // the power fails mid-write: the write stops short and never completes
+        { type: "packet", path: ["pool", "tree"], label: "1203’s page", kind: "work", lost: true },
         { type: "state", node: "pool", light: "hot", tone: "hot", down: true },
         { type: "note", node: "pool", text: "power cut", tone: "hot", with: true },
         { type: "state", node: "tree", light: "hot", tone: "hot" },
@@ -152,7 +154,7 @@ export const seBtreeStage: StageScene = {
         { type: "read", log: "wal", at: 4, to: "pool" },
         { type: "packet", path: ["pool", "tree"], label: "1203’s page", kind: "work" },
         { type: "state", node: "tree", light: "work", tone: "" },
-        { type: "note", node: "tree", text: "whole again", tone: "work", with: true },
+        { type: "note", node: "tree", text: "repaired", tone: "work", with: true },
         { type: "state", node: "pool", light: "on", with: true },
       ],
     },
