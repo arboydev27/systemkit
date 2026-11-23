@@ -5,7 +5,8 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // LSM tree's four 10× levels rewrite a byte up to about 10 times each, up to about 40× (up to 4 KB for that row). At
 // 4 KB rows the B-tree drops to about 4× and the LSM tree stays near 40× (up to 160 KB): the winner flips. Reads lean
 // the other way (one path against several files, here found in the third), space too (about 1.5× against 1.1× live
-// data), so start from the workload and benchmark.
+// data). The close, back at 100 B rows (160× against 40×): key-order inserts help a B-tree; start from the workload,
+// then benchmark.
 export const seChooseStage: StageScene = {
   id: "se-choose",
   intro: "Send the same row to a B-tree and an LSM tree, and compare what each one writes, reads and stores for it.",
@@ -64,7 +65,7 @@ export const seChooseStage: StageScene = {
     {
       title: "An LSM tree rewrites a byte at each level",
       short: "LSM writes",
-      text: "The LSM tree writes the row out in a sorted file, then compaction merges it down four levels, each ten times larger than the last. A byte is rewritten up to about 10 times per level: up to about 40 times in all, plus the log.",
+      text: "The LSM tree writes the row to a sorted file, then compaction merges it down four levels, each ten times larger than the last. A byte is rewritten up to about 10 times per level: up to about 40 times in all, about 4 KB for this row, plus the log.",
       focus: ["app", "lsm", "ldisk"],
       frame: ["app", "btree", "lsm", "bdisk", "ldisk"],
       facts: [["Levels", "4, each 10× larger"], ["Per level", "up to 10 rewrites"], ["Write amp", "up to 40×, plus log"]],
@@ -83,7 +84,7 @@ export const seChooseStage: StageScene = {
     {
       title: "At 4 KB rows the winner flips",
       short: "Row size",
-      text: "Make the rows 4 KB. Each 16 KB page write now carries a whole 4 KB row, so the B-tree drops to about 4×. The LSM tree’s cost is per byte, so it stays near 40×: the winner flips. Pick 100 B rows to compare. Key-order inserts also help a B-tree: each page fills before it is flushed.",
+      text: "Make the rows 4 KB. The B-tree still writes one 16 KB page per row, now about 4×; the LSM tree pays per byte, up to 160 KB, so it stays near 40×. The winner flips: pick 100 B rows to flip it back.",
       changes: ["~ 4 KB rows: B-tree about 4×", "~ LSM tree about 40× at either size"],
       events: [],
       control: {
@@ -165,11 +166,13 @@ export const seChooseStage: StageScene = {
     {
       title: "Start from the workload, then benchmark",
       short: "Choose",
-      text: "No engine wins all three. Start by favoring an LSM tree for write-heavy small records and a B-tree for read-heavy range queries, then benchmark with real data.",
+      text: "No engine wins all three. At 100 B rows the LSM tree writes about 40× to the B-tree’s 160×; key-order inserts help a B-tree, filling each page before it flushes. Favor an LSM tree for write-heavy small records and a B-tree for read-heavy range queries, then benchmark with real data.",
       facts: [["Many small writes", "LSM tree"], ["Many range reads", "B-tree"], ["Then", "benchmark"]],
-      changes: ["~ LSM tree for write-heavy small records", "~ B-tree for read-heavy range queries"],
+      metrics: { row: "100 B", bt: { n: 160, unit: "×" }, lsm: { n: 40, unit: "×" } },
+      changes: ["~ 100 B rows: LSM tree 40×, B-tree 160×", "~ LSM tree for write-heavy small records", "~ B-tree for read-heavy range queries"],
       events: [
-        { type: "state", nodes: ["bdisk", "ldisk"], light: "idle", readout: "" },
+        { type: "state", node: "app", detail: "100 B rows" },
+        { type: "state", nodes: ["bdisk", "ldisk"], light: "idle", readout: "", with: true },
         { type: "state", nodes: ["btree", "lsm"], light: "work", with: true },
         { type: "note", node: "lsm", text: "small writes", tone: "work" },
         { type: "note", node: "btree", text: "range reads", tone: "work", with: true },
