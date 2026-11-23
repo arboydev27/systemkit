@@ -10,7 +10,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // 17's alert limit to 30 and then 35, a millisecond apart, both told OK; the coordinator forwards each as it arrives and
 // the replicas get them in different orders; last-write-wins keeps 35 (stamped later) everywhere and 30 is lost (Lost
 // writes 1). Last, a control picks a workload and the parts take its model's shape: seat bookings on a single leader
-// (a second booking of seat 14A is refused), profiles on two regional leaders with a home region per user (Ana's at
+// (a second booking of seat 14B is refused), profiles on two regional leaders with a home region per user (Ana's at
 // Region A, Ben's at Region B), and sensor readings keyed by device and time on the leaderless store.
 // Placement: on a phone the tiers stack down the screen, so the coordinator (0.85) and replicas (2.1) keep the column
 // short enough to hold the label floor at 375×667; on a wide screen the replicas stay 1.25 tiers from the coordinator,
@@ -182,9 +182,9 @@ export const rcLeaderlessStage: StageScene = {
               { type: "state", node: "r2", label: "Leader", detail: "orders every write", light: "on", tone: "", readout: "", opts: { replica: false, lead: true }, with: true },
               { type: "state", node: "r1", label: "Follower 1", detail: "copies the leader", light: "idle", readout: "", with: true },
               { type: "state", node: "r3", label: "Follower 2", detail: "copies the leader", light: "idle", readout: "", with: true },
-              { type: "packet", path: ["r2", "r1"], label: "14A booked" },
-              { type: "packet", path: ["r2", "r3"], label: "14A booked", with: true },
-              { type: "packet", path: ["dash", "r2"], label: "book 14A again" },
+              { type: "packet", path: ["r2", "r1"], label: "14B booked" },
+              { type: "packet", path: ["r2", "r3"], label: "14B booked", with: true },
+              { type: "packet", path: ["dash", "r2"], label: "book 14B again" },
               { type: "note", node: "r2", text: "second booking refused", tone: "work" },
             ],
           },

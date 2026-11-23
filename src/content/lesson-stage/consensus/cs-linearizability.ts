@@ -33,7 +33,8 @@ export const csLinearizabilityStage: StageScene = {
   nodes: [
     { id: "a", role: "client", label: "Client A", detail: "buys seat 14", at: [0, 0] },
     { id: "b", role: "client", label: "Client B", detail: "reads seat 14", at: [1, 0] },
-    { id: "leader", role: "database", label: "Leader", detail: "takes every write", at: [2, 0], opts: { replica: true, lead: true } },
+    // a leader's cap is plain with the flag, a follower's carries the replica ring, as in the replication chapter
+    { id: "leader", role: "database", label: "Leader", detail: "takes every write", at: [2, 0], opts: { lead: true } },
     { id: "follower", role: "database", label: "Follower", detail: "copies writes later", at: [3, 0], opts: { replica: true } },
     { id: "c", role: "client", label: "Client C", detail: "reads seat 14", at: [4, 0] },
   ],

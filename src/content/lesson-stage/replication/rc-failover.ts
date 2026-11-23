@@ -122,7 +122,8 @@ export const rcFailoverStage: StageScene = {
       facts: [["Its write", "7 < 8: refused"], ["Checked by", "followers, storage, proxy"]],
       changes: ["+ Write stamped 7 refused", "~ Old leader steps down"],
       events: [
-        { type: "packet", path: ["leader", "follower"], label: "5,001 · t7", kind: "hot", t: 3, dur: 0.75 },
+        // ink, as cs-fencing's and cs-raft's stale writes are: the refusal says what happens to it
+        { type: "packet", path: ["leader", "follower"], label: "5,001 · t7", t: 3, dur: 0.75 },
         { type: "mark", node: "follower", text: "refuses: 7 < 8", tone: "work", t: 3.75, dur: 2.25 },
         { type: "packet", path: ["follower", "leader"], label: "no · t8", kind: "response", t: 6, dur: 0.75 },
         { type: "span", id: "t7b", end: true, t: 6.75 },

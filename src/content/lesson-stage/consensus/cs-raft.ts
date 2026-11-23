@@ -30,7 +30,9 @@ export const csRaftStage: StageScene = {
     { id: "votes", label: "Votes" },
   ],
   nodes: [
-    { id: "n1", role: "database", label: "N1", detail: "leader", at: [0, 0], opts: { replica: true, lead: true } },
+    // the leader's cap is plain with the flag and a follower's carries the replica ring, as in the replication chapter,
+    // so the ring and the flag change hands together when N3 wins and N1 steps down
+    { id: "n1", role: "database", label: "N1", detail: "leader", at: [0, 0], opts: { lead: true } },
     { id: "n2", role: "database", label: "N2", detail: "follower", at: [1, 0], opts: { replica: true } },
     { id: "n3", role: "database", label: "N3", detail: "follower", at: [2, 0], opts: { replica: true } },
     { id: "n4", role: "database", label: "N4", detail: "follower", at: [3, 0], opts: { replica: true } },
@@ -56,8 +58,8 @@ export const csRaftStage: StageScene = {
         // 390 px phone (with less, it rests between N2's and N3's rows, or above the dot, as if before the entry came)
         { type: "mark", node: "n2", text: "has 42", dur: 1 },
         { type: "mark", node: "n3", text: "has 42", dur: 1, with: true },
-        { type: "packet", path: ["n2", "n1"], label: "ok", kind: "response" },
-        { type: "packet", path: ["n3", "n1"], label: "ok", kind: "response", with: true },
+        { type: "packet", path: ["n2", "n1"], label: "ack", kind: "response" },
+        { type: "packet", path: ["n3", "n1"], label: "ack", kind: "response", with: true },
       ],
     },
     {
@@ -129,7 +131,7 @@ export const csRaftStage: StageScene = {
         { type: "packet", path: ["n4", "n3"], label: "yes", kind: "response" },
         { type: "packet", path: ["n5", "n3"], label: "yes", kind: "response", with: true },
         { type: "state", node: "n4", detail: "follower", light: "idle" },
-        { type: "state", node: "n3", opts: { lead: true }, detail: "leader", light: "work", with: true },
+        { type: "state", node: "n3", opts: { lead: true, replica: false }, detail: "leader", light: "work", with: true },
         // a beat of leading, so on a phone the label and the "yes" pill rest above the now line, clear of the replies'
         // arrival
         { type: "span", id: "t9", node: "n3", label: "leads t9", tone: "work", dur: 1 },
@@ -154,12 +156,13 @@ export const csRaftStage: StageScene = {
         { type: "packet", path: ["n1", "n3"], label: "append · t7" },
         // the refusal stays on N3's lifeline, and the reply leaves a beat below it, so on a phone the two pills, each
         // wider than the gap between rails, rest one above the other over N2's idle rail
-        { type: "mark", node: "n3", text: "rejects", dur: 1 },
+        // blue, as cs-fencing's and rc-failover's refusals of a stale write are: the protection working
+        { type: "mark", node: "n3", text: "rejects", tone: "work", dur: 1 },
         { type: "packet", path: ["n3", "n1"], label: "no · t9", kind: "response" },
         // N1 stops leading as the reply lands; half a beat on to now, so on a phone the reply's pill rests clear of the
         // now line, over N2's idle rail rather than over the arrowhead
         { type: "span", id: "old7", end: true, dur: 0.5 },
-        { type: "state", node: "n1", opts: { lead: false }, detail: "follower" },
+        { type: "state", node: "n1", opts: { lead: false, replica: true }, detail: "follower" },
         { type: "note", node: "n1", text: "steps down", with: true },
       ],
     },
@@ -178,12 +181,12 @@ export const csRaftStage: StageScene = {
         { type: "span", id: "t9b", node: "n3", label: "leads t9", tone: "work", gap: 160 },
         { type: "packet", path: ["n3", "n2"], label: "43", gap: 160 },
         { type: "packet", path: ["n3", "n1"], label: "43", with: true },
-        // each flush takes its time before the ok leaves, so a commit visibly waits on a majority's flush
+        // each flush takes its time before the ack leaves, so a commit visibly waits on a majority's flush
         { type: "mark", node: "n2", text: "flush", tone: "work", dur: 2.5, gap: 0 },
         { type: "mark", node: "n1", text: "flush", tone: "work", dur: 2.5, with: true },
-        { type: "packet", path: ["n2", "n3"], label: "ok", kind: "response", gap: 120 },
-        { type: "packet", path: ["n1", "n3"], label: "ok", kind: "response", with: true },
-        // the oks arrive at 4.5; the commit follows them a little later, so its dot lands below their shared pill,
+        { type: "packet", path: ["n2", "n3"], label: "ack", kind: "response", gap: 120 },
+        { type: "packet", path: ["n1", "n3"], label: "ack", kind: "response", with: true },
+        // the acks arrive at 4.5; the commit follows them a little later, so its dot lands below their shared pill,
         // and its time runs on long enough that a phone hangs its pill above the now line
         { type: "mark", node: "n3", text: "commit 43", tone: "work", t: 5.25, dur: 2.5, gap: 0 },
       ],
