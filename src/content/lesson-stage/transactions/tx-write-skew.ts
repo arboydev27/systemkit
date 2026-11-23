@@ -73,7 +73,8 @@ export const txWriteSkewStage: StageScene = {
         { type: "packet", path: ["b", "s5"], label: "sold + 1 if < 100", with: true },
         // A's update takes the lock and writes 100 in one moment; B's waits from that moment on.
         { type: "span", id: "lock", node: "a", label: "holds row lock", tone: "work" },
-        { type: "state", node: "s5", opts: { locked: true }, with: true },
+        // a second version card while A's uncommitted 100 holds the lock, as tx-lost-update and tx-read-committed show
+        { type: "state", node: "s5", opts: { locked: true, count: 2 }, with: true },
         { type: "span", id: "wait", node: "b", label: "waits for lock", tone: "quiet", with: true },
         { type: "mark", node: "s5", text: "99 → 100", tone: "work", dur: 1.5, with: true },
         { type: "packet", path: ["s5", "a"], label: "1 row", kind: "response" },
@@ -90,7 +91,7 @@ export const txWriteSkewStage: StageScene = {
         { type: "packet", path: ["a", "bookings"], label: "insert booking" },
         { type: "mark", node: "a", text: "commit", tone: "work", dur: 0 },
         { type: "span", id: "lock", end: true },
-        { type: "state", node: "s5", opts: { locked: false }, with: true },
+        { type: "state", node: "s5", opts: { locked: false, count: 1 }, with: true },
         { type: "span", id: "wait", end: true, with: true },
       ],
     },
@@ -103,7 +104,8 @@ export const txWriteSkewStage: StageScene = {
       facts: [["Read committed", "0 rows: full"], ["Snapshot", "abort, retry: full"]],
       changes: ["~ B’s update: 0 rows", "+ Section full"],
       events: [
-        { type: "packet", path: ["s5", "b"], label: "0 rows", kind: "hot" },
+        // a reply (blue), as tx-serializable's refusal of the 101st booking is: the guard working, not an anomaly
+        { type: "packet", path: ["s5", "b"], label: "0 rows", kind: "response" },
         { type: "mark", node: "b", text: "section full" },
       ],
     },
@@ -124,7 +126,8 @@ export const txWriteSkewStage: StageScene = {
         { type: "packet", path: ["a", "bookings"], label: "insert seat 14B", with: true },
         { type: "packet", path: ["b", "bookings"], label: "insert seat 14B", with: true, dur: 1.2 },
         { type: "packet", path: ["bookings", "a"], label: "1 row", kind: "response" },
-        { type: "packet", path: ["bookings", "b"], label: "duplicate key", kind: "hot", with: true },
+        // blue, as tx-acid's "duplicate key" is: the unique index working
+        { type: "packet", path: ["bookings", "b"], label: "duplicate key", kind: "response", with: true },
       ],
     },
   ],
