@@ -641,7 +641,9 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
   }
   let camRun = 0;
   let heading: { k: number; x: number; y: number } | null = null;
-  function cameraTo(list: string[] | null | undefined, m: StageModel, instant = false, also?: StageModel, notes?: Set<string>) {
+  /** Frames these parts; says whether a phone's spacing between rows and columns changed, which the parts' places
+   * follow only once something moves them there. */
+  function cameraTo(list: string[] | null | undefined, m: StageModel, instant = false, also?: StageModel, notes?: Set<string>): boolean {
     const target = fit(list && list.length ? list : ids, m, also, notes);
     const rowsMoved = target.pitch.rows.length !== pitch.rows.length || target.pitch.rows.some(([t, e], i) => t !== pitch.rows[i][0] || Math.abs(e - pitch.rows[i][1]) > 1);
     const repitched = narrow && (Math.abs(target.pitch.tier - pitch.tier) > 1 || Math.abs(target.pitch.lane - pitch.lane) > 1 || rowsMoved);
@@ -649,11 +651,11 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     if (!instant && !repitched) {
       const v = heading ?? view, pd = pads(), b = target.b;
       const inside = b.x0 >= v.x + pd.x / v.k && b.x1 <= v.x + (view.W - pd.x) / v.k && b.y0 >= v.y + pd.top / v.k && b.y1 <= v.y + (view.H - pd.bottom) / v.k;
-      if (inside && v.k / target.k > 0.84 && v.k / target.k < 1.2) return;
+      if (inside && v.k / target.k > 0.84 && v.k / target.k < 1.2) return repitched;
     }
     const run = ++camRun;
     heading = { k: target.k, x: target.x, y: target.y };
-    if (instant || reduce) { setView(target); heading = null; return; }
+    if (instant || reduce) { setView(target); heading = null; return repitched; }
     const start = { k: view.k, x: view.x, y: view.y };
     realtime(T.camera, (p) => {
       if (run !== camRun) return;
@@ -661,6 +663,7 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       setView({ k: 1 / (1 / start.k + (1 / target.k - 1 / start.k) * q), x: start.x + (target.x - start.x) * q, y: start.y + (target.y - start.y) * q });
       if (p >= 1) heading = null;
     });
+    return repitched;
   }
 
   // ---------- messages, notes and streams ----------
@@ -928,7 +931,13 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
     await after(reduce ? 0 : 260, tk);
     await runEvents(stepEvents(scene, i, choices), tk);
     settled = true;
-    cameraTo(frameOf(i), end, false, undefined, notesOf(i));
+    if (cameraTo(frameOf(i), end, false, undefined, notesOf(i))) {
+      // The phone's spacing for the step's end differs from the spacing it opened with (which also made room for the
+      // start): move the parts to it with the camera, then put back what the step leaves, as its link draws it.
+      clearTransient();
+      await transitionTo(model, tk);
+      settleExtras(i);
+    }
     report();
   }
   // Long enough to read the step and what it changed while watching it: about 240 words a minute.
