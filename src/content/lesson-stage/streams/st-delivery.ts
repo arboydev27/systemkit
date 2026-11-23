@@ -17,14 +17,17 @@ export const stDeliveryStage: StageScene = {
   // below it, their strips side by side on the right, far enough out that a message resting on the consumer's link to
   // the topic keeps clear of the topic's tag. On a phone the consumer has the top row and the topic and Postgres share
   // the next, their strips stacked under them. At the end the topic steps aside and the Email API takes its place, so
-  // a small phone still holds three parts and one strip at a readable size (four parts and two strips would not).
+  // a small phone still holds three parts and one strip at a readable size (four parts and two strips would not). Its
+  // tag is about as wide as the topic's ("third-party service"; a phone shows names only), so on a wide screen the
+  // link to Postgres keeps the low route it takes under the topic and a message riding it passes under the tag (with
+  // "third party" the link climbs toward the tag and "credit + offset 501" covers it).
   // A strip's change finishes before the next one starts (two at once would undo each other while playing), so each
   // replay rewinds one log at a time, the record read alongside.
   nodes: [
     { id: "consumer", role: "consumer", label: "Consumer", detail: "credits accounts", at: [0, 0], opts: { count: 1 } },
     { id: "topic", role: "broker", label: "Payments topic", detail: "partition 0", at: [1.6, -1], opts: { count: 3, items: 4, mark: 0 } },
     { id: "db", role: "database", label: "Postgres", detail: "accounts", at: [1.6, 1] },
-    { id: "email", role: "external", label: "Email API", detail: "third party", at: [1.6, -1], appear: 5 },
+    { id: "email", role: "external", label: "Email API", detail: "third-party service", at: [1.6, -1], appear: 5 },
   ],
   links: [{ from: "topic", to: "consumer" }, { from: "consumer", to: "db" }, { from: "consumer", to: "email" }],
   logs: [
@@ -71,9 +74,10 @@ export const stDeliveryStage: StageScene = {
         { type: "packet", path: ["consumer", "topic"], label: "commit 501" },
         { type: "cursor", log: "p0", id: "consumer", at: 501 },
         { type: "state", node: "consumer", light: "hot", tone: "hot", down: true },
-        { type: "pause", ms: 500 },
-        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false },
-        { type: "note", node: "consumer", text: "resumes at 501", with: true },
+        { type: "pause", ms: 300, gap: 0 },
+        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false, gap: 120 },
+        // on the topic, where the replacement reads from: a note on the consumer sits where its messages rest
+        { type: "note", node: "topic", text: "resumes at 501", with: true },
         { type: "record", log: "p0", at: 500, tone: "hot" },
         { type: "note", node: "db", text: "$20 lost", tone: "hot", with: true },
       ],
@@ -91,14 +95,14 @@ export const stDeliveryStage: StageScene = {
         { type: "cursor", log: "p0", id: "consumer", at: 500, with: true },
         { type: "record", log: "p0", at: 500, tone: "", gap: 120 },
         { type: "read", log: "p0", at: 500, to: "consumer", with: true },
-        { type: "packet", path: ["consumer", "db"], label: "credit acct 9 +$20" },
-        { type: "record", log: "rows", at: 0, text: "acct 9 $120", tone: "work" },
+        { type: "packet", path: ["consumer", "db"], label: "credit acct 9 +$20", gap: 160 },
+        { type: "record", log: "rows", at: 0, text: "acct 9 $120", tone: "work", gap: 120 },
         { type: "state", node: "consumer", light: "hot", tone: "hot", down: true },
-        { type: "pause", ms: 500 },
-        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false },
-        { type: "read", log: "p0", at: 500, to: "consumer", label: "500 again" },
-        { type: "packet", path: ["consumer", "db"], label: "credit acct 9 +$20", kind: "hot" },
-        { type: "record", log: "rows", at: 0, text: "acct 9 $140", tone: "hot" },
+        { type: "pause", ms: 300, gap: 0 },
+        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false, gap: 120 },
+        { type: "read", log: "p0", at: 500, to: "consumer", label: "500 again", with: true },
+        { type: "packet", path: ["consumer", "db"], label: "credit acct 9 +$20", kind: "hot", gap: 160 },
+        { type: "record", log: "rows", at: 0, text: "acct 9 $140", tone: "hot", gap: 120 },
         { type: "note", node: "db", text: "+$20 twice", tone: "hot", with: true },
       ],
     },
@@ -107,22 +111,22 @@ export const stDeliveryStage: StageScene = {
       short: "Idempotent",
       text: "“Exactly once” in practice is at-least-once delivery plus an effect that lands once. Replay 500: one transaction credits account 9 and inserts event ID 500 under a unique constraint. After the same crash, the repeat's insert conflicts and changes nothing: $120.",
       focus: ["topic", "consumer", "db"],
-      facts: [["Unique key", "event ID"], ["Account 9", "$120"], ["Cost", "IDs stored past any replay"]],
+      facts: [["Unique key", "event ID"], ["Account 9", "$120"], ["Cost", "IDs kept past the longest replay"]],
       metrics: { delivered: { n: 2, unit: "×" }, credited: { n: 1, unit: "×" } },
       changes: ["+ evt 500 in the credit's transaction", "~ Repeat conflicts: still $120"],
       events: [
         { type: "state", node: "consumer", detail: "credits accounts" },
         { type: "record", log: "rows", at: 0, text: "acct 9 $100", tone: "", with: true },
         { type: "read", log: "p0", at: 500, to: "consumer", with: true },
-        { type: "packet", path: ["consumer", "db"], label: "credit + evt 500" },
+        { type: "packet", path: ["consumer", "db"], label: "credit + evt 500", gap: 160 },
         // one transaction: the credit and the event ID land together
-        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "evt 500", key: "b", tone: "work" }] },
+        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "evt 500", key: "b", tone: "work" }], gap: 120 },
         { type: "state", node: "consumer", light: "hot", tone: "hot", down: true },
-        { type: "pause", ms: 500 },
-        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false },
-        { type: "read", log: "p0", at: 500, to: "consumer", label: "500 again" },
-        { type: "packet", path: ["consumer", "db"], label: "credit + evt 500" },
-        { type: "read", log: "rows", at: 2 },
+        { type: "pause", ms: 300, gap: 0 },
+        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false, gap: 120 },
+        { type: "read", log: "p0", at: 500, to: "consumer", label: "500 again", with: true },
+        { type: "packet", path: ["consumer", "db"], label: "credit + evt 500", gap: 160 },
+        { type: "read", log: "rows", at: 2, gap: 120 },
         { type: "note", node: "db", text: "evt 500 seen", tone: "work", with: true },
       ],
     },
@@ -139,14 +143,14 @@ export const stDeliveryStage: StageScene = {
         { type: "cursor", log: "p0", id: "consumer", at: 500, label: "in Postgres", with: true },
         { type: "append", log: "rows", records: [{ text: "acct 9 $100", key: "a" }, { text: "offset 500", key: "b" }], gap: 120 },
         { type: "read", log: "p0", at: 500, to: "consumer", with: true },
-        { type: "packet", path: ["consumer", "db"], label: "credit + offset 501" },
-        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "offset 501", key: "b", tone: "work" }] },
+        { type: "packet", path: ["consumer", "db"], label: "credit + offset 501", gap: 160 },
+        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "offset 501", key: "b", tone: "work" }], gap: 120 },
         { type: "state", node: "consumer", light: "hot", tone: "hot", down: true },
-        { type: "pause", ms: 500 },
-        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false },
-        { type: "packet", path: ["db", "consumer"], label: "resume at 501", kind: "response" },
-        { type: "cursor", log: "p0", id: "consumer", at: 501 },
-        { type: "note", node: "consumer", text: "resumes at 501", with: true },
+        { type: "pause", ms: 300, gap: 0 },
+        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false, gap: 120 },
+        { type: "packet", path: ["db", "consumer"], label: "resume at 501", kind: "response", with: true },
+        { type: "cursor", log: "p0", id: "consumer", at: 501, gap: 120 },
+        { type: "note", node: "topic", text: "resumes at 501", with: true },
       ],
     },
     {
@@ -158,21 +162,27 @@ export const stDeliveryStage: StageScene = {
       metrics: { delivered: { n: 2, unit: "×" }, credited: { n: 1, unit: "×" } },
       changes: ["+ Email API", "− Crash after the email, before the commit", "+ Second receipt sent"],
       events: [
-        // the topic steps aside: the offset to resume from now lives in Postgres, and the Email API takes its place
+        // the topic steps aside: the offset to resume from now lives in Postgres, and the Email API rises in its place.
+        // Started together, the Email API still waits for the topic to go, and its link is drawn once (shown first, the
+        // two parts' tags would cross and its link would draw twice).
         { type: "hide", nodes: ["topic"] },
-        { type: "show", nodes: ["email"] },
+        { type: "show", nodes: ["email"], with: true },
         { type: "state", node: "consumer", detail: "credits, emails", gap: 120 },
         { type: "append", log: "rows", records: [{ text: "acct 9 $100", key: "a" }, { text: "offset 500", key: "b" }], with: true },
-        { type: "packet", path: ["consumer", "email"], label: "receipt" },
-        { type: "state", node: "email", light: "on", readout: "1 email" },
+        { type: "packet", path: ["consumer", "email"], label: "receipt", gap: 160 },
+        { type: "state", node: "email", light: "on", readout: "1 email", gap: 120 },
         { type: "state", node: "consumer", light: "hot", tone: "hot", down: true },
-        { type: "pause", ms: 500 },
-        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false },
-        { type: "note", node: "consumer", text: "resumes at 500" },
+        { type: "pause", ms: 300, gap: 0 },
+        { type: "state", node: "consumer", detail: "replacement", light: "on", tone: "", down: false, gap: 120 },
+        // on Postgres, where the offset it resumes from now lives
+        { type: "note", node: "db", text: "resumes from 500", with: true },
+        // it redoes the same work in the same order: the receipt, then the transaction, which commits this time (the
+        // email has to go before the commit, or the first crash would have come after it). One message at a time: on a
+        // phone both links leave the consumer down one trunk.
+        { type: "packet", path: ["consumer", "email"], label: "receipt", kind: "hot", gap: 120 },
+        { type: "state", node: "email", light: "hot", tone: "hot", readout: "2 emails", gap: 120 },
         { type: "packet", path: ["consumer", "db"], label: "credit + offset 501", with: true },
-        { type: "packet", path: ["consumer", "email"], label: "receipt", kind: "hot", with: true },
-        { type: "state", node: "email", light: "hot", tone: "hot", readout: "2 emails" },
-        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "offset 501", key: "b", tone: "work" }], with: true },
+        { type: "append", log: "rows", records: [{ text: "acct 9 $120", key: "a", tone: "work" }, { text: "offset 501", key: "b", tone: "work" }], gap: 120 },
       ],
     },
   ],
