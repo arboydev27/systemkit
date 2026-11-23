@@ -25,6 +25,9 @@ const CARRY = 170;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 // Past an end, the wheel gives less the further it's pulled, and never more than STRETCH.
 const resist = (over: number) => STRETCH * (1 - 1 / (over / (STRETCH * 2) + 1));
+// The rim's ticks come from sine and cosine, whose last digits differ between the server's engine and the browser's, so
+// they're written to three decimals, far finer than a pixel on this dial, and both sides print the same text.
+const round = (value: number) => Math.round(value * 1000) / 1000;
 
 /**
  * The sections as a glass wheel that rolls in from the right edge of the screen, its hub on the edge and the sections
@@ -189,7 +192,7 @@ export function SectionWheel({ id, sections, open, onClose, label = "Sections" }
           const major = tick % 3 === 0;
           const angle = tick * 3 * Math.PI / 180;
           const inner = major ? 91.5 : 93;
-          return <line key={tick} className={major ? styles.tickMajor : undefined} x1={-Math.cos(angle) * inner} y1={Math.sin(angle) * inner} x2={-Math.cos(angle) * 96} y2={Math.sin(angle) * 96} />;
+          return <line key={tick} className={major ? styles.tickMajor : undefined} x1={round(-Math.cos(angle) * inner)} y1={round(Math.sin(angle) * inner)} x2={round(-Math.cos(angle) * 96)} y2={round(Math.sin(angle) * 96)} />;
         })}
       </svg>
       <i className={styles.lens} aria-hidden="true" />
