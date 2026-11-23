@@ -7,4 +7,5 @@ export const players: Players = {
   "cs-linearizability": dynamic(() => import("./cs-linearizability").then(played)),
   "cs-cap": dynamic(() => import("./cs-cap").then(played)),
   "cs-fencing": dynamic(() => import("./cs-fencing").then(played)),
+  "cs-raft": dynamic(() => import("./cs-raft").then(played)),
 };
