@@ -42,7 +42,7 @@ export const stBatchStreamStage: StageScene = {
     {
       title: "A batch job reads to the end and exits",
       short: "Bounded input",
-      text: "Order files holds yesterday's 6 million completed orders, and nothing more will be added: the input has a known end. At 02:00 the nightly job reads it from the first file to the last, computes seller payouts and exits after 20 minutes.",
+      text: "Order files holds yesterday’s 6 million completed orders, and nothing more will be added: the input has a known end. At 02:00 the nightly job reads it from the first file to the last, computes seller payouts and exits after 20 minutes.",
       focus: ["files", "nightly"],
       facts: [["Starts", "02:00"], ["Input", "6 million orders"], ["Runs", "20 minutes"]],
       metrics: { orders: 6000000 },
@@ -68,8 +68,8 @@ export const stBatchStreamStage: StageScene = {
     },
     {
       title: "A bad run is repaired by rerunning it",
-      short: "Rerun",
-      text: "A bug paid some sellers the wrong amounts. Fix it and rerun the nightly job over the same files: the input hasn't changed, so the new payouts replace the old. A closed day is also a complete input, which the finance ledger report needs.",
+      short: "Rerun to repair",
+      text: "A bug paid some sellers the wrong amounts. Fix it and rerun the nightly job over the same files: the input hasn’t changed, so the new payouts replace the old. A closed day is also a complete input, which the finance ledger report needs.",
       focus: ["files", "nightly"],
       facts: [["Input", "the same files"], ["Output", "replaced"]],
       changes: ["− Wrong payouts", "~ Same files read again", "+ Corrected payouts"],
@@ -168,7 +168,7 @@ export const stBatchStreamStage: StageScene = {
     },
     {
       title: "Ask what changes an hour sooner",
-      short: "Choose",
+      short: "An hour sooner",
       text: "Ask what decision changes if the number arrives an hour sooner. Try each number: payouts and the ledger gain nothing, so they stay nightly; fraud on a stolen card and a live ops dashboard labeled provisional need the stream. Many systems run both, the nightly job keeping the number of record.",
       frame: ["files", "nightly", "payments", "stream"],
       facts: [["Nightly job", "the number of record"], ["Stream job", "early, provisional"]],

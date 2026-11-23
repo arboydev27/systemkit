@@ -37,7 +37,7 @@ export const stSchemaStage: StageScene = {
     { from: "topic", to: "search" },
   ],
   logs: [
-    { id: "p3", node: "topic", label: "P3", side: "below", start: 1039, records: [{ text: "809 v1" }, { text: "811 v1" }] },
+    { id: "p3", node: "topic", label: "P3", side: "below", start: 1039, records: [{ text: "811 v1" }, { text: "809 v1" }] },
   ],
   steps: [
     {
@@ -56,12 +56,12 @@ export const stSchemaStage: StageScene = {
       ],
     },
     {
-      title: "A reader needs the writer's schema",
-      short: "Writer's schema",
-      text: "Avro writes no tags: to read 812, Billing fetches the writer's schema, v1, from the registry and matches fields by name. JSON instead repeats field names in every record and checks nothing without a validator; Protobuf writes numeric tags, and a retired tag must never be reused.",
+      title: "A reader needs the writer’s schema",
+      short: "Writer’s schema",
+      text: "Avro writes no tags: to read 812, Billing fetches the writer’s schema, v1, from the registry and matches fields by name. JSON instead repeats field names in every record and checks nothing without a validator; Protobuf writes numeric tags, and a retired tag must never be reused.",
       focus: ["topic", "search", "billing", "registry"],
       frame: ["checkout", "topic", "search", "billing", "registry"],
-      facts: [["JSON", "names in every record"], ["Protobuf", "numeric tags"], ["Avro", "the writer's schema"]],
+      facts: [["JSON", "names in every record"], ["Protobuf", "numeric tags"], ["Avro", "the writer’s schema"]],
       changes: ["+ Billing and Search read 812", "+ Billing fetches schema v1", "~ Fields matched by name"],
       events: [
         { type: "cursor", log: "p3", id: "billing", at: 1041, label: "billing" },
@@ -69,7 +69,7 @@ export const stSchemaStage: StageScene = {
         { type: "read", log: "p3", at: 1041, to: "billing" },
         { type: "read", log: "p3", at: 1041, to: "search", with: true },
         { type: "state", node: "registry", light: "work" },
-        { type: "note", node: "registry", text: "writer's schema v1", tone: "work", with: true },
+        { type: "note", node: "registry", text: "writer’s schema v1", tone: "work", with: true },
         { type: "packet", path: ["registry", "billing"], label: "v1", kind: "response", with: true },
         { type: "note", node: "billing", text: "matched by name", tone: "work" },
         { type: "cursor", log: "p3", id: "billing", at: "end", with: true },
@@ -78,8 +78,8 @@ export const stSchemaStage: StageScene = {
     },
     {
       title: "A new reader skips coupon in old records",
-      short: "Backward",
-      text: "Schema v2, without coupon, is added to the registry. Billing upgrades first while Checkout still writes v1: during a rollout old and new versions run side by side. Billing's v2 reader skips coupon in order 817 at 1042, so the change is backward compatible: new readers read old data.",
+      short: "Backward: yes",
+      text: "Schema v2, without coupon, is added to the registry. Billing upgrades first while Checkout still writes v1: during a rollout old and new versions run side by side. Billing’s v2 reader skips coupon in order 817 at 1042, so the change is backward compatible: new readers read old data.",
       facts: [["Change", "v2 drops coupon"], ["Backward", "new reads old: yes"]],
       metrics: { billing: "reads v2" },
       changes: ["+ Schema v2, no coupon", "~ Billing reads with v2", "+ 817 v1 at 1042, coupon skipped"],
@@ -97,8 +97,8 @@ export const stSchemaStage: StageScene = {
     },
     {
       title: "An old reader fails on the first new record",
-      short: "Not forward",
-      text: "Checkout ships v2 before Search upgrades, and order 819 lands at 1043 without coupon. Billing reads it. Search's v1 reader finds no value for coupon and fails: the change is not forward compatible, since old readers can't read new data.",
+      short: "Forward: no",
+      text: "Checkout ships v2 before Search upgrades, and order 819 lands at 1043 without coupon. Billing reads it. Search’s v1 reader finds no value for coupon and fails: the change is not forward compatible, since old readers can’t read new data.",
       facts: [["Forward", "old reads new: no"], ["Search", "stuck at 1043"]],
       metrics: { checkout: "writes v2" },
       changes: ["~ Checkout writes v2", "+ 819 v2 at 1043, no coupon", "− Search fails on 819"],
@@ -114,8 +114,8 @@ export const stSchemaStage: StageScene = {
     },
     {
       title: "Rolling back leaves 819 in the log",
-      short: "Rollback",
-      text: "Rolling Checkout back to v1 doesn't help. Order 822 is written with v1 at 1044, but 819 stays in the log until retention expires, and Search fails on it again at every retry, falling further behind while Billing reads on.",
+      short: "Rolling back",
+      text: "Rolling Checkout back to v1 doesn’t help. Order 822 is written with v1 at 1044, but 819 stays in the log until retention expires, and Search fails on it again at every retry, falling further behind while Billing reads on.",
       focus: ["checkout", "topic", "search", "billing"],
       frame: ["checkout", "topic", "search", "billing", "registry"],
       facts: [["819 stays", "until retention expires"]],
@@ -137,7 +137,7 @@ export const stSchemaStage: StageScene = {
       frame: ["checkout", "topic", "search", "billing", "registry"],
       facts: [["Order", "consumers, then producers"]],
       metrics: { search: "reads v2" },
-      changes: ["~ Search reads with v2", "~ 819 read, 822's coupon skipped", "~ Search caught up"],
+      changes: ["~ Search reads with v2", "~ 819 read, 822’s coupon skipped", "~ Search caught up"],
       events: [
         { type: "state", node: "search", light: "work", tone: "" },
         { type: "record", log: "p3", at: 1043, tone: "", with: true },

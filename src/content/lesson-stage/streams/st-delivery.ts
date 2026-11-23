@@ -61,7 +61,7 @@ export const stDeliveryStage: StageScene = {
     },
     {
       title: "Commit first, and a crash loses the record",
-      short: "At-most-once",
+      short: "At most once",
       text: "Replay 500, committing first: at-most-once. The consumer commits 501, then crashes before the credit. Its replacement resumes at 501, so account 9 stays at $100: the $20 is lost, never repeated. That suits high-volume telemetry, where a missing sample is harmless.",
       focus: ["topic", "consumer", "db"],
       facts: [["Order", "commit, then work"], ["Account 9", "$100, not $120"]],
@@ -84,8 +84,8 @@ export const stDeliveryStage: StageScene = {
     },
     {
       title: "Work first, and a crash repeats the record",
-      short: "At-least-once",
-      text: "Replay 500, working first: at-least-once. The consumer credits account 9, $100 → $120, and crashes before committing. Its replacement resumes at 500 and credits another $20: $140. Redelivery can't be designed away: after a crash, the sender can't tell whether the work finished.",
+      short: "At least once",
+      text: "Replay 500, working first: at-least-once. The consumer credits account 9, $100 → $120, and crashes before committing. Its replacement resumes at 500 and credits another $20: $140. Redelivery can’t be designed away: after a crash, the sender can’t tell whether the work finished.",
       focus: ["topic", "consumer", "db"],
       facts: [["Order", "work, then commit"], ["Should be", "$120"], ["Is", "$140"]],
       metrics: { delivered: { n: 2, unit: "×" }, credited: { n: 2, unit: "×", tone: "hot" } },
@@ -108,12 +108,12 @@ export const stDeliveryStage: StageScene = {
     },
     {
       title: "An event ID makes the repeat change nothing",
-      short: "Idempotent",
-      text: "“Exactly once” in practice is at-least-once delivery plus an effect that lands once. Replay 500: one transaction credits account 9 and inserts event ID 500 under a unique constraint. After the same crash, the repeat's insert conflicts and changes nothing: $120.",
+      short: "Idempotent fix",
+      text: "“Exactly once” in practice is at-least-once delivery plus an effect that lands once. Replay 500: one transaction credits account 9 and inserts event ID 500 under a unique constraint. After the same crash, the repeat’s insert conflicts and changes nothing: $120.",
       focus: ["topic", "consumer", "db"],
       facts: [["Unique key", "event ID"], ["Account 9", "$120"], ["Cost", "IDs kept past the longest replay"]],
       metrics: { delivered: { n: 2, unit: "×" }, credited: { n: 1, unit: "×" } },
-      changes: ["+ evt 500 in the credit's transaction", "~ Repeat conflicts: still $120"],
+      changes: ["+ evt 500 in the credit’s transaction", "~ Repeat conflicts: still $120"],
       events: [
         { type: "state", node: "consumer", detail: "credits accounts" },
         { type: "record", log: "rows", at: 0, text: "acct 9 $100", tone: "", with: true },
@@ -132,7 +132,7 @@ export const stDeliveryStage: StageScene = {
     },
     {
       title: "Commit the offset with the credit",
-      short: "Transactional",
+      short: "Transactional fix",
       text: "Or make the effect transactional: keep the offset in Postgres. Replay 500: one transaction writes $120 and offset 501, so a crash leaves both or neither; here the replacement reads 501 and moves on. Kafka transactions do the same when output and offsets both live in Kafka.",
       focus: ["topic", "consumer", "db"],
       facts: [["One transaction", "credit + offset"], ["Resume from", "501, in Postgres"]],
@@ -156,7 +156,7 @@ export const stDeliveryStage: StageScene = {
     {
       title: "An outside API still sends twice",
       short: "Outside call",
-      text: "Neither fix reaches a third-party Email API. Replay 500: the consumer sends account 9's receipt, then crashes before its transaction commits. The replacement resumes from offset 500 in Postgres and redoes both: one credit, but a second email. Use the provider's own idempotency support, or accept the risk.",
+      text: "Neither fix reaches a third-party Email API. Replay 500: the consumer sends account 9’s receipt, then crashes before its transaction commits. The replacement resumes from offset 500 in Postgres and redoes both: one credit, but a second email. Use the provider’s own idempotency support, or accept the risk.",
       focus: ["consumer", "db", "email"],
       facts: [["Account 9", "$120, credited once"], ["Emails sent", "2"]],
       metrics: { delivered: { n: 2, unit: "×" }, credited: { n: 1, unit: "×" } },

@@ -1,12 +1,12 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
 // Lesson "Treat the log as the backbone": an orders topic split into 6 partitions keyed by order ID. Order 812's events
-// land in partition 3 at offsets 1041-1043, a billing group gives each partition one consumer, a search-indexing group
+// land in partition 3 at offsets 1041–1043, a billing group gives each partition one consumer, a search-indexing group
 // reads the same records at its own offsets, order holds within a partition only, and a replacement consumer resumes
 // from the last committed offset, so uncommitted work runs again.
 export const stLogStage: StageScene = {
   id: "st-log",
-  intro: "Follow order 812's events into one partition of an orders topic, then watch two consumer groups read them at their own pace.",
+  intro: "Follow order 812’s events into one partition of an orders topic, then watch two consumer groups read them at their own pace.",
   metrics: [
     { id: "billing", label: "Billing lag", derive: { lag: ["p3", "billing"] } },
     { id: "search", label: "Search lag", derive: { lag: ["p3", "search"] } },
@@ -32,8 +32,8 @@ export const stLogStage: StageScene = {
   steps: [
     {
       title: "A record joins the end of its partition",
-      short: "Append",
-      text: "Checkout publishes order 812's first event, keyed by order ID. The key's hash picks partition 3, and the record lands at its end with the next offset, 1041. Nothing before it moves.",
+      short: "Append a record",
+      text: "Checkout publishes order 812’s first event, keyed by order ID. The key’s hash picks partition 3, and the record lands at its end with the next offset, 1041. Nothing before it moves.",
       focus: ["checkout", "topic"],
       facts: [["Partitions", "6"], ["Key", "order ID"], ["Offset", "1041"]],
       changes: ["+ 812 new at partition 3, offset 1041", "~ Key 812 hashes to partition 3"],
@@ -46,7 +46,7 @@ export const stLogStage: StageScene = {
     {
       title: "One key stays in one partition",
       short: "Same key",
-      text: "Order 812 is paid, then shipped. The same key hashes to the same partition, so those events land in order at 1042 and 1043. Order 813 hashes to partition 1 and gets that partition's next offset.",
+      text: "Order 812 is paid, then shipped. The same key hashes to the same partition, so those events land in order at 1042 and 1043. Order 813 hashes to partition 1 and gets that partition’s next offset.",
       focus: ["checkout", "topic"],
       changes: ["+ 812 paid at 1042, 812 sent at 1043", "+ 813 new at partition 1, offset 1105", "~ Each partition counts its own offsets"],
       events: [
@@ -58,7 +58,7 @@ export const stLogStage: StageScene = {
     {
       title: "A group gives each partition one reader",
       short: "Consumer group",
-      text: "A billing group of 6 consumers takes one partition each; a seventh would sit idle. Billing's consumer for partition 3 reads 1041 and commits, so its offset moves on to 1042. The record stays in the log.",
+      text: "A billing group of 6 consumers takes one partition each; a seventh would sit idle. Billing’s consumer for partition 3 reads 1041 and commits, so its offset moves on to 1042. The record stays in the log.",
       focus: ["topic", "billing"],
       facts: [["Consumers", "6, one per partition"], ["A seventh", "idle"]],
       changes: ["+ Billing group, a consumer on each partition", "+ Billing commits offset 1042", "~ 1041 stays in the log"],
@@ -79,7 +79,7 @@ export const stLogStage: StageScene = {
     {
       title: "Another group keeps its own offset",
       short: "Second group",
-      text: "A search-indexing group reads the same records with its own committed offset. It indexes 1041 and 1042 while billing's position stays where it was: reading a log takes nothing out of it.",
+      text: "A search-indexing group reads the same records with its own committed offset. It indexes 1041 and 1042 while Billing’s position stays where it was: reading a log takes nothing out of it.",
       focus: ["topic", "search"],
       changes: ["+ Search indexer, its own group", "+ Search commits offset 1043", "~ Billing still at 1042"],
       events: [
@@ -93,8 +93,8 @@ export const stLogStage: StageScene = {
     },
     {
       title: "Order holds within a partition only",
-      short: "Ordering",
-      text: "Billing reads partition 3 in order, so 812 is paid before it ships. Partition 1 has its own consumer, and 813's event can be read before or after 812's. Choose the key whose events must stay in order.",
+      short: "Partition order",
+      text: "Billing reads partition 3 in order, so 812 is paid before it ships. Partition 1 has its own consumer, and 813’s event can be read before or after 812’s. Choose the key whose events must stay in order.",
       focus: ["topic", "billing"],
       changes: ["~ 812 paid before 812 sent", "~ 813 and 812 can interleave"],
       events: [
@@ -108,8 +108,8 @@ export const stLogStage: StageScene = {
     },
     {
       title: "A replacement resumes from the commit",
-      short: "Crash",
-      text: "Billing's consumer reads 1043 and records the shipment, then crashes before committing. Its replacement starts from the last committed offset, 1043, so that work runs again before it commits 1044. Its effect must tolerate a repeat.",
+      short: "Crash and resume",
+      text: "Billing’s consumer reads 1043 and records the shipment, then crashes before committing. Its replacement starts from the last committed offset, 1043, so that work runs again before it commits 1044. Its effect must tolerate a repeat.",
       focus: ["topic", "billing"],
       changes: ["− Consumer crashes before its commit", "+ Replacement starts at 1043, then commits 1044", "~ 812 sent is processed twice"],
       events: [

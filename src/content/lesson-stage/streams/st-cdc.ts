@@ -4,13 +4,13 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // after a crash; CDC instead follows Postgres's WAL, where UPDATE products SET price = 19 WHERE id = 7 sits at 882. A
 // connector publishes it keyed by 7 to partition 2 of a change topic (offset 311), the search indexer upserts doc 7 and
 // a cache consumer deletes product:7; a delete follows the same path in order, and search lags a record behind; then
-// the costs: a snapshot for a new consumer, a stalled slot keeping 3 unread records (884-886) until the disk fills, and
+// the costs: a snapshot for a new consumer, a stalled slot keeping 3 unread records (884–886) until the disk fills, and
 // events that mirror columns, answered by an outbox row committed with its change (887 and 888). The lesson's outbox
 // example is OrderPlaced; this products story names its own designed event, PriceChanged, so the other team, which
 // reads product changes, gets a product event.
 export const stCdcStage: StageScene = {
   id: "st-cdc",
-  intro: "Watch one price change reach a search index and a cache, first by writing every copy, then by following Postgres's own log.",
+  intro: "Watch one price change reach a search index and a cache, first by writing every copy, then by following Postgres’s own log.",
   metrics: [
     { id: "writes", label: "App writes" },
     { id: "slot", label: "Slot lag", derive: { lag: ["wal", "connector"] } },
@@ -53,7 +53,7 @@ export const stCdcStage: StageScene = {
     {
       title: "Two writes, and a crash between them",
       short: "Dual writes",
-      text: "The app writes every copy itself. It commits price 19 for product 7 to Postgres, then crashes before updating the search index and the cache, which still say 24. Concurrent updates can also reach each copy in a different order.",
+      text: "The App writes every copy itself. It commits price 19 for product 7 to Postgres, then crashes before updating the search index and the cache, which still say 24. Concurrent updates can also reach each copy in a different order.",
       facts: [["Postgres", "price 19"], ["Search, cache", "price 24"]],
       metrics: { writes: { n: 3, unit: " per change" } },
       changes: ["~ Postgres: product 7 at 19", "− App crashes before the next write", "~ Search and cache still at 24"],
@@ -66,11 +66,11 @@ export const stCdcStage: StageScene = {
       ],
     },
     {
-      title: "A connector follows the database's log",
+      title: "A connector follows the database’s log",
       short: "Follow the WAL",
-      text: "CDC reads the log Postgres already writes for replication, its write-ahead log (WAL). A connector such as Debezium reads the committed update at 882 and publishes it to a Kafka topic as an event keyed by primary key 7. The app writes only to Postgres.",
+      text: "CDC reads the log Postgres already writes for replication, its write-ahead log (WAL). A connector such as Debezium reads the committed update at 882 and publishes it to a Kafka topic as an event keyed by primary key 7. The App writes only to Postgres.",
       focus: ["db", "connector", "topic"],
-      facts: [["Log", "WAL; MySQL's binlog"], ["Event key", "primary key 7"]],
+      facts: [["Log", "WAL; MySQL’s binlog"], ["Event key", "primary key 7"]],
       metrics: { writes: { n: 1, unit: " per change" } },
       changes: ["+ Connector reads WAL 882", "+ Key 7 at partition 2, offset 311", "~ App writes Postgres only"],
       events: [
@@ -78,8 +78,9 @@ export const stCdcStage: StageScene = {
         { type: "state", node: "app", light: "idle", tone: "", down: false, with: true },
         { type: "state", nodes: ["search", "cache"], light: "idle", tone: "", with: true },
         { type: "read", log: "wal", at: 882, to: "connector" },
-        { type: "cursor", log: "wal", id: "connector", at: "end", label: "slot" },
-        { type: "state", node: "topic", opts: { mark: 2 }, with: true },
+        // in a group, a part's change goes before the log events: a part change started after one cuts its motion short
+        { type: "state", node: "topic", opts: { mark: 2 } },
+        { type: "cursor", log: "wal", id: "connector", at: "end", label: "slot", with: true },
         { type: "append", log: "p2", records: [{ text: "7 at 19", key: "7" }], with: true },
         { type: "bracket", log: "p2", id: "key", from: 311, to: 311, label: "hash(7) → P2", with: true },
       ],
@@ -87,7 +88,7 @@ export const stCdcStage: StageScene = {
     {
       title: "Each copy applies the change",
       short: "Copies follow",
-      text: "The search indexer reads the event and upserts document 7 at price 19. A cache consumer deletes the key product:7, so the next read misses and loads 19 from Postgres. Every copy now agrees, and the app wrote once.",
+      text: "The search indexer reads the event and upserts document 7 at price 19. A cache consumer deletes the key product:7, so the next read misses and loads 19 from Postgres. Every copy now agrees, and the App wrote once.",
       focus: ["topic", "search", "cache"],
       changes: ["~ Search: doc 7 at 19", "− product:7 deleted from the cache", "~ Every copy agrees with Postgres"],
       events: [
@@ -108,7 +109,7 @@ export const stCdcStage: StageScene = {
       text: "Product 7 is deleted, a change that polling the table would miss. The delete commits at WAL 883 and takes the same path: keyed by 7, it lands in partition 2 at offset 312, right after the update, so no consumer can apply the two out of order.",
       focus: ["db", "connector", "topic"],
       facts: [["Partition 2", "update, then delete"], ["Polling the table", "misses hard deletes"]],
-      changes: ["+ 7 deleted at WAL 883", "+ 7 deleted at partition 2, offset 312", "~ Right after 7's update"],
+      changes: ["+ 7 deleted at WAL 883", "+ 7 deleted at partition 2, offset 312", "~ Right after 7’s update"],
       events: [
         { type: "state", nodes: ["search", "cache"], light: "idle" },
         { type: "append", log: "wal", records: [{ text: "7 del", tomb: true }] },
@@ -121,28 +122,28 @@ export const stCdcStage: StageScene = {
     {
       title: "The copies lag behind the database",
       short: "Copies lag",
-      text: "The cache consumer reads offset 312 and deletes product:7 at once. The search indexer hasn't reached it, so search still lists product 7. Every copy trails Postgres by however long this pipeline takes.",
+      text: "The cache consumer reads offset 312 and deletes product:7 at once. The search indexer hasn’t reached it, so search still lists product 7. Every copy trails Postgres by however long this pipeline takes.",
       focus: ["topic", "search", "cache"],
       facts: [["Cache", "product:7 deleted"], ["Search", "1 record behind"]],
       changes: ["− product:7 deleted from the cache", "~ Search still lists product 7"],
       events: [
         { type: "bracket", log: "p2", id: "key", remove: true },
         { type: "read", log: "p2", at: 312, with: true },
-        { type: "cursor", log: "p2", id: "cache", at: "end" },
-        { type: "state", node: "cache", light: "work", with: true },
+        { type: "state", node: "cache", light: "work" },
+        { type: "cursor", log: "p2", id: "cache", at: "end", with: true },
         { type: "note", node: "cache", text: "product:7 deleted", tone: "work", with: true },
         { type: "note", node: "search", text: "still lists 7" },
       ],
     },
     {
       title: "A new consumer starts from a snapshot",
-      short: "Snapshot",
-      text: "Another team's service starts reading product changes. The WAL holds only recent changes, not every product, so the connector first snapshots the table, every row through the topic, and the team then follows the log from there. Search has caught up.",
+      short: "Snapshot first",
+      text: "Another team’s service starts reading product changes. The WAL holds only recent changes, not every product, so the connector first snapshots the table, every row through the topic, and the team then follows the log from there. Search has caught up.",
       focus: ["db", "connector", "topic", "other"],
       changes: ["+ Other team, a new consumer", "+ Snapshot of every product", "~ Search caught up: doc 7 removed"],
       events: [
-        { type: "cursor", log: "p2", id: "search", at: "end" },
-        { type: "state", node: "search", readout: "", with: true },
+        { type: "state", node: "search", readout: "" },
+        { type: "cursor", log: "p2", id: "search", at: "end", with: true },
         { type: "show", nodes: ["other"], at: { connector: [1, 0.38], topic: [2, 1.38] } },
         { type: "bracket", log: "wal", id: "kept", from: 880, to: 883, label: "recent changes", with: true },
         { type: "packet", path: ["db", "connector", "topic"], label: "every row", kind: "work" },
@@ -161,24 +162,24 @@ export const stCdcStage: StageScene = {
         { type: "state", node: "connector", light: "hot", tone: "hot", down: true },
         { type: "append", log: "wal", from: "app", records: [{ text: "2 at 28" }] },
         { type: "append", log: "wal", from: "app", records: [{ text: "5 at 11" }], gap: 120 },
-        { type: "append", log: "wal", from: "app", records: [{ text: "3 at 40" }], gap: 120 },
-        { type: "state", node: "db", light: "hot", tone: "hot", with: true },
+        { type: "state", node: "db", light: "hot", tone: "hot", gap: 120 },
+        { type: "append", log: "wal", from: "app", records: [{ text: "3 at 40" }], with: true },
         { type: "bracket", log: "wal", id: "slot", from: 884, to: 886, label: "unread, kept", tone: "hot", with: true },
         { type: "note", node: "db", text: "disk filling", tone: "hot", with: true },
       ],
     },
     {
       title: "Give other teams a designed event",
-      short: "Outbox",
-      text: "CDC events mirror table columns, so renaming one breaks the other team. For events others rely on, the app writes a designed event, PriceChanged, to an outbox table in the same transaction as its change (WAL 887 and 888), and the connector relays it. An outbox needs code in every writer; CDC also captures scripts.",
+      short: "Outbox for others",
+      text: "CDC events mirror table columns, so renaming one breaks the other team. For events others rely on, the App writes a designed event, PriceChanged, to an outbox table in the same transaction as its change (WAL 887 and 888), and the connector relays it. An outbox needs code in every writer; CDC also captures scripts.",
       focus: ["db", "connector", "topic", "other"],
       facts: [["CDC", "copies you own"], ["Outbox", "events others rely on"]],
       changes: ["~ Connector back, slot read", "+ Product 9 at 16 and outbox 9, one transaction", "~ Other team reads PriceChanged, not columns"],
       events: [
         { type: "state", node: "connector", light: "idle", tone: "", down: false },
+        { type: "state", node: "db", light: "idle", tone: "", with: true },
         { type: "cursor", log: "wal", id: "connector", at: "end", with: true },
         { type: "bracket", log: "wal", id: "slot", remove: true, with: true },
-        { type: "state", node: "db", light: "idle", tone: "", with: true },
         { type: "append", log: "wal", records: [{ text: "9 at 16" }, { text: "outbox 9" }] },
         { type: "bracket", log: "wal", id: "txn", from: 887, to: 888, label: "1 transaction", with: true },
         { type: "read", log: "wal", at: 888 },
