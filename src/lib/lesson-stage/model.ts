@@ -106,7 +106,10 @@ export function stepEvents(scene: StageScene, index: number, choices: Choices = 
   // A part with `appear` arrives at the start of its step unless the step shows it itself.
   const shownHere = new Set(step.events.flatMap((e) => (e.type === "show" ? e.nodes : [])));
   const arriving = scene.nodes.filter((n) => n.appear === index && !shownHere.has(n.id)).map((n) => n.id);
-  return [...(arriving.length ? [{ type: "show" as const, nodes: arriving }] : []), ...step.events, ...control];
+  // So does a log with `appear` (as an empty append), unless the step writes into it, which shows it as it does.
+  const written = new Set(step.events.flatMap((e) => (e.type === "append" || e.type === "compact" ? [e.log] : e.type === "flush" ? [e.to] : [])));
+  const logs = (scene.logs ?? []).filter((l) => l.appear === index && !written.has(l.id)).map((l) => ({ type: "append" as const, log: l.id, records: [] }));
+  return [...(arriving.length ? [{ type: "show" as const, nodes: arriving }] : []), ...logs, ...step.events, ...control];
 }
 
 /** The stage as it stands when step `index` begins (0 is the start, `steps.length` the end). */
