@@ -734,7 +734,8 @@ export const logFigure: FigureFactory = (ctx) => {
       if (e.from && log) await ctx.message([e.from, log.node], appendLabel(e), "request", tk);
       const entering = reconcile(after);
       await run(msFor(entering), tk, false);
-      if (log) ctx.bob(log.node);
+      // an empty append is a log arriving (its `appear`): it shows without its part acknowledging a write
+      if (log && e.records.length) ctx.bob(log.node);
       return;
     }
     if (e.type === "read") {
