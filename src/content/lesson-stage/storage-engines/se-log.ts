@@ -25,7 +25,7 @@ export const seLogStage: StageScene = {
   steps: [
     {
       title: "Every write goes on the end",
-      short: "Append",
+      short: "Append a record",
       text: "The App writes parcel 8841 as packed. The record goes on the end of the log file at offset 0, a sequential write, the cheapest kind on most storage. The hash index notes that 8841 lives at offset 0, so a read needn’t scan the file.",
       facts: [["Record", "8841 packed"], ["Offset", "0"]],
       changes: ["+ 8841 packed at offset 0", "+ Index: 8841 → 0"],
@@ -38,7 +38,7 @@ export const seLogStage: StageScene = {
     },
     {
       title: "An update is a newer record",
-      short: "Update",
+      short: "Newer record",
       text: "Parcel 8841 ships. Nothing in the file is edited: the update is a newer record at offset 4096, and 8841 packed stays where it was, now stale. The index moves 8841 to 4096, its newest version.",
       facts: [["Offset", "4096"], ["Index", "8841 → 4096"]],
       changes: ["+ 8841 shipped at offset 4096", "~ Index: 8841 → 4096", "~ 8841 packed is stale"],
@@ -52,7 +52,7 @@ export const seLogStage: StageScene = {
     },
     {
       title: "A read is one lookup and one disk read",
-      short: "Read",
+      short: "Point read",
       text: "To read 8841, the App asks the hash index, which answers 4096 from memory, and one disk read at that offset returns 8841 shipped. Riak’s Bitcask works this way. A hash map has no order, though, so a range of parcels means scanning the file.",
       facts: [["Point read", "1 lookup, 1 disk read"], ["Range read", "scan the file"]],
       changes: ["~ Lookup: 8841 → 4096", "~ 1 disk read at offset 4096"],
@@ -67,7 +67,7 @@ export const seLogStage: StageScene = {
     },
     {
       title: "Every key lives in memory",
-      short: "Restart",
+      short: "Rebuild on restart",
       text: "The hash index holds every key in memory, so all the keys must fit, and a restart empties it. The App rebuilds the map by reading the whole file from the start: 8841 maps to 0, then to 4096, as the later record wins.",
       facts: [["In memory", "every key"], ["After a restart", "read the whole file"]],
       changes: ["− Map emptied by a restart", "+ Rebuilt by reading the file", "~ 8841 → 4096 again"],
@@ -88,7 +88,7 @@ export const seLogStage: StageScene = {
     },
     {
       title: "Compaction drops old versions",
-      short: "Compact",
+      short: "Compact the log",
       text: "Every update leaves its old version behind, so the file only grows, and the rebuild read 8841 packed for nothing. A background job rewrites the log keeping each key’s newest record: 8841 packed goes, one record per key remains.",
       focus: ["disk"],
       frame: ["app", "disk", "index"],

@@ -125,15 +125,15 @@ export const seChooseStage: StageScene = {
     },
     {
       title: "Reads lean the other way",
-      short: "Reads",
+      short: "Read cost",
       text: "A B-tree lookup follows one path, root to leaf. An LSM lookup checks files newest first until it finds the key, here in the third. Bloom filters narrow that gap for point reads, not for range scans, which merge every level.",
       facts: [["B-tree", "one path"], ["LSM tree", "several files"], ["Bloom filters", "point reads only"]],
       changes: ["+ One lookup on each engine", "~ B-tree reads 1 path, LSM tree 3 files"],
       events: [
         { type: "state", nodes: ["btree", "lsm", "bdisk", "ldisk"], light: "idle", readout: "" },
         { type: "state", node: "btree", opts: { mark: undefined }, with: true },
-        { type: "packet", path: ["app", "btree"], label: "get key" },
-        { type: "packet", path: ["app", "lsm"], label: "get key", with: true },
+        { type: "packet", path: ["app", "btree"], label: "GET key" },
+        { type: "packet", path: ["app", "lsm"], label: "GET key", with: true },
         { type: "state", nodes: ["btree", "lsm"], light: "on" },
         { type: "packet", path: ["btree", "bdisk"], label: "root → leaf" },
         { type: "packet", path: ["lsm", "ldisk"], label: "file 1", with: true },
@@ -148,7 +148,7 @@ export const seChooseStage: StageScene = {
     },
     {
       title: "Part-full pages cost the B-tree space",
-      short: "Space",
+      short: "Space cost",
       text: "Space amplification is bytes on disk per byte of live data. Randomly filled B-tree pages are often about two-thirds full, so the B-tree takes near 1.5 times its live data. This LSM tree can run near 1.1 times.",
       focus: ["btree", "lsm", "bdisk", "ldisk"],
       frame: ["app", "btree", "lsm", "bdisk", "ldisk"],
@@ -165,7 +165,7 @@ export const seChooseStage: StageScene = {
     },
     {
       title: "Start from the workload, then benchmark",
-      short: "Choose",
+      short: "How to choose",
       text: "No engine wins all three. At 100 B rows the LSM tree writes about 40× to the B-tree’s 160×; key-order inserts help a B-tree, filling each page before it flushes. Favor an LSM tree for write-heavy small records and a B-tree for read-heavy range queries, then benchmark with real data.",
       facts: [["Many small writes", "LSM tree"], ["Many range reads", "B-tree"], ["Then", "benchmark"]],
       metrics: { row: "100 B", bt: { n: 160, unit: "×" }, lsm: { n: 40, unit: "×" } },

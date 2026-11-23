@@ -30,11 +30,11 @@ export const seBtreeStage: StageScene = {
     { from: "pool", to: "tree" },
     { from: "pool", to: "wal" },
   ],
-  logs: [{ id: "wal", node: "wal", side: "below", appear: 2 }],
+  logs: [{ id: "wal", node: "wal", label: "WAL", side: "below", appear: 2 }],
   steps: [
     {
       title: "Wide pages keep the tree shallow",
-      short: "Pages",
+      short: "Wide pages",
       text: "Postgres and InnoDB keep data in B-trees of fixed-size pages, 8 KB and 16 KB by default. Each page holds sorted keys and references to child pages; leaves hold the rows or pointers to them. At an example 400 entries a page, three levels reach 64 million entries, four 25.6 billion.",
       facts: [["Page size", "8 KB or 16 KB"], ["3 levels", "64 million entries"], ["4 levels", "25.6 billion"]],
       changes: ["+ Root, inner and leaf pages", "~ 400 entries a page"],
@@ -45,7 +45,7 @@ export const seBtreeStage: StageScene = {
     },
     {
       title: "A lookup walks one path, root to leaf",
-      short: "Lookup",
+      short: "Root to leaf",
       text: "The App reads parcel 8841. The engine walks from the root to the one leaf whose key range holds 8841. The root and inner pages are already in the buffer pool, so only the leaf costs a disk read: one read, sometimes two. Each key has one home, so reads are predictable.",
       facts: [["In memory", "root and inner pages"], ["Disk reads", "1, sometimes 2"]],
       changes: ["+ App and buffer pool", "~ 1 disk read, for the leaf"],
@@ -63,7 +63,7 @@ export const seBtreeStage: StageScene = {
     },
     {
       title: "A change dirties its page and is logged",
-      short: "Update",
+      short: "Dirty and logged",
       text: "Parcel 8841 ships. Its leaf page changes in the buffer pool and is now dirty, to be written back in place later. That is risky, so the change first goes in the write-ahead log, past the last checkpoint’s mark, synced at commit: the commit is safe though the page is only in memory.",
       facts: [["Logged", "8841 shipped"], ["Dirty", "8841’s leaf page"]],
       changes: ["~ 8841’s leaf page dirty in memory", "+ 8841 shipped in the log, synced", "~ 1 record past the last checkpoint"],
@@ -81,7 +81,7 @@ export const seBtreeStage: StageScene = {
     },
     {
       title: "A full page splits in two",
-      short: "Split",
+      short: "Page split",
       text: "Parcel 8850 belongs in 8841’s leaf, which is full, so the leaf splits in two and the parent gains a key for the new page; a full parent would split too. The split and 8850 are logged, and 3 pages are now dirty: two leaves and the parent.",
       facts: [["Leaf", "1 page → 2"], ["Parent", "gains a key"], ["Dirty pages", "3"]],
       changes: ["+ A new leaf page, in memory", "~ Parent gains a key", "+ Leaf split, 8850 new in the log"],
@@ -96,7 +96,7 @@ export const seBtreeStage: StageScene = {
     },
     {
       title: "A checkpoint writes dirty pages in place",
-      short: "Checkpoint",
+      short: "Take a checkpoint",
       text: "A checkpoint writes the 3 dirty pages to disk, each in its fixed place, and moves its mark to the log’s end. After a crash, recovery replays only the log past the mark: nothing now.",
       facts: [["Written", "3 pages, in place"], ["Replay from", "the checkpoint"]],
       changes: ["~ 3 pages written back in place", "~ Checkpoint moved to the log’s end", "− Dirty pages"],
@@ -142,7 +142,7 @@ export const seBtreeStage: StageScene = {
     },
     {
       title: "Recovery replays the log from the checkpoint",
-      short: "Recover",
+      short: "Replay the log",
       text: "On restart the engine replays only the 2 records past the checkpoint: the copy rebuilds 1203’s page in the buffer pool, 1203 packed is redone on it, and the page goes back whole. So a small change costs a log record and, eventually, a whole page write.",
       facts: [["Replayed", "2 records"], ["Skipped", "3, before the mark"]],
       changes: ["+ 1203’s page rebuilt from the copy", "~ 1203 packed redone", "~ Page written back whole"],

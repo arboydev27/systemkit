@@ -19,7 +19,7 @@ export const seLsmStage: StageScene = {
   // On a phone the App and the WAL share the first row, the memtable, filters and files the second.
   nodes: [
     { id: "app", role: "web", label: "App", detail: "parcel tracking", at: [0, -1.3] },
-    { id: "wal", role: "logfile", label: "Write-ahead log", detail: "on disk", at: [-0.1, 0.4], opts: { items: 0 } },
+    { id: "wal", role: "disk", label: "Write-ahead log", detail: "on disk", at: [-0.1, 0.4] },
     { id: "mem", role: "memtable", label: "Memtable", detail: "in memory", at: [1, -1.5], opts: { level: 0 } },
     { id: "bloom", role: "bloom", label: "Bloom filters", detail: "one per file", at: [1, -0.4], appear: 5 },
     { id: "sst", role: "sstable", label: "Sorted files", detail: "immutable, on disk", at: [1, -0.1], opts: { count: 1 } },
@@ -45,32 +45,30 @@ export const seLsmStage: StageScene = {
   steps: [
     {
       title: "Each write goes to the log, then memory",
-      short: "Write",
+      short: "Log, then memory",
       text: "An LSM tree never edits a file, since inserting into the middle of a sorted one is expensive. The App writes parcel 8841 as sent: it goes on the end of the write-ahead log at offset 0, so a crash can’t lose it, then into the memtable, a sorted table in memory.",
       focus: ["app", "wal", "mem"],
       frame: ["app", "wal", "mem", "sst"],
       facts: [["Record", "8841 sent"], ["WAL offset", "0"]],
-      changes: ["+ 8841 sent at WAL offset 0", "+ 8841 sent in the memtable", "~ File 1 unchanged"],
+      changes: ["+ 8841 sent at WAL offset 0", "+ 8841 sent in the memtable"],
       metrics: { files: 1 },
       events: [
-        // a part's own change goes first in a group: a log event started with others would lose theirs
-        { type: "state", node: "wal", opts: { items: 1 } },
-        { type: "append", log: "wal", from: "app", records: [{ text: "8841 sent", key: "8841" }], with: true },
+        { type: "append", log: "wal", from: "app", records: [{ text: "8841 sent", key: "8841" }] },
+        // the memtable fills as its record lands
         { type: "state", node: "mem", opts: { level: 0.3 } },
         { type: "append", log: "mem", from: "app", records: [{ text: "8841 sent", key: "8841" }], with: true },
       ],
     },
     {
       title: "The memtable keeps keys in order",
-      short: "Sorted",
+      short: "Sorted memtable",
       text: "Parcel 1203 is sent next. The WAL appends it at offset 1, after 8841, in arrival order. The memtable files it by key, ahead of 8841, so it can be written out already sorted. File 1’s older 1203 new isn’t touched.",
       focus: ["app", "wal", "mem"],
       frame: ["app", "wal", "mem", "sst"],
       facts: [["WAL", "8841, 1203"], ["Memtable", "1203, 8841"]],
       changes: ["+ 1203 sent at WAL offset 1", "~ Memtable order: 1203, 8841"],
       events: [
-        { type: "state", node: "wal", opts: { items: 2 } },
-        { type: "append", log: "wal", from: "app", records: [{ text: "1203 sent", key: "1203" }], with: true },
+        { type: "append", log: "wal", from: "app", records: [{ text: "1203 sent", key: "1203" }] },
         { type: "note", node: "mem", text: "sorted by key", tone: "work" },
         { type: "state", node: "mem", opts: { level: 0.6 }, with: true },
         { type: "append", log: "mem", from: "app", records: [{ text: "1203 sent", key: "1203" }], with: true },
@@ -78,7 +76,7 @@ export const seLsmStage: StageScene = {
     },
     {
       title: "A full memtable becomes a sorted file",
-      short: "Flush",
+      short: "Flush to a file",
       text: "At a set size, 64 MB here, the engine writes the memtable out as File 2, a sorted file it never edits, and starts an empty memtable. File 2 now holds what WAL offsets 0 and 1 covered, so that part of the log is discarded.",
       focus: ["wal", "mem", "sst"],
       facts: [["Flush at", "64 MB"], ["File 2", "1203, 8841"]],
@@ -94,13 +92,12 @@ export const seLsmStage: StageScene = {
         { type: "note", node: "wal", text: "covered by File 2" },
         { type: "record", log: "wal", at: 0, tomb: true, with: true },
         { type: "record", log: "wal", at: 1, tomb: true, gap: 0 },
-        { type: "state", node: "wal", opts: { items: 0 }, gap: 0 },
-        { type: "compact", log: "wal", with: true },
+        { type: "compact", log: "wal", gap: 0 },
       ],
     },
     {
       title: "A read stops at the first match",
-      short: "Read",
+      short: "First match wins",
       text: "A read of 1203 checks the memtable, now empty, then the files from newest to oldest. File 2 holds 1203 sent, so the read stops there: File 1’s older 1203 new is never read.",
       focus: ["app", "mem", "sst"],
       frame: ["app", "wal", "mem", "sst"],
@@ -118,14 +115,13 @@ export const seLsmStage: StageScene = {
     },
     {
       title: "A delete writes a tombstone",
-      short: "Delete",
+      short: "Write a tombstone",
       text: "Deleting 4410 edits no file: a tombstone goes into the WAL at offset 2 and into the memtable. A read of 4410 meets the tombstone first and answers not found. File 1 still holds 4410 new, now hidden.",
       focus: ["app", "wal", "mem", "sst"],
       changes: ["+ Tombstone for 4410 at WAL offset 2", "~ 4410 reads as not found", "~ File 1’s 4410 new hidden"],
       metrics: { reads: 0 },
       events: [
-        { type: "state", node: "wal", opts: { items: 1 } },
-        { type: "append", log: "wal", from: "app", records: [{ text: "4410 del", key: "4410", tomb: true }], with: true },
+        { type: "append", log: "wal", from: "app", records: [{ text: "4410 del", key: "4410", tomb: true }] },
         { type: "state", node: "mem", opts: { level: 0.3 } },
         { type: "append", log: "mem", from: "app", records: [{ text: "4410 del", key: "4410", tomb: true }], with: true },
         { type: "read", log: "mem", at: 2 },
@@ -151,7 +147,7 @@ export const seLsmStage: StageScene = {
     },
     {
       title: "Compaction merges files",
-      short: "Compaction",
+      short: "Merge the files",
       text: "The memtable flushes again as File 3, holding the tombstone. Compaction merges Files 1 to 3 into one, keeping each key’s newest record. 1203 new is overwritten, so it goes; the tombstone hides 4410 new, and with no older file beneath them, both go.",
       focus: ["mem", "sst"],
       frame: ["app", "wal", "mem", "bloom", "sst"],
@@ -164,16 +160,15 @@ export const seLsmStage: StageScene = {
         { type: "state", node: "mem", opts: { level: 0 }, with: true },
         { type: "flush", from: "mem", to: "f3", with: true },
         // the WAL's tombstone is covered by File 3 now, and compacting the WAL drops it
-        { type: "state", node: "wal", opts: { items: 0 }, gap: 160 },
-        { type: "compact", log: "wal", with: true },
-        // a log's own appear doesn't bring it on, nor does a compaction into it: an empty flush shows the merged row
+        { type: "compact", log: "wal", gap: 160 },
+        // an empty flush lays the merged row out before the files merge into it
         { type: "flush", from: "mem", to: "merged", gap: 160 },
         { type: "state", node: "sst", opts: { count: 1 }, gap: 160 },
         { type: "compact", log: "merged", merge: ["f1", "f2", "f3"], with: true },
       ],
     },
     {
-      title: "Writes that outrun compaction pile up",
+      title: "Files pile up when writes outrun compaction",
       short: "Falling behind",
       text: "Compaction costs disk bandwidth, CPU and free space while it merges. When writes outrun it, flushed files pile up and reads slow, since each has more files to check; engines such as RocksDB then throttle incoming writes until compaction catches up.",
       focus: ["app", "mem", "sst"],
