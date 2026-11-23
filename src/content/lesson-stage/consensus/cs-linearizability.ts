@@ -72,7 +72,7 @@ export const csLinearizabilityStage: StageScene = {
     {
       title: "The write is acknowledged at t=30",
       short: "Write done",
-      text: "The leader acknowledges at t=30, and A’s write is complete: any read that starts now must return “sold”, whichever replica it asks. But the follower copies writes later. It still holds “free”, and catches up only at t=90.",
+      text: "The leader’s acknowledgment reaches A at t=30, and A’s write is complete: any read that starts now must return “sold”, whichever replica it asks. But the follower copies writes later. It still holds “free”, and catches up only at t=90.",
       focus: ["a", "leader", "follower"],
       facts: [["A’s write", "t=10 to 30"], ["Follower", "free until t=90"]],
       changes: ["+ A’s write acknowledged", "+ Follower behind"],
@@ -99,7 +99,7 @@ export const csLinearizabilityStage: StageScene = {
     {
       title: "The leader confirms, then answers",
       short: "Confirmed read",
-      text: "Replay with C’s read sent to the leader. Before answering, the leader checks with a majority that it still leads: the follower’s yes makes 2 of 2, so no newer leader can hold writes it lacks. C gets “sold” at t=60: 20 ms, against the stale read’s 10.",
+      text: "Replay it with C’s read sent to the leader. Before answering, the leader checks with a majority that it still leads: the follower’s yes makes 2 of 2, so no newer leader can hold writes it lacks. C gets “sold” at t=60: 20 ms, against the stale read’s 10.",
       focus: ["c", "leader", "follower"],
       metrics: { stale: 0 },
       facts: [["Read from the follower", "10 ms, stale"], ["Confirmed read", "20 ms"]],
@@ -125,7 +125,7 @@ export const csLinearizabilityStage: StageScene = {
     {
       title: "Cut off, the leader must refuse",
       short: "The cost",
-      text: "Replay with the follower cut off at t=35. The leader’s check gets no answer, so it can’t confirm a majority and refuses C’s read with a “no” rather than risk a stale one. Spend this where stale answers do harm: locks, leader election, unique usernames. A like counter rarely needs it.",
+      text: "Replay it with the follower cut off at t=35. The leader’s check gets no answer, so it can’t confirm a majority and refuses C’s read with a “no” rather than risk a stale one. Spend this where stale answers do harm: locks, leader election, unique usernames. A like counter rarely needs it.",
       focus: ["c", "leader", "follower"],
       facts: [["Worth it for", "locks, usernames"], ["Rarely for", "like counters"]],
       changes: ["+ Follower cut off", "~ C’s read refused"],
@@ -138,7 +138,8 @@ export const csLinearizabilityStage: StageScene = {
         { type: "span", id: "cut", node: "follower", label: "cut off", tone: "hot", t: 35, dur: 5, gap: 0 },
         { type: "span", id: "cr", node: "c", t: 40, gap: 0 },
         { type: "packet", path: ["c", "leader"], label: "read", t: 40, dur: 5, with: true },
-        { type: "packet", path: ["leader", "follower"], label: "leader?", dur: 14, lost: true, gap: 0 },
+        // lost to the cut, so orange, as every lost message in the chapter is
+        { type: "packet", path: ["leader", "follower"], label: "leader?", kind: "hot", dur: 14, lost: true, gap: 0 },
         // the refusal is the guarantee working, so it is a reply (blue); the text gives its reason
         { type: "packet", path: ["leader", "c"], label: "no", kind: "response", t: 55, dur: 5, gap: 0 },
       ],
