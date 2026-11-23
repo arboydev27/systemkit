@@ -1,17 +1,177 @@
 import type { StageScene } from "../../../lib/lesson-stage/types";
 
-// PLACEHOLDER: its author replaces this whole scene.
+// Lesson "Define the file service": one file service does five jobs on opaque bytes (upload, download, sync, revision
+// history, sharing), and sizing it counts operations, bytes and long tails separately. As the lesson's example,
+// 6 million daily users × 3 uploads = 18 million uploads a day: about 210 upload starts/s on average and 420/s at a
+// peak twice that. At 800 KB a file that is 14.4 TB of new originals a day and about 330 MB/s at the peak (420 × 800 KB),
+// before versions and replicas; a year adds about 5.3 PB, roughly 16 PB with three full copies. One 4 GB video on a
+// 20 Mbit/s uplink holds an upload session open about 27 minutes. 40 million accounts × 15 GB of quota promise 600 PB,
+// which says little about bytes stored. Last, without sync, Object storage with signed URLs may be the whole system.
 export const driveScopeStage: StageScene = {
   id: "drive-scope",
-  intro: "Placeholder scene.",
-  nodes: [
-    { id: "client", role: "client", label: "Client", at: [0, 0] },
-    { id: "api", role: "web", label: "Server", at: [1, 0] },
+  intro: "Size a file service from its daily uploads, then see which numbers mislead.",
+  metrics: [
+    { id: "uploads", label: "Peak uploads" },
+    { id: "data", label: "Peak data" },
+    { id: "year", label: "Per year" },
   ],
-  links: [{ from: "client", to: "api" }],
+  // The chapter's floor plan, sized through the File API: devices in tier 0, the File API in tier 1, Metadata DB and
+  // Object storage behind it in tier 2. On a phone the rows read Laptop | Phone, File API, Metadata DB | Object storage.
+  // Users stand where the two devices stood while the numbers are sized, then make room for the Phone's long upload.
+  // In the last step the File API and Metadata DB leave and Object storage steps forward to the devices.
+  nodes: [
+    { id: "laptop", role: "client", label: "Laptop", detail: "uploads a file", at: [0, -1] },
+    { id: "phone", role: "phone", label: "Phone", detail: "syncs it", at: [0, 1] },
+    { id: "users", role: "crowd", label: "Users", detail: "6M daily", at: [0, 0], appear: 1 },
+    { id: "api", role: "web", label: "File API", detail: "upload, sync", at: [1, 0] },
+    { id: "db", role: "database", label: "Metadata DB", detail: "names, revisions", at: [2, -1] },
+    { id: "storage", role: "storage", label: "Object storage", detail: "file bytes", at: [2, 1] },
+  ],
+  links: [
+    { from: "laptop", to: "api" },
+    { from: "phone", to: "api" },
+    { from: "users", to: "api" },
+    { from: "api", to: "db" },
+    { from: "api", to: "storage" },
+    { from: "users", to: "storage", unless: "api" },
+    { from: "phone", to: "storage", unless: "api" },
+  ],
   steps: [
-    { title: "One", short: "One", text: "Placeholder.", events: [{ type: "packet", path: ["client", "api"], label: "request" }] },
-    { title: "Two", short: "Two", text: "Placeholder.", events: [{ type: "packet", path: ["api", "client"], label: "reply", kind: "response" }] },
-    { title: "Three", short: "Three", text: "Placeholder.", events: [{ type: "note", node: "api", text: "placeholder" }] },
+    {
+      title: "Sync moves files as opaque bytes",
+      short: "Five jobs",
+      text: "A file service has five jobs: upload, download, sync, revision history and sharing. The Laptop uploads a file; the File API puts its bytes in Object storage and its name and revision in Metadata DB, and the Phone syncs it. Sync treats files as opaque bytes and never merges keystrokes.",
+      facts: [["Clarify", "size, offline edits, retention"], ["Separate problem", "collaborative editing"]],
+      changes: ["+ Bytes in Object storage", "+ Name and revision in Metadata DB", "+ File synced to the Phone"],
+      events: [
+        { type: "packet", path: ["laptop", "api"], label: "upload a file" },
+        { type: "state", node: "api", light: "on" },
+        { type: "packet", path: ["api", "storage"], label: "bytes" },
+        { type: "packet", path: ["api", "db"], label: "name, rev 1", with: true },
+        { type: "state", node: "storage", light: "on" },
+        { type: "state", node: "db", light: "on", with: true },
+        { type: "packet", path: ["api", "phone"], label: "sync", kind: "response" },
+        { type: "state", node: "phone", light: "work" },
+        { type: "state", node: "api", light: "work", with: true },
+        { type: "note", node: "api", text: "files as opaque bytes" },
+      ],
+    },
+    {
+      title: "18M uploads a day: 210/s, 420/s at peak",
+      short: "Operations",
+      text: "Size operations first. As an example, 6 million daily users upload three files each: about 18 million uploads a day, or 210 upload starts a second on average. If peak is twice the average, the File API sees about 420 a second.",
+      focus: ["users", "api"],
+      frame: ["users", "api", "db", "storage"],
+      facts: [["Daily users", "6 million"], ["Uploads", "3 each a day"], ["Average", "210/s"]],
+      metrics: { uploads: { n: 420, unit: "/s" } },
+      changes: ["− Laptop and Phone", "+ 18 million uploads a day", "+ 210/s average, 420/s at peak"],
+      events: [
+        { type: "hide", nodes: ["laptop", "phone"] },
+        { type: "state", nodes: ["api", "db", "storage"], light: "idle", with: true },
+        { type: "show", nodes: ["users"] },
+        { type: "note", node: "users", text: "6M × 3 uploads a day" },
+        { type: "stream", every: 300, routes: [{ path: ["users", "api"] }] },
+        // The rates read on Users: on a wide screen a load pill on the File API would lie under the Metadata DB tag.
+        { type: "state", node: "api", light: "on", with: true },
+        { type: "state", node: "users", light: "on", readout: "210/s average", with: true },
+        { type: "pause", ms: 1600 },
+        { type: "stream", every: 150, routes: [{ path: ["users", "api"] }] },
+        { type: "state", node: "users", readout: "420/s at peak", with: true },
+      ],
+    },
+    {
+      title: "Bytes: 14.4 TB a day, 330 MB/s at peak",
+      short: "Bytes",
+      text: "Size bytes separately. At 800 KB a file, 18 million uploads add 14.4 TB of new originals to Object storage each day, before versions and replicas. At the 420/s peak, the File API carries about 330 MB of file data a second.",
+      focus: ["api", "storage"],
+      frame: ["users", "api", "db", "storage"],
+      facts: [["Per file", "800 KB"], ["Per day", "14.4 TB"], ["At peak", "420 × 800 KB"]],
+      metrics: { data: { n: 330, unit: " MB/s" } },
+      changes: ["+ 14.4 TB of originals a day", "+ 330 MB/s at peak", "~ Before versions and replicas"],
+      events: [
+        { type: "stream", every: 160, routes: [{ path: ["users", "api", "storage"], kind: "work" }] },
+        { type: "state", node: "api", light: "work", with: true },
+        { type: "state", node: "storage", light: "work", readout: "14.4 TB/day", with: true },
+        { type: "note", node: "api", text: "330 MB/s at peak" },
+      ],
+    },
+    {
+      title: "A year adds 5.3 PB, 16 PB with copies",
+      short: "A year",
+      text: "Over a year, 14.4 TB a day adds about 5.3 PB of originals to Object storage. With three full copies of every file, that is roughly 16 PB a year, still before keeping old versions.",
+      focus: ["storage"],
+      // Framed as in step 3, so the camera holds still and Users stay clear of the chips.
+      frame: ["users", "api", "db", "storage"],
+      facts: [["Originals", "5.3 PB"], ["3 full copies", "16 PB"]],
+      metrics: { year: "16 PB" },
+      changes: ["+ 5.3 PB of originals a year", "+ 16 PB with 3 full copies"],
+      events: [
+        { type: "stream", every: 220, routes: [{ path: ["api", "storage"], kind: "work" }] },
+        { type: "state", node: "storage", readout: "5.3 PB a year", with: true },
+        { type: "pause", ms: 1200 },
+        { type: "state", node: "storage", readout: "16 PB a year" },
+        { type: "note", node: "storage", text: "3 full copies", tone: "work", with: true },
+      ],
+    },
+    {
+      title: "One 4 GB upload holds a session 27 minutes",
+      short: "Long tails",
+      text: "Averages hide the tails. A 4 GB video from the Phone on a 20 Mbit/s uplink takes about 27 minutes, and its upload session stays open the whole time. The number of open sessions can matter more than starts per second.",
+      focus: ["phone", "api"],
+      // Framed whole on a phone: a closer camera leaves Metadata DB and Object storage half under the playback bar.
+      frame: ["users", "phone", "api", "db", "storage"],
+      facts: [["Video", "4 GB"], ["Uplink", "20 Mbit/s"], ["Upload", "about 27 min"]],
+      changes: ["+ Phone uploads a 4 GB video", "~ One session open 27 min"],
+      events: [
+        { type: "move", at: { users: [0, -1] } },
+        { type: "state", node: "api", light: "on", with: true },
+        { type: "state", node: "storage", readout: "", light: "idle", with: true },
+        { type: "state", node: "phone", detail: "4 GB video", light: "on", opts: { level: 0.1 } },
+        { type: "show", nodes: ["phone"], with: true },
+        { type: "stream", every: 260, routes: [{ path: ["users", "api"], w: 2 }, { path: ["phone", "api"], w: 1, kind: "work" }] },
+        // A note, not a load pill: on a wide screen a pill sits right of the Phone, under the File API's tag.
+        { type: "state", node: "phone", opts: { level: 0.3 }, with: true },
+        { type: "note", node: "phone", text: "20 Mbit/s uplink" },
+        { type: "note", node: "api", text: "session open 27 min", with: true },
+      ],
+    },
+    {
+      title: "Quota promised is not bytes stored",
+      short: "Quota",
+      text: "Reserved quota is not occupied storage. 40 million accounts with 15 GB each promise 600 PB, a number in Metadata DB that says little about the 16 PB a year uploads actually write. Estimate from uploads, file sizes, versions, retention and copies.",
+      focus: ["db", "storage"],
+      frame: ["users", "phone", "api", "db", "storage"],
+      facts: [["Accounts", "40 million"], ["Quota each", "15 GB"], ["Promised", "600 PB"]],
+      changes: ["+ 600 PB of quota promised", "~ Object storage gains 16 PB a year", "~ Estimate from uploads, not quota"],
+      events: [
+        { type: "state", node: "users", detail: "40M accounts", readout: "", light: "idle" },
+        { type: "state", node: "phone", light: "idle", with: true },
+        { type: "state", node: "api", light: "idle", with: true },
+        { type: "state", node: "db", light: "on", readout: "600 PB promised" },
+        { type: "note", node: "db", text: "quota, not bytes", with: true },
+        { type: "state", node: "storage", light: "work", readout: "16 PB a year" },
+      ],
+    },
+    {
+      title: "Without sync, signed URLs may be enough",
+      short: "No sync",
+      text: "Sync is the expensive part, with a change log and device state to run. If a product needs only upload and download, Object storage with signed URLs may be the whole system: Users upload and the Phone downloads straight from it.",
+      frame: ["users", "phone", "storage"],
+      facts: [["Without sync", "no change log or device state"], ["Access", "signed URLs"]],
+      changes: ["− File API", "− Metadata DB", "+ Signed URLs straight to Object storage"],
+      events: [
+        { type: "hide", nodes: ["api", "db"] },
+        { type: "move", at: { storage: [1, 0] }, with: true },
+        { type: "state", node: "storage", readout: "", light: "idle", detail: "the whole system", with: true },
+        { type: "state", node: "users", detail: "upload files", with: true },
+        { type: "state", node: "phone", detail: "downloads", opts: { level: 0 }, with: true },
+        { type: "packet", path: ["users", "storage"], label: "PUT · signed URL" },
+        { type: "packet", path: ["phone", "storage"], label: "GET · signed URL", with: true },
+        { type: "state", node: "storage", light: "work" },
+        { type: "packet", path: ["storage", "phone"], label: "file bytes", kind: "response" },
+        { type: "state", node: "phone", light: "work", opts: { level: 1 }, with: true },
+        { type: "note", node: "storage", text: "no change log to run" },
+      ],
+    },
   ],
 };
