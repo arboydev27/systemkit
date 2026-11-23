@@ -10,13 +10,16 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // segment costs one origin fetch through an Origin shield. Last, the edge checks a signed URL itself, and Video storage,
 // not the edge, is the durable home. The buffer is the Viewer's level bar (buffer ÷ 12 s).
 // Control path on lane −1 (Viewer → Watch API), media path on lane +1 (Viewer → CDN edge → Video storage).
+// The Viewer stands at lane −0.7, not 0 (the Viewers at 1.4 keep the pair's spacing): on a wide screen the longer hops
+// give the messages resting in the reduced-motion stills room to clear the Watch API's tag (step 1) and each other
+// (step 4); on a phone a lane only moves a part along its row, so the names keep their size.
 export const youtubePlaybackStage: StageScene = {
   id: "youtube-playback",
   intro: "Watch a player fetch segments from a nearby edge, then keep its buffer full as the connection slows.",
   metrics: [{ id: "link", label: "Link" }, { id: "buffer", label: "Buffer" }, { id: "playing", label: "Playing" }],
   nodes: [
-    { id: "viewer", role: "phone", label: "Viewer", detail: "adaptive player", at: [0, 0] },
-    { id: "crowd", role: "crowd", label: "Viewers", detail: "launch crowd", at: [0, 1.6], appear: 5 },
+    { id: "viewer", role: "phone", label: "Viewer", detail: "adaptive player", at: [0, -0.7] },
+    { id: "crowd", role: "crowd", label: "Viewers", detail: "launch crowd", at: [0, 1.4], appear: 5 },
     { id: "api", role: "web", label: "Watch API", detail: "metadata + access", at: [1, -1] },
     { id: "edge", role: "cdn", label: "CDN edge", detail: "near viewers", at: [1, 1] },
     { id: "shield", role: "cdn", label: "Origin shield", detail: "extra cache layer", at: [2, 1], appear: 5 },
@@ -34,7 +37,7 @@ export const youtubePlaybackStage: StageScene = {
     {
       title: "The API decides who may watch",
       short: "Authorize",
-      text: "The watch page asks the Watch API for video 81. The API checks who may watch and returns metadata and a signed manifest URL, where the player finds its index of short segments. Media bytes take another path.",
+      text: "The Viewer’s watch page asks the Watch API for video 81. The API checks who may watch and returns metadata and a signed manifest URL, where the player finds its index of short segments. Media bytes take another path.",
       focus: ["viewer", "api"],
       frame: ["viewer", "api", "edge", "storage"],
       facts: [["Control path", "Watch API"], ["Media path", "CDN edge"]],
@@ -43,7 +46,7 @@ export const youtubePlaybackStage: StageScene = {
         { type: "packet", path: ["viewer", "api"], label: "GET /watch/v81" },
         { type: "state", node: "api", light: "on" },
         { type: "note", node: "api", text: "checks access", with: true },
-        { type: "packet", path: ["api", "viewer"], label: "manifest URL · signed", kind: "response" },
+        { type: "packet", path: ["api", "viewer"], label: "signed URL", kind: "response" },
         { type: "state", node: "api", light: "work" },
         { type: "state", node: "viewer", light: "on", with: true },
       ],
@@ -51,7 +54,7 @@ export const youtubePlaybackStage: StageScene = {
     {
       title: "A miss at the edge fills from origin",
       short: "Edge miss",
-      text: "The player asks the nearby CDN edge for its first segment, 720p 0:00. The edge doesn't hold it yet, so it fetches it from Video storage, the origin, keeps a copy for later viewers and passes it on. No video bytes go through the Watch API.",
+      text: "The player asks the nearby CDN edge for its first segment, 720p 0:00. It’s a miss, so the edge fetches it from Video storage, the origin, keeps a copy for later viewers and passes it on. No video bytes pass through the Watch API.",
       focus: ["viewer", "edge", "storage"],
       frame: ["viewer", "api", "edge", "storage"],
       metrics: { buffer: { n: 6, unit: " s" }, playing: "720p" },
@@ -101,11 +104,13 @@ export const youtubePlaybackStage: StageScene = {
       changes: ["~ Link drops to 2 Mbit/s", "− 3 s of buffer per segment", "− Buffer empty after 4 segments"],
       events: [
         { type: "state", node: "viewer", light: "on" },
-        { type: "packet", path: ["edge", "viewer"], label: "720p · 0:24", kind: "response" },
+        // Only the last segment is named: at rest (reduced motion) all four messages lie on the one hop, and four
+        // labelled pills would cover each other. The level, the note, the chip and the text carry the count.
+        { type: "packet", path: ["edge", "viewer"], label: "", kind: "response" },
         { type: "state", node: "viewer", opts: { level: 0.75 }, with: true },
-        { type: "packet", path: ["edge", "viewer"], label: "720p · 0:30", kind: "response", gap: 200 },
+        { type: "packet", path: ["edge", "viewer"], label: "", kind: "response", gap: 200 },
         { type: "state", node: "viewer", opts: { level: 0.5 }, with: true },
-        { type: "packet", path: ["edge", "viewer"], label: "720p · 0:36", kind: "response", gap: 200 },
+        { type: "packet", path: ["edge", "viewer"], label: "", kind: "response", gap: 200 },
         { type: "state", node: "viewer", light: "hot", tone: "hot", opts: { level: 0.25 }, with: true },
         { type: "packet", path: ["edge", "viewer"], label: "720p · 0:42", kind: "response", gap: 200 },
         { type: "state", node: "viewer", opts: { level: 0 }, with: true },
@@ -115,7 +120,7 @@ export const youtubePlaybackStage: StageScene = {
     {
       title: "Stepping down to 480p refills the buffer",
       short: "Step down",
-      text: "Replay from 12 seconds. Segment 0:24 at 720p leaves 9, so the player steps down to 480p at 1.5 Mbit/s: 9 megabits, 4.5 seconds at 2 Mbit/s. Each segment now adds 1.5 seconds, and the buffer climbs back to 12. Stepping up too early risks rebuffering.",
+      text: "Replay from 12 seconds. Segment 0:24 at 720p leaves 9, so the player steps down to 480p at 1.5 Mbit/s: 9 megabits, 4.5 seconds at 2 Mbit/s. Each segment adds 1.5 seconds, back to 12. Stepping up too early risks rebuffering.",
       focus: ["viewer", "edge"],
       frame: ["viewer", "api", "edge", "storage"],
       metrics: { buffer: { n: 12, unit: " s" }, playing: "480p" },
@@ -149,7 +154,7 @@ export const youtubePlaybackStage: StageScene = {
         { type: "note", node: "edge", text: "5,000 requests · 1 fetch", with: true },
         { type: "packet", path: ["edge", "shield", "storage"], label: "launch · 720p · 0:00" },
         { type: "state", node: "storage", light: "on" },
-        { type: "packet", path: ["storage", "shield", "edge"], label: "launch · 720p · 0:00", kind: "response" },
+        { type: "packet", path: ["storage", "shield", "edge"], label: "", kind: "response" },
         { type: "state", nodes: ["shield", "edge"], light: "work" },
         { type: "stream", every: 180, routes: [{ path: ["crowd", "edge"], w: 1 }, { path: ["edge", "crowd"], w: 2, kind: "response" }] },
       ],
@@ -157,19 +162,21 @@ export const youtubePlaybackStage: StageScene = {
     {
       title: "Signed URLs; the edge is not the home",
       short: "Signed URLs",
-      text: "The signed URL lets the CDN edge check each request itself, with no Watch API call per segment. Edges hold copies; Video storage is the durable home, so a takedown needs a cache purge or short expiry. A low-traffic internal site may not need a CDN at all.",
+      text: "The CDN edge checks the signed URL itself, with no Watch API call per segment. Edges hold copies; Video storage is the durable home, so takedowns may need a cache purge or short expiry. A low-traffic internal site may not need a CDN at all.",
       focus: ["viewer", "edge", "storage"],
-      frame: ["viewer", "api", "edge", "shield", "storage"],
+      frame: ["viewer", "api", "edge", "storage"],
       facts: [["Per segment", "no API call"], ["Takedown", "purge or short expiry"]],
-      changes: ["− Launch crowd", "~ Edge checks the signature", "~ Video storage keeps the copy"],
+      changes: ["− Launch crowd, Origin shield", "~ Edge checks the signature", "~ Video storage keeps the copy"],
       events: [
-        { type: "hide", nodes: ["crowd"] },
-        { type: "show", nodes: ["api"] },
-        { type: "state", nodes: ["shield", "edge", "storage"], light: "idle", with: true },
+        // The shield isn't this step's point: without it the stage frames four parts again, as in steps 1–5, so the
+        // messages have room on a wide screen and the names keep their size on a phone.
+        { type: "hide", nodes: ["crowd", "shield"] },
+        { type: "show", nodes: ["api"], at: { storage: [2, 1] } },
+        { type: "state", nodes: ["edge", "storage"], light: "idle", with: true },
         { type: "packet", path: ["viewer", "edge"], label: "480p · 0:42 · signed" },
         { type: "state", node: "edge", light: "work" },
         { type: "note", node: "edge", text: "checks signature", tone: "work", with: true },
-        { type: "packet", path: ["edge", "viewer"], label: "480p · 0:42", kind: "response" },
+        { type: "packet", path: ["edge", "viewer"], label: "", kind: "response" },
         { type: "state", node: "storage", light: "on" },
         { type: "note", node: "storage", text: "durable home", with: true },
       ],
