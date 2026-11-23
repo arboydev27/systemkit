@@ -67,7 +67,7 @@ export const hashReplicasStage: StageScene = {
     {
       title: "One hot key overloads its owner",
       short: "Hot key",
-      text: "Key 8 now gets 60,000 reads/s, and every one lands on its owner, Node A, which handles 20,000. Virtual nodes spread many keys evenly, but they can’t split one key: more tokens would only move it whole.",
+      text: "Key 8 now gets 60,000 reads/s, and every one lands on its owner, Node A, which handles 20,000. Virtual nodes spread many keys, but they can’t split one key: more tokens would only move it whole.",
       focus: ["app", "a"],
       metrics: { reads: { n: 60000, unit: "/s", tone: "hot" } },
       facts: [["Key 8", "60,000 reads/s"], ["Each node", "20,000 reads/s"]],
@@ -77,7 +77,7 @@ export const hashReplicasStage: StageScene = {
         { type: "key", id: "k8", at: 8, label: "8", from: "app" },
         { type: "state", node: "a", light: "hot", readout: "60,000 reads/s", tone: "hot" },
         { type: "note", node: "a", text: "handles 20,000/s", with: true },
-        { type: "arc", id: "hot", from: 7, to: 8, label: "hot key", tone: "hot", with: true },
+        { type: "arc", id: "hot", from: 7, to: 8, label: "hot key 8", tone: "hot", with: true },
       ],
     },
     {
@@ -104,7 +104,9 @@ export const hashReplicasStage: StageScene = {
       events: [
         { type: "state", node: "a", light: "idle", readout: "" },
         { type: "arc", id: "cache", remove: true, with: true },
+        { type: "key", id: "k8", at: null, with: true },
         { type: "scatter", count: 16, seed: 1781 },
+        { type: "state", node: "app", detail: "likes:42 → 16", with: true },
         { type: "state", node: "a", light: "work", readout: "6 of 16" },
         { type: "state", node: "b", light: "work", readout: "5 of 16", with: true },
         { type: "state", node: "c", light: "work", readout: "5 of 16", with: true },
