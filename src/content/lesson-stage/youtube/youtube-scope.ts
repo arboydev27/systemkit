@@ -6,7 +6,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // add about 64 TB a day, 23 PB a year, before renditions, replication and retention. Playback drives egress,
 // transcoding compute and uploads storage. Last, a company training library of a few thousand videos buys the whole
 // pipeline (Video storage, Transcoder, CDN edge) from a managed service such as Mux. The inputs are the lesson's
-// illustrative ones, not YouTube measurements.
+// illustrative ones, not current YouTube measurements.
 export const youtubeScopeStage: StageScene = {
   id: "youtube-scope",
   intro: "Watch publishing and watching turn into bytes in and bytes out, then see which resource each path strains.",
@@ -38,7 +38,7 @@ export const youtubeScopeStage: StageScene = {
     {
       title: "Two jobs: publish a video, watch it",
       short: "Two jobs",
-      text: "Creators upload videos into Video storage, and Viewers play them from the CDN edge on a phone, browser or TV. Agree on source size, devices, reach and startup time first. Live video leaves little time for queues and retries, so it is close to a separate design.",
+      text: "Creators upload videos into Video storage, and Viewers play them from the CDN edge. Agree on source size, devices, reach and startup time first. Live video leaves little time for queues and retries, so it is close to a separate design.",
       facts: [["Agree on", "size, devices, reach"], ["Can wait", "comments, recommendations"]],
       changes: ["+ Publishing: Creators upload", "+ Watching: Viewers play"],
       events: [
@@ -70,7 +70,7 @@ export const youtubeScopeStage: StageScene = {
     {
       title: "Average 440 Gbit/s, peak 1.3 Tbit/s",
       short: "Peak",
-      text: "Spread evenly over a day, 4.8 PB is about 440 Gbit/s. At a threefold peak the edge sends 1.3 Tbit/s. These illustrative inputs are not YouTube measurements: state the peak-to-average ratio and recalculate when an assumption changes.",
+      text: "Spread evenly over a day, 4.8 PB is about 440 Gbit/s. At a threefold peak the CDN edge sends 1.3 Tbit/s. These illustrative inputs are not current YouTube measurements: state the peak-to-average ratio and recalculate when an assumption changes.",
       focus: ["viewers", "edge"],
       frame: ["creators", "viewers", "storage", "edge"],
       facts: [["Average", "about 440 Gbit/s"], ["Peak", "3 × average"]],
@@ -102,7 +102,7 @@ export const youtubeScopeStage: StageScene = {
     {
       title: "Each path stresses a different resource",
       short: "Three resources",
-      text: "Playback drives egress, the bytes the CDN edge sends out to viewers. Transcoding, converting each source into playable formats, drives compute in the Transcoder. Uploads drive storage. The balance varies: Netflix encodes a curated catalog ahead of release, while YouTube absorbs a constant stream of uploads.",
+      text: "Playback drives egress, the bytes the CDN edge sends to viewers. Transcoding, converting each source into playable formats, drives compute in the Transcoder. Uploads drive storage. The balance varies: Netflix encodes a curated catalog ahead of release, while YouTube absorbs a constant stream of uploads.",
       changes: ["+ Transcoder", "~ Playback drives egress", "~ Transcoding drives compute", "~ Uploads drive storage"],
       events: [
         { type: "show", nodes: ["transcoder"] },
@@ -123,7 +123,11 @@ export const youtubeScopeStage: StageScene = {
       title: "A small library can buy the pipeline",
       short: "Buy it",
       text: "Not every video feature needs this pipeline. A company training library with a few thousand videos can buy it from a managed service such as Mux, in place of Video storage, the Transcoder and the CDN edge, and spend its effort elsewhere.",
+      // On a phone, frame the three parts that stay, so the camera closes in while the pipeline leaves, not at the end.
+      frame: ["creators", "viewers", "managed"],
       facts: [["Library", "a few thousand videos"], ["Bought from", "a managed service"]],
+      // The big workload's numbers don't describe a small library: clear them.
+      metrics: { delivered: "—", peak: "—", originals: "—" },
       changes: ["+ Managed service such as Mux", "− Video storage, Transcoder, CDN edge", "~ A few thousand videos skip the build"],
       events: [
         { type: "hide", nodes: ["storage", "edge", "transcoder"] },
@@ -133,8 +137,8 @@ export const youtubeScopeStage: StageScene = {
         { type: "show", nodes: ["managed"] },
         { type: "packet", path: ["creators", "managed"], label: "upload a video" },
         { type: "packet", path: ["viewers", "managed"], label: "play a video", with: true },
-        { type: "state", node: "managed", light: "work" },
         { type: "packet", path: ["managed", "viewers"], label: "segments", kind: "response" },
+        { type: "state", node: "managed", light: "work", with: true },
         { type: "note", node: "managed", text: "a few thousand videos" },
       ],
     },
