@@ -36,7 +36,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "The leader acks writes up to 5,000",
       short: "Acked to 5,000",
-      text: "The Leader, in term 7, has acknowledged every write up to position 5,000, so clients saw each one confirmed. It copies writes to the Follower asynchronously, after answering, so the Follower has reached only 4,992.",
+      text: "The leader, in term 7, has acknowledged every write up to position 5,000, so clients saw each one confirmed. It copies writes to the follower asynchronously, after answering, so the follower has reached only 4,992.",
       focus: ["app", "leader", "follower"],
       metrics: { leaders: 1, lost: 0 },
       facts: [["Acknowledged", "up to 5,000"], ["Follower has", "up to 4,992"]],
@@ -45,14 +45,15 @@ export const rcFailoverStage: StageScene = {
         { type: "span", id: "t7", node: "leader", label: "leads t7", tone: "work", t: 0 },
         { type: "state", node: "leader", light: "on" },
         { type: "packet", path: ["leader", "app"], label: "acked 5,000", kind: "response", t: 0, dur: 1 },
-        { type: "packet", path: ["leader", "follower"], label: "async copy", kind: "quiet", t: 0.5, dur: 1.5 },
+        // ink, as every lesson of the chapter draws a copy shipped to a follower
+        { type: "packet", path: ["leader", "follower"], label: "async copy", t: 0.5, dur: 1.5 },
         { type: "mark", node: "follower", text: "has 4,992", t: 2 },
       ],
     },
     {
       title: "Heartbeats stop, and Patroni waits 5 s",
       short: "Detect",
-      text: "Patroni hears the Leader’s heartbeats until the Leader stalls and they stop. After 5 s of silence it declares the Leader gone; it can’t tell a stall from a crash. This 5 s timeout can fail over on a brief blip; 60 s would mean a minute without writes.",
+      text: "Patroni hears the leader’s heartbeats until the leader stalls and they stop. After 5 s of silence it declares the leader gone; it can’t tell a stall from a crash. This 5 s timeout can fail over on a brief blip; 60 s would mean a minute without writes.",
       focus: ["leader", "patroni"],
       facts: [["5 s timeout", "a blip can fail over"], ["60 s timeout", "a minute without writes"]],
       changes: ["+ Leader stalls", "+ 5 s without a heartbeat", "+ Patroni times out"],
@@ -70,7 +71,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "Patroni promotes the follower",
       short: "Promote",
-      text: "Patroni promotes the most caught-up follower with a new term, 8, and points the app servers at it. The New leader takes writes from here on. Patroni automates this for Postgres; MongoDB replica sets hold their own elections.",
+      text: "Patroni promotes the most caught-up follower with a new term, 8, and points the app servers at it. The new leader takes writes from here on. Patroni automates this for Postgres; MongoDB replica sets hold their own elections.",
       focus: ["app", "follower", "patroni"],
       facts: [["New leader", "term 8"], ["Its history", "up to 4,992"]],
       changes: ["+ Follower promoted, term 8", "~ App servers point at it"],
@@ -85,7 +86,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "8 acknowledged writes are missing",
       short: "8 writes lost",
-      text: "The New leader’s history ends at 4,992, so writes 4,993 to 5,000, which clients saw acknowledged, are missing, and the next write takes 4,993. Reused IDs make it worse: order 88,213 can now name a different order than a cache remembers.",
+      text: "The new leader’s history ends at 4,992, so writes 4,993 to 5,000, which clients saw acknowledged, are missing, and the next write takes 4,993. Reused IDs make it worse: order 88,213 can now name a different order than a cache remembers.",
       focus: ["app", "leader", "follower"],
       metrics: { lost: { n: 8, tone: "hot" } },
       facts: [["Missing", "4,993 to 5,000"], ["Order 88,213", "can name another order"]],
@@ -98,7 +99,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "The old leader wakes, still leading",
       short: "Split brain",
-      text: "The Old leader wakes 30 s after it stalled. It never saw term 8, so it still believes it leads term 7, and accepts 5,001 from an app server still connected to it. Two nodes now take writes that can’t be merged automatically: split brain.",
+      text: "The old leader wakes 30 s after it stalled. It never saw term 8, so it still believes it leads term 7, and accepts 5,001 from an app server still connected to it. Two nodes now take writes that can’t be merged automatically: split brain.",
       focus: ["app", "leader", "follower"],
       metrics: { leaders: { n: 2, tone: "hot" } },
       facts: [["Stalled for", "30 s"], ["Leading", "term 7 and term 8"]],
@@ -115,7 +116,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "Term 8 refuses writes stamped term 7",
       short: "Fenced",
-      text: "The Old leader ships 5,001 stamped with its term, 7. The New leader has seen term 8, so it refuses the write and answers with its term, and the Old leader steps down. Fencing works only if something checks: followers, shared storage or a proxy.",
+      text: "The old leader ships 5,001 stamped with its term, 7. The new leader has seen term 8, so it refuses the write and answers with its term, and the old leader steps down. Fencing works only if something checks: followers, shared storage or a proxy.",
       focus: ["leader", "follower"],
       metrics: { leaders: 1 },
       facts: [["Its write", "7 < 8: refused"], ["Checked by", "followers, storage, proxy"]],
@@ -131,7 +132,7 @@ export const rcFailoverStage: StageScene = {
     {
       title: "The old leader rejoins and drops 9 writes",
       short: "Rejoin",
-      text: "The Old leader rejoins as a follower and drops everything after 4,992, since term 8 took those positions: the 8 acknowledged writes and the one it took while stale. Under Raft, a majority must elect and commit, so a cut-off minority can do neither; some teams keep failover manual.",
+      text: "The old leader rejoins as a follower and drops everything after 4,992, since term 8 took those positions: the 8 acknowledged writes and the one it took while stale. Under Raft, a majority must elect and commit, so a cut-off minority can do neither; some teams keep failover manual.",
       focus: ["leader", "follower"],
       metrics: { lost: { n: 9, tone: "hot" } },
       facts: [["Raft", "a minority can’t elect or commit"], ["Manual failover", "when loss beats downtime"]],

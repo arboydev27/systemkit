@@ -119,7 +119,8 @@ export const rcMultiStage: StageScene = {
         { type: "packet", path: ["a", "ana"], label: "confirmed", kind: "response", t: 25, dur: 25, gap: 60 },
         { type: "packet", path: ["ben", "a"], label: "book room", t: 500, dur: 100, gap: 120 },
         { type: "packet", path: ["a", "ben"], label: "sold out", kind: "response", t: 600, dur: 100, gap: 160 },
-        { type: "mark", node: "a", text: "already sold", t: 600, dur: 0, with: true },
+        // blue, as rc-failover's fence refusing a stale write: the rule working
+        { type: "mark", node: "a", text: "already sold", tone: "work", t: 600, dur: 0, with: true },
       ],
     },
   ],

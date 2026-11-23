@@ -6,6 +6,7 @@ import { played, type Players } from "@/components/lesson-stage/played";
 export const players: Players = {
   "rc-leader": dynamic(() => import("./rc-leader").then(played)),
   "rc-lag": dynamic(() => import("./rc-lag").then(played)),
+  "rc-order": dynamic(() => import("./rc-order").then(played)),
   "rc-failover": dynamic(() => import("./rc-failover").then(played)),
   "rc-multi": dynamic(() => import("./rc-multi").then(played)),
   "rc-leaderless": dynamic(() => import("./rc-leaderless").then(played)),

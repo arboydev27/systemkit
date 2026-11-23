@@ -106,7 +106,7 @@ export const rcLagStage: StageScene = {
     {
       title: "Keep the position on the server",
       short: "Second device",
-      text: "The same user opens their phone. If only the laptop’s browser keeps 9,150, the phone’s read carries none and gets the old address. Kept per user on the server, 9,150 reaches every device; the follower is behind, so the read goes to the leader. Every fix sends some reads there, eating into what followers save. Try both.",
+      text: "Replay it with the user’s phone. If only the laptop’s browser keeps 9,150, the phone’s read carries none and gets the old address. Kept per user on the server, 9,150 reaches every device; the follower is behind, so the read goes to the leader. Every fix sends some reads there, eating into what followers save. Try both.",
       metrics: { follower: 9120 },
       facts: [["In the browser", "that device only"], ["On the server", "every device"], ["Cost", "reads back on the leader"]],
       changes: ["+ The user’s phone", "~ The phone reads the address"],

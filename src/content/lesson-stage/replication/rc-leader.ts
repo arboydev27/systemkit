@@ -39,9 +39,9 @@ export const rcLeaderStage: StageScene = {
     {
       title: "One leader takes every write",
       short: "One leader",
-      text: "The Leader is the only node that accepts writes. It records the client’s $25 payment at position 204 of its replication log, right after 203, which both followers have already applied.",
+      text: "The leader is the only node that accepts writes. It records the client’s $25 payment at position 204 of its replication log, right after 203, which both followers have already applied.",
       focus: ["client", "leader"],
-      facts: [["Takes writes", "the Leader only"]],
+      facts: [["Takes writes", "the leader only"]],
       changes: ["+ $25 at position 204"],
       events: [
         { type: "cursor", log: "log", id: "f1", at: 203, label: "Follower 1" },
@@ -56,13 +56,15 @@ export const rcLeaderStage: StageScene = {
     {
       title: "Followers apply the log in order",
       short: "Apply in order",
-      text: "Follower 1 and Follower 2 apply the log in the Leader’s order, 204 after 203, so all three copies converge on the same state. The cost: every write still passes through one node.",
+      text: "Follower 1 and Follower 2 apply the log in the leader’s order, 204 after 203, so all three copies converge on the same state. The cost: every write still passes through one node.",
       focus: ["leader", "f1", "f2"],
       facts: [["Every write", "through one node"]],
       changes: ["~ Both followers at 204", "~ Three copies agree"],
       events: [
-        { type: "read", log: "log", at: 204, to: "f1" },
-        { type: "read", log: "log", at: 204, to: "f2", with: true },
+        // a copy shipped to a follower is ink, as in every lesson of the chapter (a log read defaults to a blue reply);
+        // the follower's ack is the blue reply
+        { type: "read", log: "log", at: 204, to: "f1", kind: "request" },
+        { type: "read", log: "log", at: 204, to: "f2", kind: "request", with: true },
         { type: "cursor", log: "log", id: "f1", at: 204 },
         { type: "cursor", log: "log", id: "f2", at: 204, gap: 0 },
       ],
@@ -70,7 +72,7 @@ export const rcLeaderStage: StageScene = {
     {
       title: "Asynchronous: answer after its own commit",
       short: "Asynchronous",
-      text: "With asynchronous replication the Leader answers as soon as it commits. The $60 and $15 payments are confirmed at 205 and 206 while both followers still sit at 204, to catch up later.",
+      text: "With asynchronous replication the leader answers as soon as it commits. The $60 and $15 payments are confirmed at 205 and 206 while both followers still sit at 204, to catch up later.",
       focus: ["client", "leader"],
       metrics: { wait: { n: 0, unit: " ms" }, copies: 1 },
       changes: ["+ $60 at 205, $15 at 206", "~ Both confirmed at once", "~ Followers still at 204"],
@@ -83,7 +85,7 @@ export const rcLeaderStage: StageScene = {
     {
       title: "A crash loses what hasn’t shipped",
       short: "Leader crash",
-      text: "The Leader crashes before shipping 205 and 206. The client was told both payments succeeded, but no follower has them, so whichever follower takes over has never seen them.",
+      text: "The leader crashes before shipping 205 and 206. The client was told both payments succeeded, but no follower has them, so whichever follower takes over has never seen them.",
       focus: ["leader"],
       metrics: { copies: { n: 1, tone: "hot" } },
       changes: ["− Leader crashes", "− $60 and $15, confirmed but lost"],
@@ -97,7 +99,7 @@ export const rcLeaderStage: StageScene = {
     {
       title: "Synchronous: commits wait 90 ms",
       short: "Synchronous",
-      text: "Replay with synchronous replication: the Leader answers only after both followers confirm. Follower 1 confirms the $30 payment at 205 within 1 ms, but Follower 2 is 90 ms away, so every commit waits at least 90 ms.",
+      text: "Replay it with synchronous replication: the leader answers only after both followers confirm. Follower 1 confirms the $30 payment at 205 within 1 ms, but Follower 2 is 90 ms away, so every commit waits at least 90 ms.",
       focus: ["leader", "f1", "f2"],
       metrics: { wait: { n: 90, unit: " ms" }, copies: 3 },
       changes: ["+ $30 at 205", "~ Both followers confirm", "~ The answer waits for Follower 2"],
@@ -107,9 +109,9 @@ export const rcLeaderStage: StageScene = {
         { type: "state", node: "client", detail: "sends payments", with: true },
         { type: "truncate", log: "log", after: 204 },
         { type: "append", log: "log", records: [{ text: "$30" }] },
-        { type: "read", log: "log", at: 205, to: "f1" },
+        { type: "read", log: "log", at: 205, to: "f1", kind: "request" },
         { type: "cursor", log: "log", id: "f1", at: 205, with: true },
-        { type: "read", log: "log", at: 205, to: "f2", with: true },
+        { type: "read", log: "log", at: 205, to: "f2", kind: "request", with: true },
         { type: "state", node: "f1", readout: "ack in 1 ms", gap: 0 },
         // the Leader still waits on the follower 90 ms away
         { type: "pause", ms: 700, gap: 0 },
@@ -122,23 +124,23 @@ export const rcLeaderStage: StageScene = {
     {
       title: "One stalled follower stalls every write",
       short: "Stalled",
-      text: "Follower 2’s disk stalls. The $18 payment at 206 reaches both followers and Follower 1 confirms it, but the Leader must also wait for Follower 2, so this commit hangs, and every one after it.",
+      text: "Follower 2’s disk stalls. The $18 payment at 206 reaches both followers and Follower 1 confirms it, but the leader must also wait for Follower 2, so this commit hangs, and every one after it.",
       focus: ["leader", "f1", "f2"],
       metrics: { wait: "stalled" },
       changes: ["~ Follower 2 stalls", "+ $18 at 206", "− No answer for the client"],
       events: [
         { type: "state", node: "f2", light: "hot", tone: "hot", readout: "disk stalled" },
         { type: "append", log: "log", records: [{ text: "$18" }] },
-        { type: "read", log: "log", at: 206, to: "f1" },
+        { type: "read", log: "log", at: 206, to: "f1", kind: "request" },
         { type: "cursor", log: "log", id: "f1", at: 206, with: true },
-        { type: "read", log: "log", at: 206, to: "f2", with: true },
+        { type: "read", log: "log", at: 206, to: "f2", kind: "request", with: true },
         { type: "state", node: "client", detail: "waiting for OK 206" },
       ],
     },
     {
       title: "Semi-synchronous: wait for any one",
       short: "Semi-sync",
-      text: "Switch to semi-synchronous: the Leader waits for any one follower. Follower 1 confirmed 206 within 1 ms, which is now enough, so the Leader confirms the payment while Follower 2 stays stalled. It survives the Leader’s death as long as Follower 1 survives.",
+      text: "Switch to semi-synchronous: the leader waits for any one follower. Follower 1 confirmed 206 within 1 ms, which is now enough, so the leader confirms the payment while Follower 2 stays stalled. It survives the leader’s death as long as Follower 1 survives.",
       focus: ["client", "leader"],
       metrics: { wait: { n: 1, unit: " ms" }, copies: 2 },
       changes: ["~ Waits for any one follower", "+ OK for 206", "~ Follower 2 no longer blocks writes"],
@@ -152,14 +154,14 @@ export const rcLeaderStage: StageScene = {
     {
       title: "The fallback to async is quiet",
       short: "Fallback",
-      text: "With Follower 2 still stalled, Follower 1 drops off the network. The $9 payment at 207 waits out a timeout, then MySQL’s semi-synchronous mode falls back to asynchronous and confirms it with only the Leader’s copy. Monitor for that switch.",
+      text: "With Follower 2 still stalled, Follower 1 drops off the network. The $9 payment at 207 waits out a timeout, then MySQL’s semi-synchronous mode falls back to asynchronous and confirms it with only the leader’s copy. Monitor for that switch.",
       focus: ["monitor", "leader", "f1"],
       metrics: { wait: "the timeout", copies: { n: 1, tone: "hot" } },
       changes: ["+ $9 at 207", "− No follower confirms", "~ Back to asynchronous", "+ Monitoring alerts"],
       events: [
         { type: "state", node: "f1", down: true, light: "idle", readout: "" },
         { type: "append", log: "log", records: [{ text: "$9" }] },
-        { type: "packet", path: ["leader", "f1"], label: "$9", kind: "work", lost: true },
+        { type: "packet", path: ["leader", "f1"], label: "$9", kind: "hot", lost: true },
         // the Leader waits out the timeout, then answers the Client (out of focus) with its own copy only
         { type: "pause", ms: 600 },
         { type: "record", log: "log", at: 207, tone: "hot" },

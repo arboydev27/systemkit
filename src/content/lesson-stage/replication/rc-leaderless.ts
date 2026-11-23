@@ -149,12 +149,12 @@ export const rcLeaderlessStage: StageScene = {
     },
     {
       title: "Last-write-wins silently drops one",
-      short: "Last write wins",
+      short: "Last-write-wins",
       text: "A rule has to settle it. Last-write-wins keeps 35, stamped a moment later, on every replica, and 30 vanishes, though its operator was told it saved.",
       focus: ["dash", "coord", "r1", "r2", "r3"],
       frame: ["sensors", "dash", "coord", "r1", "r2", "r3"],
       metrics: { lost: { n: 1, tone: "hot" } },
-      facts: [["Rule", "last write wins"], ["Kept", "limit = 35"]],
+      facts: [["Rule", "last-write-wins"], ["Kept", "limit = 35"]],
       changes: ["~ All three on limit = 35", "− limit = 30, told OK, then lost"],
       events: [
         { type: "packet", path: ["coord", "r2"], label: "limit 35 is newer", kind: "work" },
@@ -169,6 +169,8 @@ export const rcLeaderlessStage: StageScene = {
       events: [],
       control: {
         label: "Workload",
+        // in every option a write copied to another replica is ink, as in the chapter's other lessons, and the note
+        // saying how the model handles two writes is blue: the refusal is the rule working, as rc-failover's fence is
         options: [
           {
             label: "Seat bookings",
@@ -180,10 +182,10 @@ export const rcLeaderlessStage: StageScene = {
               { type: "state", node: "r2", label: "Leader", detail: "orders every write", light: "on", tone: "", readout: "", opts: { replica: false, lead: true }, with: true },
               { type: "state", node: "r1", label: "Follower 1", detail: "copies the leader", light: "idle", readout: "", with: true },
               { type: "state", node: "r3", label: "Follower 2", detail: "copies the leader", light: "idle", readout: "", with: true },
-              { type: "packet", path: ["r2", "r1"], label: "14A booked", kind: "work" },
-              { type: "packet", path: ["r2", "r3"], label: "14A booked", kind: "work", with: true },
+              { type: "packet", path: ["r2", "r1"], label: "14A booked" },
+              { type: "packet", path: ["r2", "r3"], label: "14A booked", with: true },
               { type: "packet", path: ["dash", "r2"], label: "book 14A again" },
-              { type: "note", node: "r2", text: "second booking refused" },
+              { type: "note", node: "r2", text: "second booking refused", tone: "work" },
             ],
           },
           {
@@ -197,8 +199,8 @@ export const rcLeaderlessStage: StageScene = {
               { type: "state", node: "r3", label: "Region B", detail: "Ben’s home region", light: "on", tone: "", readout: "", opts: { replica: false, lead: true }, with: true },
               { type: "packet", path: ["dash", "r1"], label: "edit Ana’s profile" },
               { type: "packet", path: ["dash", "r3"], label: "edit Ben’s profile", with: true },
-              { type: "packet", path: ["r1", "r3"], label: "Ana’s edit", kind: "work" },
-              { type: "packet", path: ["r3", "r1"], label: "Ben’s edit", kind: "work" },
+              { type: "packet", path: ["r1", "r3"], label: "Ana’s edit" },
+              { type: "packet", path: ["r3", "r1"], label: "Ben’s edit" },
               { type: "note", node: "dash", text: "one home per profile", tone: "work" },
             ],
           },
