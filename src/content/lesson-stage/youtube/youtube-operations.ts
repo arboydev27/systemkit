@@ -9,6 +9,14 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // URL signed for five minutes that the edge accepts but Video storage, the origin, refuses, and once it expires the edge
 // refuses it too. Last, DRM licenses (Widevine, FairPlay) restrict players and a watermark traces a leak.
 // The new upload in the first cast is left unnamed: video 81 is the popular video already playing that is taken down.
+// Notes on the parts at a phone's edge columns are kept short (about 16 characters) so they aren't cut off, and in the
+// URL step only the expired request is a lost message: a note over the edge would hide its ×, so a note over the Viewer
+// says the URL expired, and the accepted request rides on through the edge to Video storage, whose note refuses it.
+// The Watch API and the Metadata DB leave once the row is blocked (step 5): the rest of the takedown is the edge, the
+// origin and URLs already issued, and keeping them on would push a small phone's camera out past its label floor. For
+// the same reason the URL step uses notes, not a load pill: on a phone a pill adds room between every row.
+// The takedown stays ink and quiet, the purge included (chapter plan); the status chip clears for the DRM step, which
+// is about any protected video, not video 81.
 export const youtubeOperationsStage: StageScene = {
   id: "youtube-operations",
   intro: "Watch a stalled queue hide behind healthy playback, then follow a takedown through the API, the edge and URLs already issued.",
@@ -48,13 +56,13 @@ export const youtubeOperationsStage: StageScene = {
         { type: "packet", path: ["creator", "queue"], label: "new upload" },
         { type: "state", node: "queue", light: "on" },
         { type: "note", node: "queue", text: "retry · bounded", with: true },
-        { type: "note", node: "creator", text: "bad source → clear error" },
+        { type: "note", node: "creator", text: "bad source fails" },
       ],
     },
     {
       title: "A stalled queue hides behind playback",
       short: "Stall",
-      text: "The task queue stalls, so new uploads wait 3 hours to become ready. Video 81 and other existing videos keep playing from the CDN edge, with rebuffering steady. A single “service healthy” signal would still pass and hide the stall.",
+      text: "The task queue stalls, so new uploads wait hours to become ready: 3 in this example. Video 81 and other existing videos keep playing from the CDN edge with rebuffering steady, so a single “service healthy” signal would still pass and hide the stall.",
       frame: ["creator", "viewer", "queue", "edge", "monitor"],
       metrics: { pending: { n: 3, unit: " h", tone: "hot" }, rebuffer: "steady" },
       changes: ["~ Task queue stalls", "~ Pending age: 12 min → 3 h", "~ Playback unchanged"],
@@ -76,7 +84,7 @@ export const youtubeOperationsStage: StageScene = {
     {
       title: "Measure creator and viewer paths apart",
       short: "Two paths",
-      text: "Measure each path on its own. Creator: upload completion, pending-video age, queue lag, transcode failure. Viewer: CDN hit rate, time to first frame, rebuffering, egress. Pending age at 3 hours with rebuffering steady puts the problem on the creator path. Trace one video ID through upload and publication, and one session through playback.",
+      text: "Creator path: upload completion, pending-video age, queue lag, transcode failure. Viewer path: CDN hit rate, time to first frame, rebuffering, egress. Pending age at 3 hours with rebuffering steady points to the creator path. Trace one video ID through publication and one session through playback.",
       focus: ["queue", "edge", "monitor"],
       frame: ["creator", "viewer", "queue", "edge", "monitor"],
       facts: [["Creator path", "pending age, queue lag"], ["Viewer path", "first frame, rebuffering"]],
@@ -97,7 +105,7 @@ export const youtubeOperationsStage: StageScene = {
       frame: ["viewer", "api", "edge", "db"],
       facts: [["Status", "blocked"], ["Watch API", "no manifest"]],
       metrics: { pending: "—", rebuffer: "—", status: "blocked" },
-      changes: ["~ Video 81: ready → blocked", "− Manifest URL", "+ 403 for new requests"],
+      changes: ["~ Video 81’s status: blocked", "~ Watch API returns no manifest", "+ 403 for new requests"],
       events: [
         { type: "hide", nodes: ["creator", "queue", "monitor"] },
         { type: "show", nodes: ["api", "db"] },
@@ -106,10 +114,10 @@ export const youtubeOperationsStage: StageScene = {
         { type: "note", node: "db", text: "status → blocked", with: true },
         { type: "packet", path: ["viewer", "api"], label: "GET /watch/v81" },
         { type: "state", node: "api", light: "on" },
-        { type: "packet", path: ["api", "db"], label: "v81 row" },
-        { type: "packet", path: ["db", "api"], label: "status: blocked", kind: "response" },
+        // one message per hop, so the reduced-motion still keeps every pill clear
+        { type: "packet", path: ["api", "db"], label: "read v81 row" },
         { type: "packet", path: ["api", "viewer"], label: "403 · blocked", kind: "quiet" },
-        { type: "note", node: "api", text: "no manifest URL", with: true },
+        { type: "note", node: "api", text: "403 · no manifest", with: true },
       ],
     },
     {
@@ -117,16 +125,17 @@ export const youtubeOperationsStage: StageScene = {
       short: "Purge",
       text: "Blocking the row stops new manifests, but the CDN edge still holds copies of video 81’s segments. A CDN purge clears them by path or tag, here v81/*, so anything the edge serves next must come from Video storage, the origin.",
       focus: ["edge", "storage"],
-      frame: ["viewer", "api", "edge", "db", "storage"],
+      frame: ["viewer", "edge", "storage"],
       facts: [["Purge", "v81/*"], ["By", "path or tag"]],
-      changes: ["+ Video storage, the origin", "− v81 segments at the edge"],
+      changes: ["+ Video storage, the origin", "~ v81 segments purged from the edge"],
       events: [
-        { type: "state", nodes: ["api", "db"], light: "idle" },
+        { type: "hide", nodes: ["api", "db"] },
         { type: "show", nodes: ["storage"] },
         { type: "state", node: "edge", light: "on", readout: "v81 cached" },
-        { type: "pause", ms: 500 },
-        { type: "note", node: "edge", text: "purge v81/*" },
-        { type: "state", node: "edge", light: "work", readout: "v81 purged" },
+        { type: "pause", ms: 700 },
+        // one pill at the end: the copies were there, now they are gone
+        { type: "state", node: "edge", readout: "" },
+        { type: "note", node: "edge", text: "v81/* purged", with: true },
       ],
     },
     {
@@ -134,20 +143,21 @@ export const youtubeOperationsStage: StageScene = {
       short: "URL expiry",
       text: "A viewer already playing holds a URL signed for five minutes. The edge accepts it but misses after the purge, and Video storage, the origin, refuses the blocked video. Once five minutes pass, the edge refuses the expired URL itself. Short signatures bound how long issued access lasts.",
       focus: ["viewer", "edge", "storage"],
-      frame: ["viewer", "api", "edge", "db", "storage"],
+      frame: ["viewer", "edge", "storage"],
       facts: [["URL signed for", "5 min"], ["Origin", "refuses v81"], ["After 5 min", "edge refuses"]],
-      changes: ["~ Valid URL, but origin refuses", "− Access ends when the URL expires"],
+      changes: ["~ Valid URL, but origin refuses v81", "~ Access ends when the URL expires"],
       events: [
-        { type: "state", node: "edge", light: "idle", readout: "" },
+        { type: "state", node: "edge", light: "idle" },
         { type: "state", node: "viewer", detail: "already playing", with: true },
-        { type: "packet", path: ["viewer", "edge"], label: "720p · 1:12 · signed" },
+        // the edge accepts the signed URL, misses, and goes on to the origin: one message, so the Viewer–edge hop is
+        // left to the expired request's × in the still
+        { type: "packet", path: ["viewer", "edge", "storage"], label: "720p · 1:12" },
         { type: "state", node: "edge", light: "on" },
-        { type: "note", node: "viewer", text: "URL signed for 5 min", with: true },
-        { type: "packet", path: ["edge", "storage"], label: "720p · 1:12", kind: "quiet", lost: true },
-        { type: "note", node: "storage", text: "refuses blocked video" },
+        { type: "note", node: "storage", text: "refuses blocked v81", with: true },
         { type: "pause", ms: 600 },
-        { type: "packet", path: ["viewer", "edge"], label: "720p · 1:12 · expired", kind: "quiet", lost: true },
-        { type: "note", node: "edge", text: "URL expired · refused" },
+        // five minutes on: the URL itself is refused at the edge, and its × stays in the still
+        { type: "note", node: "viewer", text: "URL expired" },
+        { type: "packet", path: ["viewer", "edge"], label: "720p · 1:12 · expired", kind: "quiet", lost: true, with: true },
       ],
     },
     {
@@ -155,8 +165,9 @@ export const youtubeOperationsStage: StageScene = {
       short: "DRM",
       text: "DRM, encryption and watermarking are different controls. DRM restricts playback to licensed players through systems such as Widevine and FairPlay; a watermark marks a copy so a leak can be traced. DRM adds license servers and per-platform packaging, so a free lecture site would skip it.",
       focus: ["viewer", "license"],
-      frame: ["license", "viewer", "api", "edge", "db", "storage"],
+      frame: ["license", "viewer", "edge", "storage"],
       facts: [["DRM", "licensed players only"], ["Watermark", "traces a leak"]],
+      metrics: { status: "—" },
       changes: ["+ License server", "+ DRM license", "+ Watermark on the copy"],
       events: [
         { type: "show", nodes: ["license"] },
@@ -168,7 +179,7 @@ export const youtubeOperationsStage: StageScene = {
         { type: "packet", path: ["license", "viewer"], label: "license", kind: "response" },
         { type: "state", node: "license", light: "work" },
         { type: "state", node: "viewer", light: "work", with: true },
-        { type: "note", node: "viewer", text: "watermark traces leaks", with: true },
+        { type: "note", node: "viewer", text: "watermarked copy", with: true },
       ],
     },
   ],
