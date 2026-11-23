@@ -16,7 +16,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // larger. Steps 2, 6 and 7 keep the full frame, since their focus is one column and a phone would cut the other off.
 export const youtubeMetadataStage: StageScene = {
   id: "youtube-metadata",
-  intro: "Follow video 81 from processing to ready, where a verified check, not a worker's report, changes its status.",
+  intro: "Follow video 81 from processing to ready, where a verified check, not a worker’s report, changes its status.",
   metrics: [
     { id: "status", label: "Video status" },
     { id: "found", label: "Manifests" },
@@ -46,7 +46,7 @@ export const youtubeMetadataStage: StageScene = {
     {
       title: "Rows describe; storage holds the bytes",
       short: "Two stores",
-      text: "Video 81's row in the Metadata DB holds its owner, title, visibility, duration, status and manifest pointers: a few kilobytes that must support queries. Video storage holds the multi-gigabyte files, read as streams. The Metadata cache speeds hot reads, but the DB stays authoritative.",
+      text: "Video 81’s row in the Metadata DB holds its owner, title, visibility, duration, status and manifest pointers: a few kilobytes that must support queries. Video storage holds the multi-gigabyte files, read as streams. The Metadata cache speeds hot reads, but the DB stays authoritative.",
       focus: ["db", "storage", "cache"],
       frame: ["viewer", "api", "cache", "storage", "db"],
       changes: ["+ Row: a few KB, queried", "+ Files: multi-GB, streamed", "~ Cache speeds hot reads"],
@@ -62,7 +62,7 @@ export const youtubeMetadataStage: StageScene = {
     {
       title: "The watch page shows processing",
       short: "Processing",
-      text: "A viewer opens video 81's watch page. The Watch API reads the row through the Metadata cache and returns processing, with no manifest URL. Completion may span storage and database writes without one atomic transaction, so status moves only along allowed transitions.",
+      text: "A viewer opens video 81’s watch page. The Watch API reads the row through the Metadata cache and returns processing, with no manifest URL. Completion may span storage and database writes without one atomic transaction, so status moves only along allowed transitions.",
       focus: ["viewer", "api", "cache"],
       frame: ["viewer", "api", "cache", "storage", "db"],
       facts: [["Status path", "pending → uploaded → processing"], ["Then", "ready or failed"]],
@@ -123,7 +123,7 @@ export const youtubeMetadataStage: StageScene = {
     {
       title: "A repeated event changes nothing",
       short: "Repeat",
-      text: "The worker's done event arrives again. Repeats are normal: Amazon S3 event notifications, for instance, arrive at least once and without guaranteed order. The update runs again, but WHERE status = processing matches no row, so 0 rows change and video 81 stays ready.",
+      text: "The worker’s done event arrives again. Repeats are normal: Amazon S3 event notifications, for instance, arrive at least once and without guaranteed order. The update runs again, but WHERE status = processing matches no row, so 0 rows change and video 81 stays ready.",
       focus: ["worker", "verifier", "db"],
       frame: ["worker", "verifier", "api", "storage", "cache", "db"],
       facts: [["Where", "status = processing"], ["Matches", "0 rows"]],
@@ -140,7 +140,7 @@ export const youtubeMetadataStage: StageScene = {
     {
       title: "Now the watch page gets a manifest",
       short: "Manifest URL",
-      text: "The viewer opens video 81's watch page again. The refreshed cache entry says ready, so the Watch API returns a permitted manifest location and the player can start.",
+      text: "The viewer opens video 81’s watch page again. The refreshed cache entry says ready, so the Watch API returns a permitted manifest location and the player can start.",
       focus: ["viewer", "api", "cache"],
       frame: ["viewer", "verifier", "api", "storage", "cache", "db"],
       changes: ["~ Cache returns ready", "+ Manifest URL returned"],
@@ -159,10 +159,10 @@ export const youtubeMetadataStage: StageScene = {
     {
       title: "Reconcile stuck jobs and orphans",
       short: "Reconcile",
-      text: "A Reconciler, a background job, compares the Metadata DB with what Video storage actually holds and can find stuck jobs, orphaned objects and missing outputs. The cost is more states for the interface and support staff to explain; an internal tool that encodes while the uploader waits could manage with one flag.",
+      text: "A Reconciler, a background job, compares the Metadata DB with what Video storage holds and can find stuck jobs, orphaned objects and missing outputs. The cost is more states for the interface and support staff to explain; an internal tool that encodes while the uploader waits could manage with one flag.",
       focus: ["reconciler", "storage", "db"],
       frame: ["viewer", "reconciler", "api", "storage", "cache", "db"],
-      changes: ["~ Reconciler takes the Verifier's place", "+ Looks for stuck jobs and orphans"],
+      changes: ["~ Reconciler takes the Verifier’s place", "+ Looks for stuck jobs and orphans"],
       events: [
         { type: "hide", nodes: ["verifier"] },
         { type: "show", nodes: ["reconciler"] },

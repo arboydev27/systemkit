@@ -10,7 +10,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 export const youtubeRenditionsStage: StageScene = {
   id: "youtube-renditions",
   intro: "Watch one source become a four-rung ladder of 6-second segments, then see a player step down at a boundary.",
-  metrics: [{ id: "rungs", label: "Renditions" }, { id: "stored", label: "Per hour" }, { id: "playing", label: "Playing" }],
+  metrics: [{ id: "rungs", label: "Renditions" }, { id: "stored", label: "Per video hour" }, { id: "playing", label: "Playing" }],
   // The strips lie to the right of Video storage, in lane 0 of the tiers after it; the Manifest and the Viewer stand
   // in front of the Transcoder and Video storage. On a phone: Transcoder | Manifest, then Video storage | Viewer with
   // the strips stacked under that row. The Colleagues take the Viewer's place in the last step.
@@ -61,7 +61,7 @@ export const youtubeRenditionsStage: StageScene = {
       changes: ["+ 4 renditions, 240p to 1080p", "+ 4.9 GB stored per hour of video"],
       events: [
         { type: "state", node: "storage", light: "idle" },
-        { type: "packet", path: ["storage", "transcoder"], label: "v81/source.mp4" },
+        { type: "packet", path: ["storage", "transcoder"], label: "v81/source.mp4", kind: "response" },
         { type: "state", node: "transcoder", light: "work" },
         { type: "note", node: "transcoder", text: "4 renditions", tone: "work", with: true },
       ],
@@ -75,13 +75,13 @@ export const youtubeRenditionsStage: StageScene = {
       facts: [["Segment", "6 s"], ["Per hour", "600 per rendition"]],
       changes: ["+ 6-second segments in each rendition", "+ v81 manifest"],
       events: [
-        { type: "packet", path: ["transcoder", "storage"], label: "v81 segments · 6 s" },
+        { type: "packet", path: ["transcoder", "storage"], label: "v81 segments · 6 s", kind: "work" },
         { type: "append", log: "r1080", records: [{ text: "0:00" }, { text: "0:06" }, { text: "0:12" }, { text: "0:18" }] },
         { type: "append", log: "r720", records: [{ text: "0:00" }, { text: "0:06" }, { text: "0:12" }, { text: "0:18" }], with: true },
         { type: "append", log: "r480", records: [{ text: "0:00" }, { text: "0:06" }, { text: "0:12" }, { text: "0:18" }], with: true },
         { type: "append", log: "r240", records: [{ text: "0:00" }, { text: "0:06" }, { text: "0:12" }, { text: "0:18" }], with: true },
         { type: "show", nodes: ["manifest"] },
-        { type: "packet", path: ["transcoder", "manifest"], label: "v81 manifest" },
+        { type: "packet", path: ["transcoder", "manifest"], label: "v81 manifest", kind: "work" },
         { type: "state", node: "manifest", light: "on" },
         { type: "state", node: "transcoder", light: "idle", with: true },
       ],
@@ -113,7 +113,7 @@ export const youtubeRenditionsStage: StageScene = {
       changes: ["~ Viewer on a train", "~ Buffer runs low on 720p"],
       events: [
         { type: "state", node: "viewer", detail: "on a train", light: "on", opts: { level: 0.75 } },
-        { type: "packet", path: ["manifest", "viewer"], label: "v81 manifest" },
+        { type: "packet", path: ["manifest", "viewer"], label: "v81 manifest", kind: "response" },
         { type: "read", log: "r720", at: 6, to: "viewer", label: "720p · 0:06" },
         { type: "state", node: "viewer", opts: { level: 0.5 } },
         { type: "read", log: "r720", at: 12, to: "viewer", label: "720p · 0:12" },
@@ -124,7 +124,7 @@ export const youtubeRenditionsStage: StageScene = {
     {
       title: "The player steps down at a boundary",
       short: "Step down",
-      text: "To protect its buffer, the player takes the next segment, 0:18, from 480p at 1.5 Mbit/s instead of 720p. The boundaries line up, so playback continues from 0:18 without restarting, and each segment now carries half the bits.",
+      text: "To protect its buffer, the Viewer takes the next segment, 0:18, from 480p at 1.5 Mbit/s instead of 720p. The boundaries line up, so playback continues from 0:18 without restarting, and each segment now carries half the bits.",
       focus: ["storage", "viewer"],
       frame: ["transcoder", "manifest", "storage", "viewer"],
       metrics: { playing: "480p" },
@@ -157,13 +157,14 @@ export const youtubeRenditionsStage: StageScene = {
       text: "Not every video needs this. A private video shared with three colleagues needs one MP4 file, rather than a ladder of renditions cut into segments to encode and store.",
       focus: ["storage", "colleagues"],
       frame: ["transcoder", "manifest", "storage", "colleagues"],
-      metrics: { playing: "MP4" },
+      // the private video has one file and no ladder, so the chips stop describing video 81's
+      metrics: { rungs: 1, stored: "—", playing: "MP4" },
       facts: [["3 colleagues", "one MP4 file"], ["Ladder", "not needed"]],
       changes: ["+ Private video, one MP4 file", "~ No ladder to encode or store"],
       events: [
         { type: "hide", nodes: ["viewer"] },
         { type: "show", nodes: ["colleagues"] },
-        { type: "packet", path: ["storage", "colleagues"], label: "private.mp4" },
+        { type: "packet", path: ["storage", "colleagues"], label: "private.mp4", kind: "response" },
         { type: "state", node: "colleagues", light: "on" },
         { type: "note", node: "colleagues", text: "one MP4 file", with: true },
       ],

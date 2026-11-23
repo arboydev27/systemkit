@@ -68,7 +68,7 @@ export const youtubeScopeStage: StageScene = {
       ],
     },
     {
-      title: "Average 440 Gbit/s, peak 1.3 Tbit/s",
+      title: "Egress averages 440\u00a0Gbit/s, peaks 1.3\u00a0Tbit/s",
       short: "Peak",
       text: "Spread evenly over a day, 4.8 PB is about 440 Gbit/s. At a threefold peak the CDN edge sends 1.3 Tbit/s. These illustrative inputs are not current YouTube measurements: state the peak-to-average ratio and recalculate when an assumption changes.",
       focus: ["viewers", "edge"],
@@ -128,7 +128,7 @@ export const youtubeScopeStage: StageScene = {
       facts: [["Library", "a few thousand videos"], ["Bought from", "a managed service"]],
       // The big workload's numbers don't describe a small library: clear them.
       metrics: { delivered: "—", peak: "—", originals: "—" },
-      changes: ["+ Managed service such as Mux", "− Video storage, Transcoder, CDN edge", "~ A few thousand videos skip the build"],
+      changes: ["+ Managed service such as Mux", "~ Replaces Video storage, Transcoder, CDN edge", "~ A few thousand videos skip the build"],
       events: [
         { type: "hide", nodes: ["storage", "edge", "transcoder"] },
         { type: "state", nodes: ["creators", "viewers"], light: "idle", with: true },

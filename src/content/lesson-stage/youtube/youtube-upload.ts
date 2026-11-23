@@ -8,7 +8,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // parts, and a 5 MB profile clip goes as one plain PUT.
 export const youtubeUploadStage: StageScene = {
   id: "youtube-upload",
-  intro: "Follow a 2 GB upload from permission to verified original, through a dropped connection at part 150.",
+  intro: "Follow a 2 GB upload from permission to verified original, through a connection that drops after part 150.",
   metrics: [
     { id: "parts", label: "Parts stored" },
     { id: "resent", label: "Resent" },
@@ -138,10 +138,11 @@ export const youtubeUploadStage: StageScene = {
       focus: ["creator", "storage"],
       frame: ["creator", "api", "storage", "db"],
       facts: [["Stale parts", "aborted by a rule"], ["5 MB clip", "one plain PUT"]],
-      changes: ["− Abandoned parts aborted", "+ 5 MB clip in one PUT"],
+      changes: ["~ Abandoned parts aborted by a rule", "+ 5 MB clip in one PUT"],
       events: [
         { type: "state", nodes: ["api", "db"], light: "idle" },
-        { type: "state", node: "storage", light: "on", readout: "lifecycle rule", with: true },
+        // one note says it (a pill would repeat it); short enough to clear a phone's right edge
+        { type: "state", node: "storage", light: "on", readout: "", with: true },
         { type: "note", node: "storage", text: "aborts stale parts", with: true },
         { type: "packet", path: ["creator", "storage"], label: "PUT · 5 MB clip" },
         { type: "state", node: "storage", light: "work" },

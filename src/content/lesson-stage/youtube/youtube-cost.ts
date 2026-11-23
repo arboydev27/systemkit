@@ -10,7 +10,7 @@ import type { StageScene } from "../../../lib/lesson-stage/types";
 // results.
 export const youtubeCostStage: StageScene = {
   id: "youtube-cost",
-  intro: "Price one million views, then see where caching, cold storage and bitrate change the bill.",
+  intro: "Watch one million views become a $6,750 bill, then see where caching, cold storage and bitrate change it.",
   metrics: [
     { id: "delivered", label: "Delivered" },
     { id: "bill", label: "Egress bill" },
@@ -157,7 +157,7 @@ export const youtubeCostStage: StageScene = {
     },
     {
       title: "Few teams need their own CDN",
-      short: "Own CDN?",
+      short: "Commercial CDN",
       text: "A private CDN pays off only with sustained volume and measured savings. Netflix runs Open Connect, placing its own caching appliances inside internet providers, but few companies have that traffic. Most should use commercial CDNs and compare them on measured results.",
       focus: ["edge", "monitor"],
       frame: ["viewers", "edge", "storage", "monitor", "transcoder"],
@@ -167,7 +167,7 @@ export const youtubeCostStage: StageScene = {
       events: [
         { type: "state", node: "viewers", detail: "1M views" },
         { type: "state", node: "edge", light: "work", readout: "180 TB", with: true },
-        { type: "state", node: "transcoder", light: "idle", with: true },
+        { type: "state", node: "transcoder", light: "idle", readout: "", with: true },
         { type: "note", node: "edge", text: "commercial CDN", with: true },
         { type: "state", node: "monitor", light: "on", readout: "compare CDNs" },
       ],

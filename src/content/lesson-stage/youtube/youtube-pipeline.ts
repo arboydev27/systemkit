@@ -13,7 +13,7 @@ export const youtubePipelineStage: StageScene = {
   metrics: [{ id: "tasks", label: "Tasks" }, { id: "workers", label: "Workers" }, { id: "status", label: "Video status" }],
   // Left to right: Scheduler, Task queue, the workers, Video storage where they write. Dead letters stands behind the
   // queue in its own tier, so its cable runs straight back from the queue and crosses nothing; on a phone it sits
-  // beside the queue in that row. On a phone: Scheduler; Dead letters | Task queue; Worker 1 | Worker 2; Video storage.
+  // beside the Scheduler in the top row. On a phone: Dead letters | Scheduler; Task queue; Worker 1 | Worker 2; Video storage.
   nodes: [
     { id: "scheduler", role: "scheduler", label: "Scheduler", detail: "builds the DAG", at: [0, 0], opts: { items: 0 } },
     { id: "queue", role: "queue", label: "Task queue", detail: "keys + job IDs", at: [1, 0], opts: { items: 0 } },
@@ -104,9 +104,8 @@ export const youtubePipelineStage: StageScene = {
         { type: "packet", path: ["w1", "storage"], label: "v81/720p/c07", kind: "work" },
         { type: "state", node: "w1", light: "hot", tone: "hot", down: true },
         { type: "note", node: "w1", text: "no ack", tone: "hot", with: true },
-        { type: "pause", ms: 400 },
         { type: "note", node: "queue", text: "lease expired" },
-        { type: "packet", path: ["queue", "w2"], label: "720p · c07, again" },
+        { type: "packet", path: ["queue", "w2"], label: "720p · c07, again", with: true },
         { type: "state", node: "w2", light: "on" },
         { type: "packet", path: ["w2", "storage"], label: "check v81/720p/c07" },
         { type: "note", node: "w2", text: "key exists · verified", tone: "work" },
@@ -117,7 +116,7 @@ export const youtubePipelineStage: StageScene = {
     {
       title: "Retries end in dead letters or an error",
       short: "Failures",
-      text: "Retries are bounded. Pick a failure in another upload, video 82. Keeps failing: a task fails on both workers, its retries run out, and it moves to Dead letters for operators. Bad source: inspect hits a decode error, a terminal validation error, so it fails at once with no retry.",
+      text: "Retries are bounded. Pick a failure for video 82. Keeps failing: a task fails on both workers, its retries run out, and it moves to Dead letters for operators. Bad source: inspect hits a decode error, a terminal validation error, so it fails at once with no retry.",
       focus: ["queue", "w1", "w2", "dead"],
       frame: ["scheduler", "queue", "w1", "w2", "storage", "dead"],
       facts: [["Transient", "retry, bounded"], ["Persistent", "dead letters"], ["Malformed", "fail, no retry"]],
@@ -133,11 +132,11 @@ export const youtubePipelineStage: StageScene = {
           {
             label: "Keeps failing",
             events: [
-              { type: "packet", path: ["queue", "w1"], label: "v82 · try 1" },
+              { type: "packet", path: ["queue", "w1"], label: "try 1" },
               { type: "note", node: "w1", text: "fails", tone: "hot" },
-              { type: "packet", path: ["queue", "w2"], label: "v82 · try 2" },
+              { type: "packet", path: ["queue", "w2"], label: "try 2" },
               { type: "note", node: "w2", text: "fails again", tone: "hot" },
-              { type: "packet", path: ["queue", "dead"], label: "v82 · out of retries", kind: "hot" },
+              { type: "packet", path: ["queue", "dead"], label: "out of retries", kind: "hot" },
               { type: "state", node: "dead", light: "hot", tone: "hot", opts: { items: 1 } },
               { type: "note", node: "dead", text: "v82 · for operators", tone: "hot", with: true },
             ],
@@ -149,7 +148,7 @@ export const youtubePipelineStage: StageScene = {
               { type: "state", node: "w1", light: "on" },
               { type: "note", node: "w1", text: "decode error", tone: "hot", with: true },
               { type: "packet", path: ["w1", "queue"], label: "v82 · terminal error", kind: "hot" },
-              { type: "note", node: "queue", text: "v82 failed · no retry", tone: "hot" },
+              { type: "note", node: "queue", text: "v82 failed", tone: "hot" },
             ],
           },
         ],
@@ -179,8 +178,11 @@ export const youtubePipelineStage: StageScene = {
       title: "A 30-second clip needs one FFmpeg job",
       short: "Short clip",
       text: "A 30-second video needs none of this: one FFmpeg job reads the source and writes the outputs. Workflow engines such as Temporal or AWS Step Functions can hold a long job’s state, but they add a dependency to learn and run.",
-      metrics: { tasks: 1, workers: 1 },
-      changes: ["− Scheduler and queues", "~ One FFmpeg job for a 30 s clip"],
+      focus: ["w1", "storage"],
+      frame: ["w1", "storage"],
+      // the clip isn't video 81, so its status chip clears
+      metrics: { tasks: 1, workers: 1, status: "—" },
+      changes: ["~ No Scheduler or queues needed", "~ One FFmpeg job for a 30 s clip"],
       events: [
         { type: "hide", nodes: ["scheduler", "queue", "dead", "w2"] },
         { type: "move", at: { w1: [2.15, 0] }, with: true },

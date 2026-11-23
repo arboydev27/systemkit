@@ -140,7 +140,7 @@ export const youtubePlaybackStage: StageScene = {
     {
       title: "A launch crowd causes one origin fetch",
       short: "Launch crowd",
-      text: "At a launch, 5,000 viewers ask one edge for the same uncached segment. Request collapsing makes one origin fetch and shares the result with all of them. An extra cache layer, such as CloudFront Origin Shield, cuts origin load further.",
+      text: "At a launch, 5,000 viewers ask one edge for a new video’s first segment, not yet cached. Request collapsing makes one origin fetch and shares the result with all of them. An extra cache layer, such as CloudFront Origin Shield, cuts origin load further.",
       focus: ["crowd", "edge", "shield", "storage"],
       frame: ["viewer", "crowd", "edge", "shield", "storage"],
       facts: [["Requests", "5,000 at once"], ["Origin fetches", "1"]],
@@ -166,7 +166,7 @@ export const youtubePlaybackStage: StageScene = {
       focus: ["viewer", "edge", "storage"],
       frame: ["viewer", "api", "edge", "storage"],
       facts: [["Per segment", "no API call"], ["Takedown", "purge or short expiry"]],
-      changes: ["− Launch crowd, Origin shield", "~ Edge checks the signature", "~ Video storage keeps the copy"],
+      changes: ["~ Launch crowd and Origin shield leave", "~ Edge checks the signature", "~ Video storage keeps the copy"],
       events: [
         // The shield isn't this step's point: without it the stage frames four parts again, as in steps 1–5, so the
         // messages have room on a wide screen and the names keep their size on a phone.
