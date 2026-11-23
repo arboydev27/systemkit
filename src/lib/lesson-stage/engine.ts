@@ -875,7 +875,11 @@ export function createStage(host: HTMLElement, scene: StageScene, options: Stage
       applyEvent(next, e);
       if (!reduce) await fig.play?.(e, model, next, tk);
       if (PASSING.has(e.type)) { if (reduce) fig.settle?.(e, next); return; }
-      await transitionTo(next, tk);
+      // It lands on the model as it is now: events started with it (`with`) may have changed it while it played, and
+      // `next` was worked out before they did.
+      const landed = cloneModel(model);
+      applyEvent(landed, e);
+      await transitionTo(landed, tk);
       if (reduce) fig.settle?.(e, model);
       return;
     }
