@@ -1,0 +1,662 @@
+{
+  "drive-scope": {
+    "title": "Three jobs, one file experience",
+    "description": "Upload, download, and sync have different capacity and correctness needs.",
+    "note": "Estimate request starts, concurrent bytes, revisions, and peak demand separately.",
+    "nodes": [
+      {
+        "x": 35,
+        "y": 155,
+        "w": 190,
+        "title": "Creator",
+        "detail": "uploads originals",
+        "kind": "device"
+      },
+      {
+        "x": 315,
+        "y": 155,
+        "w": 190,
+        "title": "File service",
+        "detail": "identity + revision",
+        "kind": "api"
+      },
+      {
+        "x": 625,
+        "y": 75,
+        "w": 225,
+        "title": "Storage",
+        "detail": "durable content bytes",
+        "kind": "storage"
+      },
+      {
+        "x": 625,
+        "y": 255,
+        "w": 225,
+        "title": "Other devices",
+        "detail": "download + sync",
+        "kind": "device"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          315,
+          196
+        ],
+        "label": "upload",
+        "from": [
+          225,
+          196
+        ]
+      },
+      {
+        "to": [
+          625,
+          116
+        ],
+        "label": "store",
+        "from": [
+          505,
+          176
+        ]
+      },
+      {
+        "to": [
+          625,
+          296
+        ],
+        "label": "sync",
+        "from": [
+          505,
+          220
+        ]
+      }
+    ]
+  },
+  "drive-metadata": {
+    "title": "Publish a verified revision",
+    "description": "Metadata names a file and authorizes it; object storage holds its immutable blocks.",
+    "note": "Ready is a metadata transition after block verification.",
+    "nodes": [
+      {
+        "x": 35,
+        "y": 165,
+        "w": 190,
+        "title": "File API",
+        "detail": "pending revision",
+        "kind": "api"
+      },
+      {
+        "x": 335,
+        "y": 70,
+        "w": 220,
+        "title": "Metadata DB",
+        "detail": "IDs + manifests",
+        "kind": "database"
+      },
+      {
+        "x": 335,
+        "y": 260,
+        "w": 220,
+        "title": "Object store",
+        "detail": "ordered blocks",
+        "kind": "storage"
+      },
+      {
+        "x": 690,
+        "y": 165,
+        "w": 225,
+        "title": "Ready revision",
+        "detail": "commit + change event",
+        "kind": "check"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          335,
+          111
+        ],
+        "label": "record",
+        "from": [
+          225,
+          187
+        ]
+      },
+      {
+        "to": [
+          335,
+          301
+        ],
+        "label": "upload",
+        "from": [
+          225,
+          225
+        ]
+      },
+      {
+        "to": [
+          690,
+          187
+        ],
+        "label": "commit",
+        "from": [
+          555,
+          111
+        ]
+      },
+      {
+        "to": [
+          690,
+          225
+        ],
+        "label": "verify",
+        "from": [
+          555,
+          301
+        ]
+      }
+    ]
+  },
+  "drive-upload": {
+    "title": "Resume, verify, then finalize",
+    "description": "The upload session records accepted byte ranges and publishes one verified revision.",
+    "note": "A session retry must return the same finalization result.",
+    "nodes": [
+      {
+        "x": 30,
+        "y": 165,
+        "w": 185,
+        "title": "Client",
+        "detail": "chunk ranges",
+        "kind": "device"
+      },
+      {
+        "x": 295,
+        "y": 165,
+        "w": 200,
+        "title": "Upload session",
+        "detail": "scope + progress",
+        "kind": "api"
+      },
+      {
+        "x": 565,
+        "y": 75,
+        "w": 215,
+        "title": "Object store",
+        "detail": "durable chunks",
+        "kind": "storage"
+      },
+      {
+        "x": 565,
+        "y": 255,
+        "w": 215,
+        "title": "Verifier",
+        "detail": "size + checksums",
+        "kind": "shield"
+      },
+      {
+        "x": 835,
+        "y": 165,
+        "w": 135,
+        "title": "Revision",
+        "detail": "ready once",
+        "kind": "check"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          295,
+          206
+        ],
+        "label": "resume",
+        "from": [
+          215,
+          206
+        ]
+      },
+      {
+        "to": [
+          565,
+          116
+        ],
+        "label": "chunks",
+        "from": [
+          495,
+          186
+        ]
+      },
+      {
+        "to": [
+          565,
+          296
+        ],
+        "label": "finalize",
+        "from": [
+          495,
+          226
+        ]
+      },
+      {
+        "to": [
+          835,
+          226
+        ],
+        "label": "verified",
+        "from": [
+          780,
+          296
+        ]
+      }
+    ]
+  },
+  "drive-sync": {
+    "title": "Catch up from a durable cursor",
+    "description": "A notification wakes a client; the change log supplies authoritative changes missed offline.",
+    "note": "Advance the cursor only after applying a page durably.",
+    "nodes": [
+      {
+        "x": 30,
+        "y": 165,
+        "w": 185,
+        "title": "Device A",
+        "detail": "commits revision",
+        "kind": "device"
+      },
+      {
+        "x": 300,
+        "y": 165,
+        "w": 205,
+        "title": "Change log",
+        "detail": "ordered events",
+        "kind": "database"
+      },
+      {
+        "x": 600,
+        "y": 65,
+        "w": 215,
+        "title": "Notification",
+        "detail": "wake-up hint",
+        "kind": "bell"
+      },
+      {
+        "x": 600,
+        "y": 260,
+        "w": 215,
+        "title": "Device B",
+        "detail": "saved cursor",
+        "kind": "device"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          300,
+          206
+        ],
+        "label": "commit",
+        "from": [
+          215,
+          206
+        ]
+      },
+      {
+        "to": [
+          600,
+          106
+        ],
+        "label": "hint",
+        "from": [
+          505,
+          188
+        ]
+      },
+      {
+        "to": [
+          600,
+          301
+        ],
+        "label": "pull since cursor",
+        "from": [
+          505,
+          226
+        ]
+      }
+    ]
+  },
+  "drive-conflicts": {
+    "title": "Two edits, one base revision",
+    "description": "Compare-and-set allows one edit to publish while preserving the competing content.",
+    "note": "A conflict copy keeps user work available for comparison or merge.",
+    "nodes": [
+      {
+        "x": 30,
+        "y": 85,
+        "w": 190,
+        "title": "Phone",
+        "detail": "edit based on 12",
+        "kind": "device"
+      },
+      {
+        "x": 30,
+        "y": 265,
+        "w": 190,
+        "title": "Laptop",
+        "detail": "edit based on 12",
+        "kind": "device"
+      },
+      {
+        "x": 340,
+        "y": 165,
+        "w": 205,
+        "title": "Current file",
+        "detail": "revision 13",
+        "kind": "database"
+      },
+      {
+        "x": 665,
+        "y": 85,
+        "w": 240,
+        "title": "Publish",
+        "detail": "base matched",
+        "kind": "check"
+      },
+      {
+        "x": 665,
+        "y": 265,
+        "w": 240,
+        "title": "Conflict copy",
+        "detail": "base no longer matches",
+        "kind": "version"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          340,
+          186
+        ],
+        "label": "first",
+        "from": [
+          220,
+          126
+        ]
+      },
+      {
+        "to": [
+          340,
+          226
+        ],
+        "label": "later",
+        "from": [
+          220,
+          306
+        ]
+      },
+      {
+        "to": [
+          665,
+          126
+        ],
+        "label": "commit",
+        "from": [
+          545,
+          188
+        ]
+      },
+      {
+        "to": [
+          665,
+          306
+        ],
+        "label": "preserve",
+        "from": [
+          545,
+          226
+        ]
+      }
+    ]
+  },
+  "drive-sharing": {
+    "title": "Permission before capability",
+    "description": "Effective access governs listings, metadata, download URLs, and content delivery.",
+    "note": "Short URLs bound previously issued access after revocation.",
+    "nodes": [
+      {
+        "x": 30,
+        "y": 165,
+        "w": 190,
+        "title": "Viewer",
+        "detail": "asks for file",
+        "kind": "device"
+      },
+      {
+        "x": 320,
+        "y": 165,
+        "w": 205,
+        "title": "Access check",
+        "detail": "current rules",
+        "kind": "shield"
+      },
+      {
+        "x": 645,
+        "y": 65,
+        "w": 225,
+        "title": "Metadata",
+        "detail": "list + revision",
+        "kind": "database"
+      },
+      {
+        "x": 645,
+        "y": 260,
+        "w": 225,
+        "title": "Content",
+        "detail": "short-lived URL",
+        "kind": "storage"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          320,
+          206
+        ],
+        "label": "request",
+        "from": [
+          220,
+          206
+        ]
+      },
+      {
+        "to": [
+          645,
+          106
+        ],
+        "label": "allowed",
+        "from": [
+          525,
+          186
+        ]
+      },
+      {
+        "to": [
+          645,
+          301
+        ],
+        "label": "allowed",
+        "from": [
+          525,
+          226
+        ]
+      }
+    ]
+  },
+  "drive-download": {
+    "title": "Reuse known blocks",
+    "description": "A verified local cache avoids downloading content that has not changed.",
+    "note": "Manifest order reconstructs the requested revision.",
+    "nodes": [
+      {
+        "x": 30,
+        "y": 165,
+        "w": 195,
+        "title": "Client",
+        "detail": "local block cache",
+        "kind": "device"
+      },
+      {
+        "x": 330,
+        "y": 165,
+        "w": 205,
+        "title": "Manifest",
+        "detail": "ordered hashes",
+        "kind": "version"
+      },
+      {
+        "x": 650,
+        "y": 65,
+        "w": 235,
+        "title": "Existing blocks",
+        "detail": "reuse 99 of 100",
+        "kind": "check"
+      },
+      {
+        "x": 650,
+        "y": 260,
+        "w": 235,
+        "title": "Missing block",
+        "detail": "fetch + verify",
+        "kind": "storage"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          330,
+          206
+        ],
+        "label": "read",
+        "from": [
+          225,
+          206
+        ]
+      },
+      {
+        "to": [
+          650,
+          106
+        ],
+        "label": "matches",
+        "from": [
+          535,
+          186
+        ]
+      },
+      {
+        "to": [
+          650,
+          301
+        ],
+        "label": "changed",
+        "from": [
+          535,
+          226
+        ]
+      }
+    ]
+  },
+  "drive-operations": {
+    "title": "Recover the complete file",
+    "description": "Repair and observe each stage from upload through another device\u2019s synchronized copy.",
+    "note": "A metadata restore without the referenced bytes is incomplete.",
+    "nodes": [
+      {
+        "x": 25,
+        "y": 75,
+        "w": 205,
+        "title": "Upload health",
+        "detail": "pending age + errors",
+        "kind": "metric"
+      },
+      {
+        "x": 25,
+        "y": 260,
+        "w": 205,
+        "title": "Sync health",
+        "detail": "lag + convergence",
+        "kind": "metric"
+      },
+      {
+        "x": 350,
+        "y": 165,
+        "w": 215,
+        "title": "Reconciliation",
+        "detail": "find gaps + orphans",
+        "kind": "worker"
+      },
+      {
+        "x": 700,
+        "y": 75,
+        "w": 245,
+        "title": "Restore",
+        "detail": "metadata + blocks",
+        "kind": "storage"
+      },
+      {
+        "x": 700,
+        "y": 260,
+        "w": 245,
+        "title": "Recovery",
+        "detail": "cursor replay + retry",
+        "kind": "device"
+      }
+    ],
+    "edges": [
+      {
+        "to": [
+          350,
+          186
+        ],
+        "label": "observe",
+        "from": [
+          230,
+          116
+        ]
+      },
+      {
+        "to": [
+          350,
+          226
+        ],
+        "label": "observe",
+        "from": [
+          230,
+          301
+        ]
+      },
+      {
+        "to": [
+          700,
+          116
+        ],
+        "label": "repair",
+        "from": [
+          565,
+          186
+        ]
+      },
+      {
+        "to": [
+          700,
+          301
+        ],
+        "label": "catch up",
+        "from": [
+          565,
+          226
+        ]
+      }
+    ]
+  }
+}

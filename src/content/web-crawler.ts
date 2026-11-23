@@ -1,0 +1,139 @@
+import type { Question, Step } from './chapter';
+
+export const crawlerSteps: Step[] = [
+  {
+    id: 'crawler-scope', title: 'Define the crawl', eyebrow: '01 · Scope and budget',
+    seoTitle: 'Web crawler system design: scope, budget, and QPS estimate',
+    summary: 'Choose the purpose, coverage, freshness, and content types before drawing the pipeline.',
+    body: [
+      'A crawler discovers pages by fetching seed URLs (its starting list), extracting links, and scheduling useful new URLs. For a search index, the output is a stream of documents and metadata for indexing; an archive may retain the fetched bytes instead. Common Crawl, which publishes crawl snapshots for anyone to use, sits closer to the archive end. Decide which domains and content types are in scope, how many pages to fetch, how long to retain them, and how quickly changes should appear.',
+      'Capacity starts with attempts, not just stored pages. As an illustration, 600 million fetches per month is roughly 230 fetches per second on average over 30 days. If pages average 150 KB, that is about 35 MB per second, or about 280 Mbit/s, and 90 TB of raw bytes each month. Keeping every fetch for five years would take 5.4 PB, which an index storing only parsed text can avoid. Peak load, retries, redirects, and recrawls increase the real budget.',
+      'A crawler must also be polite and robust: the public web contains slow hosts, malformed responses, loops, and changing rules. That makes one expensive to run for a narrow job. If you need data from three partner sites, a sitemap reader, a published API, or a data feed is usually cheaper than a general crawler.',
+    ],
+    takeaways: ['A crawl objective determines what to fetch, keep, and hand to consumers.', 'Estimate peak fetches, bytes, retries, and recrawls separately.'],
+    diagramId: 'crawler-scope', scenario: 'A team asks for “a web crawler” but has not decided whether it is an archive or a search index. What do you ask first?',
+    scenarioAnswer: 'Clarify coverage, content types, retention, freshness, and the output consumer. An archive needs retained versions; a search index needs parsed documents and links.',
+  },
+  {
+    id: 'crawler-pipeline', title: 'Trace one page through the system', eyebrow: '02 · Discovery loop',
+    seoTitle: 'How a web crawler works: the fetch, parse, and discovery loop',
+    summary: 'Turn a seed URL into a document, then feed discovered links back into the frontier.',
+    body: [
+      'Seed URLs enter a durable frontier, the stored list of URLs waiting to be fetched. A worker leases an eligible URL, meaning it claims the URL for a limited time, then checks crawl policy, resolves the host, fetches the response with bounds, and records the outcome. A parser validates the response, extracts document information and links, and hands accepted content to storage or an index pipeline. Links that pass filtering and deduplication return to the frontier.',
+      'Trace one page, with example values. A worker leases example.org/guide with a 5-minute lease and gets a 200 response of 180 KB. The parser finds 40 links. A filter drops 25 as already seen or out of scope, so 15 become new frontier entries, and the document goes to the sink. Only then is the lease marked complete. Each fetched page can create more work, which is why a crawl needs a budget rather than waiting for a natural end.',
+      'Keep each stage observable and independently recoverable. A worker crash after fetching should not silently lose a URL; a lease can expire and make it eligible again. That means downstream writes and link insertion need idempotent keys or deduplication, because the same page may be processed twice. This is at-least-once processing: simpler than guaranteeing exactly one fetch, at the cost of occasional repeats. A successfully fetched page can still fail parsing, and a parsed page can still be excluded from indexing.',
+    ],
+    takeaways: ['The frontier closes the discovery loop; parsing and storage are distinct stages.', 'Leases and idempotent processing make worker failure recoverable.'],
+    diagramId: 'crawler-pipeline', scenario: 'A worker crashes after downloading a page but before acknowledging its frontier item. What should happen?',
+    scenarioAnswer: 'The lease expires and the URL becomes eligible again. Reprocessing is safe when document storage and discovered-link insertion are idempotent.',
+    related: [
+      { chapterId: 'streams', stepId: 'st-delivery', reason: 'What at-least-once means and how to make repeats harmless' },
+    ],
+  },
+  {
+    id: 'crawler-policy', title: 'Respect each host', eyebrow: '03 · Robots and politeness',
+    seoTitle: 'robots.txt and crawl politeness: per-host rate limits',
+    summary: 'Check crawl preferences and schedule requests at a rate each host can tolerate.',
+    body: [
+      'Before fetching a path, check the applicable robots.txt rules for the crawler identity. robots.txt is a plain text file at a site’s root, standardized in RFC 9309, listing paths that named crawlers are asked to avoid. Cache the rules and define behavior when they cannot be fetched: the RFC advises against using a cached copy for more than 24 hours, lets a crawler proceed after a 4xx, and tells it to assume everything is disallowed after a 5xx. Robots rules express crawl preferences; they are not a security boundary or permission to access otherwise restricted data. Site terms and applicable law may add constraints.',
+      'A global concurrency limit cannot protect a small host from a flood. Track per-host or per-site next-eligible times and active requests, then let the frontier schedule only eligible work. Slow responses, 429, 503, and Retry-After can lower that host’s rate. Keep unrelated hosts moving while one is delayed.',
+      'Politeness has a real cost in coverage. At one request every 2 seconds, a host allows 43,200 fetches per day, so a site with one million URLs takes about 23 days per pass. The Crawl-delay directive is non-standard, and Google ignores it, so you still choose your own defaults. Define host grouping carefully: many small sites can share one server, where separate per-hostname limits may still add up to too much.',
+    ],
+    takeaways: ['Check robots rules before a fetch and refresh cached rules deliberately.', 'Politeness needs per-host scheduling, not only a global worker limit.'],
+    diagramId: 'crawler-policy', scenario: 'A crawler has 500 workers. Most queued URLs belong to one small site. Why is a global limit of 500 unsafe?',
+    scenarioAnswer: 'All 500 workers could hit the same site. Limit concurrent and timed requests for that host while scheduling other hosts independently.',
+  },
+  {
+    id: 'crawler-frontier', title: 'Schedule useful URLs', eyebrow: '04 · Durable URL frontier',
+    seoTitle: 'URL frontier design: priority queues and host politeness',
+    summary: 'Combine priority, fairness, and host eligibility instead of using one naive FIFO queue.',
+    body: [
+      'A breadth-first queue discovers a wide graph, but a page can contain thousands of links to its own host. One FIFO queue can flood that host and bury important or recently changed pages. Suppose a popular page adds 10,000 links on one host that allows one request per second. Those URLs need about 2.8 hours, and in a single FIFO they either hammer the host or block workers while other hosts wait behind them.',
+      'So split the decision. Give URLs priorities based on the product goal and keep per-host queues or an equivalent host-aware scheduler. A selector picks a valuable URL whose host is eligible, with enough fairness that low-priority hosts are not starved indefinitely. The Mercator research crawler used this separation: priority queues in front, per-host politeness queues behind. The cost is state for every host you know about, and a selector that must skip many waiting hosts efficiently.',
+      'At scale, the frontier must survive restarts. Store durable queued and leased state, with small memory buffers for hot operations. Record why a URL is waiting, when it may run, its retry count, and its next recrawl time. A Bloom filter, a compact bit array that answers “definitely new” or “probably seen”, can reject many already-seen URLs cheaply. Ten bits per URL for a billion URLs takes 1.25 GB with about a 1% false-positive rate, and each false positive skips a page you never fetched. It should not be the sole authoritative test when losing a valid page matters.',
+    ],
+    takeaways: ['Priority answers which URLs matter; host eligibility answers when they may be fetched.', 'Durable queue state and lease recovery prevent lost work.'],
+    diagramId: 'crawler-frontier', scenario: 'A popular page links to 10,000 URLs on one host. How should the frontier avoid flooding it?',
+    scenarioAnswer: 'Keep those URLs in that host’s queue, select only when its delay and concurrency rules permit, and use other eligible host queues meanwhile.',
+  },
+  {
+    id: 'crawler-dedup', title: 'Remove repeated work carefully', eyebrow: '05 · URL and content identity',
+    seoTitle: 'URL normalization and content hash deduplication in crawlers',
+    summary: 'Normalize URL identity, then compare content separately after fetching.',
+    body: [
+      'Resolve relative links against their source URL and normalize safe equivalents before enqueueing. Lowercase scheme and host, remove default ports and fragments (the part after #, which is never sent to the server), and apply a deliberate policy for query parameters and trailing slashes. For example, HTTP://Example.com:80/a/../b#top becomes http://example.com/b. Avoid aggressive rewriting: path case, parameter order, and even apparently tracking-like parameters can change a resource. Redirect targets and declared canonical URLs, a page’s hint about its preferred address, are useful signals, but do not erase the fetched URL’s history.',
+      'The URL-seen set prevents repeatedly queueing the same normalized URL. An 8-byte fingerprint for each of 10 billion URLs takes 80 GB before index overhead, so this set is a real capacity item.',
+      'Content hashes detect byte-identical pages reached through different URLs. A strong hash match is a cheap duplicate signal, but one changed timestamp gives a completely different SHA-256, so pages that differ only in boilerplate need a near-duplicate method. Google published work on using SimHash, a fingerprint where similar documents get similar values, for this purpose. Store URL-to-content relationships because duplicate content may still have distinct links, provenance, or future changes.',
+      'Both checks can err. Merge too eagerly and you lose real pages; merge too timidly and you spend fetch budget on copies. Measure the duplicate ratio per site and tune rules site by site.',
+    ],
+    takeaways: ['URL deduplication happens before fetching; content deduplication happens after.', 'Canonicalization is a product policy, not a license to merge every similar URL.'],
+    diagramId: 'crawler-dedup', scenario: 'Two URLs show identical HTML today. Should their URLs be discarded from crawl history?',
+    scenarioAnswer: 'No. Reuse or deduplicate stored content if appropriate, but retain each URL and its fetch history because links, ownership, or content can diverge later.',
+  },
+  {
+    id: 'crawler-fetch', title: 'Fetch imperfect pages safely', eyebrow: '06 · Downloader and parser',
+    seoTitle: 'Crawler downloader safety: SSRF, redirects, and size limits',
+    summary: 'Bound network and parsing work, and classify outcomes before following links.',
+    body: [
+      'Use DNS and HTTP clients with timeouts, redirect limits, response-size caps, accepted content types, and bounded decompression. A gzip response can expand about 1,000 times, so a 10 MB download may become 10 GB in memory; cap the decompressed size, not just the transfer. Set a clear crawler identity, track response status, and close sockets and streams on failure. Concurrency helps throughput, but each worker has finite memory, bandwidth, and file descriptors.',
+      'Validate destinations after every redirect and DNS resolution. This defends against SSRF (server-side request forgery), where an attacker gets your server to call addresses it can reach and they cannot. A public page could redirect to 169.254.169.254, the address where cloud instances read metadata, which may include credentials. Check the address actually connected to, because a hostname can resolve to a public address at check time and a private one moments later.',
+      'Parse HTML with a tolerant parser, not a regular expression, because real pages are often malformed. Resolve relative links using the final document URL and any valid base URL, filter unsupported schemes, and keep metadata such as status, content type, fetch time, and canonical hints. JavaScript-rendered pages require a separate, more expensive rendering path if they are in scope: a headless browser uses far more CPU and memory than parsing the same page. Google renders pages with headless Chromium in a stage after crawling. Do not render every page by default.',
+    ],
+    takeaways: ['Bound redirects, time, bytes, decompression, and destinations.', 'HTML parsing and browser rendering have different costs and coverage.'],
+    diagramId: 'crawler-fetch', scenario: 'A fetched public URL redirects to a private IP address. What should the downloader do?',
+    scenarioAnswer: 'Reject that destination before connecting and record the reason. Validate each redirect and resolved address, not just the seed URL.',
+  },
+  {
+    id: 'crawler-freshness', title: 'Revisit without looping', eyebrow: '07 · Retries and change detection',
+    seoTitle: 'Recrawl scheduling, conditional GET, and spider traps',
+    summary: 'Schedule recrawls by observed value and change rate while controlling traps.',
+    body: [
+      'A crawl is never truly finished if pages can change. Record fetch history, content hash, response validators, and last change time. Validators are values such as an ETag (a version tag the server assigned) that let the crawler ask whether anything changed. Schedule frequently changing or important pages sooner and stable pages later. Conditional requests such as If-None-Match or If-Modified-Since can save bandwidth when a server supports them; a 304 means no new representation was sent, not that the URL disappears from the schedule.',
+      'An adaptive rule might work like this, with example values. A page that changed on its last four daily visits moves to every 12 hours; one unchanged for five visits moves to every 2 days, up to a cap. Budget decides how far this goes. Recrawling 10 million pages daily takes about 116 fetches per second, nearly a third of a 386-per-second crawl, and that share is no longer finding new pages.',
+      'Retry transient failures with bounded exponential backoff and jitter, honoring Retry-After where relevant. Distinguish permanent errors, policy exclusions, and temporary failures. A spider trap is a site structure that generates URLs without end, whether by accident or on purpose. Cap retries, URL length, path depth, parameter variation, and per-site discovery when patterns suggest one. Human review or site-specific rules may be needed; a universal trap detector will also suppress legitimate pages.',
+    ],
+    takeaways: ['Freshness depends on change history and importance, not one global recrawl interval.', 'Bound retries and suspicious URL expansion while preserving reasons for exclusion.'],
+    diagramId: 'crawler-freshness', scenario: 'A calendar generates a new URL for every future date. What protects the crawler?',
+    scenarioAnswer: 'Detect the expansion pattern, cap per-site and per-pattern discovery, and review a targeted filter. A generic depth limit alone may miss or overblock pages.',
+    related: [
+      { chapterId: 'patterns', stepId: 'pt-retries', reason: 'How backoff, jitter, and a retry budget keep retries bounded' },
+    ],
+  },
+  {
+    id: 'crawler-scale', title: 'Partition and operate the crawl', eyebrow: '08 · Distributed operation',
+    seoTitle: 'Distributed web crawler: partitioning hosts across workers',
+    summary: 'Spread hosts across workers while keeping scheduling state and health visible.',
+    body: [
+      'Partition host queues across scheduler shards so one host’s rate policy has a clear owner. A shard is one scheduler’s slice of the hosts. Multiple downloader workers can lease eligible URLs; rebalance shard ownership as capacity changes without allowing two owners to violate a host delay. A consistent-hash ring reduces movement: going from 20 to 21 shards moves about 5% of hosts, where simple modulo hashing moves about 95%. It does not solve hot hosts or stalled workers by itself. Apache Nutch partitions fetch lists by host, domain, or IP for the same reason. Replicate durable frontier state, checkpoint ownership transitions, and make storage writes idempotent.',
+      'Hand over a host in order: the old owner stops scheduling it and saves its next-eligible time, and only then does the new owner start. Skipping that save can fetch a host twice in one delay window. Shards also add failure modes, so stay on one scheduler until its memory or CPU actually runs out.',
+      'Separate document storage from the index handoff: store fetched versions and metadata under stable keys, then publish a durable indexing event or batch. Watch queue age by priority, eligible-host count, fetch success and error rates, robots denials, bytes, duplicate ratio, change-detection lag, and per-host request rates. These signals expose starvation, floods, traps, and stale output before aggregate QPS looks wrong.',
+    ],
+    takeaways: ['Partition by host to preserve rate ownership, then rebalance carefully.', 'Measure both crawl health and the freshness of downstream indexed content.'],
+    diagramId: 'crawler-scale', scenario: 'Adding workers raises total QPS but one important host still falls behind. Why?',
+    scenarioAnswer: 'That host may be limited by its politeness budget or have an oversized queue. More workers cannot safely exceed its rate; adjust priorities, freshness goals, or host policy with evidence.',
+    related: [
+      { chapterId: 'consistent-hashing', stepId: 'hash-membership', reason: 'How a ring moves only affected ranges, and how to cut over safely' },
+    ],
+  },
+];
+
+const check = (id: string, stepId: string, difficulty: Question['difficulty'], prompt: string, options: string[], correctIndex: number, explanation: string): Question => ({ id, stepId, difficulty, prompt, options, correctIndex, explanation });
+
+export const crawlerQuestions: Question[] = [
+  check('crq01','crawler-scope','Recall','Which choice most changes what a crawler must store and emit?',['Whether its output is an archive or a search index','How many downloader workers the fleet is running','Which hash function its URL-seen set is built with','Which language its parsers and schedulers are in'],0,'The purpose drives retained versions, parsing, and downstream output. The others are implementation choices made after that.'),
+  check('crq02','crawler-scope','Apply','A crawler must fetch 5 billion pages in 30 days, and peak is twice the average. What peak rate should you plan for?',['About 770 fetches per second','About 3,900 fetches per second','About 1,900 fetches per second','About 39,000 fetches per second'],1,'5 billion ÷ (30 × 86,400 seconds) ≈ 1,930 per second on average, so about 3,900 at peak, before retries.'),
+  check('crq03','crawler-pipeline','Recall','What closes the crawler discovery loop?',['Sending parsed documents on to the storage sink','Renewing the lease on a URL after fetching it','Returning filtered, unseen links to the frontier','Retrying failed fetches with exponential backoff'],2,'The parser extracts links, and accepted unseen URLs become future work.'),
+  check('crq04','crawler-pipeline','Diagnose','After a fleet restart, some URLs leased before the restart are never fetched or retried. What is missing?',['A URL-seen filter large enough for the restart window','A retry limit on each worker for its failed requests','A per-host timer that survives restarts of the workers','Lease expiry that returns unfinished URLs to the queue'],3,'An unacknowledged lease has to become eligible again, or the URL stays claimed by a worker that no longer exists. Idempotent processing handles the repeat.'),
+  check('crq05','crawler-policy','Recall','What does robots.txt primarily communicate?',['Which paths a site asks a named crawler to avoid','Which paths require a login before they can be read','Which pages are legally off limits to any crawler','Which pages the site wants ranked in search results'],0,'Robots rules guide compliant crawling. They are not access control, and they do not settle what terms or law allow.'),
+  check('crq06','crawler-policy','Diagnose','A small blog reports 200 requests in one second from your crawler, though the fleet stayed under its global limit. What is the cause?',['Its robots.txt rules had expired from the crawler’s cache','Nothing bounds requests per host, only the fleet total','The fleet’s global limit was set ten times too high','Workers retried failed fetches with no added backoff'],1,'Rate control must be scoped to each host or site. A global limit says nothing about how requests are distributed among hosts.'),
+  check('crq07','crawler-frontier','Recall','What are the two core scheduling decisions?',['Queue order and the number of workers per queue','Crawl depth and the size of the URL-seen filter','URL priority and host eligibility at this moment','Retry count and the response-size cap for a URL'],2,'Priority chooses value; eligibility enforces politeness and timing.'),
+  check('crq08','crawler-frontier','Apply','A Bloom filter with a 1% false-positive rate is the only seen-URL test, and today brings 2 million never-seen URLs. What happens?',['About 20,000 pages get fetched twice as if brand new','About 200,000 new pages get skipped as already seen','No pages are lost, since false positives hit seen URLs','About 20,000 new pages get skipped as already seen'],3,'A false positive reports an unseen URL as seen: 2 million × 1% = 20,000 pages skipped. Bloom filters do not give false negatives, so a seen URL is not refetched because of the filter.'),
+  check('crq09','crawler-dedup','Recall','When can duplicate content be detected?',['After a fetch supplies the response bytes to compare','Before a fetch, by comparing normalized URL strings','Before a fetch, by comparing the URL’s host and path','During DNS resolution, when two hosts share an address'],0,'URL identity is available earlier, but content fingerprints require the response. Different URLs can hold the same bytes.'),
+  check('crq10','crawler-dedup','Diagnose','After merging URLs with identical HTML, a crawler stops noticing new articles on a section page that was a duplicate last month. What was the mistake?',['The content hash was too weak to tell the two pages apart','The merge discarded the URL, so it left the recrawl schedule','The normalizer lowercased the path of that section page','The Bloom filter marked the new articles as already seen'],1,'Keep URL-to-content relationships and fetch history even when bytes are shared, because content can diverge later.'),
+  check('crq11','crawler-fetch','Recall','Which bound protects a downloader from a decompression bomb?',['A maximum compressed size on the transfer','A maximum redirect count on each request','A maximum decompressed size on the response','A maximum connect timeout on every socket'],2,'A small compressed transfer can still expand enormously in memory, so the cap has to apply after decompression.'),
+  check('crq12','crawler-fetch','Diagnose','Crawler logs show requests to 169.254.169.254, though the seed list holds public sites alone. What check is missing?',['Filtering seed URLs by scheme before they are enqueued','Checking robots.txt rules for each host before fetching','Normalizing discovered URLs before adding them to a queue','Validating the resolved address on every hop it follows'],3,'Redirects and discovered links can lead to private or link-local addresses, so each resolved destination needs checking. That address serves cloud instance metadata.'),
+  check('crq13','crawler-freshness','Recall','What can a conditional request save when content is unchanged?',['The bandwidth of sending the response body again','The DNS lookup and connection for that request','The robots.txt check for that URL on this visit','The recrawl entry for that URL in the frontier'],0,'A server can return 304 without resending the representation. The request still happens, and the URL stays scheduled.'),
+  check('crq14','crawler-freshness','Diagnose','One small site now holds 40% of the frontier, and its new URLs differ by ever-longer paths like /a/b/a/b/a/b. What is the likely failure?',['A broken robots.txt that the cache keeps serving stale','A spider trap generating URLs with no natural end','A hash collision that marks its new pages as unseen','A retry loop requeueing its pages after server errors'],1,'Generated paths can expand without a natural stopping point. Repeating path segments are a common sign, and a retry loop would not create new URLs.'),
+  check('crq15','crawler-scale','Recall','Why assign each host queue a clear scheduler owner?',['To keep that host’s URLs on a single fetch worker','To let that host’s fetches finish at a higher rate','To coordinate that host’s request budget in one place','To store that host’s documents on a single shard'],2,'One owner can enforce host delay and concurrency across many workers, which may still do the fetching.'),
+  check('crq16','crawler-scale','Apply','You want an alert that fires before stale high-priority pages reach the index. Which signal fits best?',['Average fetches per second across the whole fleet','Total domain count in the crawl over the past month','Fetch success rate across all of the crawled hosts','Queue age and change-detection lag by priority'],3,'Freshness and queue age reveal starvation that aggregate throughput hides.'),
+];

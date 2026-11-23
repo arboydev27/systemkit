@@ -1,0 +1,21 @@
+.panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 24%);
+}
+.panel:focus { outline: none; }
+.panel h2 { margin: 0 0 6px; color: var(--ink); font-size: 15px; line-height: 1.35; letter-spacing: -.015em; }
+.panel p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+.panel .status { margin-top: 8px; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.actions button { flex: 1 1 130px; min-height: 44px; padding: 9px 14px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 700; }
+.actions button:hover { background: var(--surface-soft); }
+.settings { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.settings:hover { color: var(--ink); }

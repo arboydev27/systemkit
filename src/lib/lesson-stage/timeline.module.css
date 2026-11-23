@@ -1,0 +1,103 @@
+/* The timeline figure: rails lying on the floor, messages slanting between them, marks and spans on them, a line at now.
+   Page neutrals and the stage's tokens only: ink for requests, the labs' blue for work and replies, orange for trouble. */
+.timeline, .labels { pointer-events: none; }
+/* focus: what lies on the floor for parts out of focus fades back, as the parts do */
+.dimmable, .rail { transition: opacity .35s; }
+.timeline .dim { opacity: .32; }
+
+/* a lifeline: a low rail in the base's tones */
+/* its edges are softer than a part's outline: the rails are the ground the messages run over, not the subject */
+.railSide, .railTop { stroke: color-mix(in srgb, var(--pk-line) 42%, var(--pk-top)); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.railShade { fill: var(--pk-shadow); }
+.railSide { fill: color-mix(in srgb, var(--pk-left) 45%, var(--pk-right)); }
+.railTop { fill: var(--pk-top); }
+.notch { stroke: var(--pk-detail); stroke-width: .9; vector-effect: non-scaling-stroke; }
+.axis { fill: var(--muted); font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+/* now */
+.now { stroke: var(--ink); stroke-opacity: .32; stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.nowCaret { fill: var(--ink); fill-opacity: .55; }
+
+/* messages */
+.line { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.tip, .start { fill: var(--ink); }
+.msg[data-k="response"] .line, .msg[data-k="work"] .line { stroke: var(--work); }
+.msg[data-k="response"] .tip, .msg[data-k="work"] .tip, .msg[data-k="response"] .start, .msg[data-k="work"] .start { fill: var(--work); }
+.msg[data-k="hot"] .line { stroke: var(--hot); }
+.msg[data-k="hot"] .tip, .msg[data-k="hot"] .start { fill: var(--hot); }
+.msg[data-k="quiet"] .line { stroke: var(--muted); stroke-dasharray: 3 4; }
+.msg[data-k="quiet"] .tip, .msg[data-k="quiet"] .start { fill: var(--muted); }
+.lost { fill: none; stroke: var(--hot); stroke-width: 2.2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+
+/* a message's label: a request is ink while it travels, like a packet, and once it lands an outline, so the story so far
+   reads calmly; the ink layer drains off the outline through a sliding clip (timeline.ts), never fading through grey */
+.pill rect { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.pill text { fill: var(--ink); font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.pill[data-k="request"] rect { stroke: var(--ink); stroke-width: 1.2; }
+.pill .ink rect { fill: var(--accent); stroke: var(--accent); }
+.pill .ink text { fill: var(--on-accent); }
+.pill[data-k="response"] rect, .pill[data-k="work"] rect { stroke: var(--work); stroke-width: 1.4; }
+.pill[data-k="response"] circle, .pill[data-k="work"] circle { fill: var(--work); }
+.pill[data-k="hot"] rect { stroke: var(--hot); stroke-width: 1.4; }
+.pill[data-k="hot"] circle { fill: var(--hot); }
+.pill[data-k="quiet"] circle { fill: var(--muted); }
+
+/* marks: a dot on the rail, a stem, a flag */
+.dot { fill: var(--ink); stroke: var(--pk-top); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.mark[data-tone="work"] .dot { fill: var(--work); }
+.mark[data-tone="hot"] .dot { fill: var(--hot); }
+.mark[data-tone="quiet"] .dot { fill: var(--muted); }
+.stem { fill: none; stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.stem.along { stroke: var(--ink); stroke-width: 1.5; }
+.mark[data-tone="work"] .along { stroke: var(--work); }
+.mark[data-tone="hot"] .along { stroke: var(--hot); }
+.mark[data-tone="quiet"] .along { stroke: var(--muted); }
+.flag rect { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.flag text { fill: var(--ink); font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.flag circle { fill: var(--muted); }
+.flag[data-tone="work"] circle { fill: var(--work); }
+.flag[data-tone="hot"] circle { fill: var(--hot); }
+.flag[data-tone="hot"] rect { stroke: var(--hot); stroke-width: 1.4; }
+
+/* spans: a sleeve over the rail */
+.sleeveSide, .sleeveTop { stroke: var(--ink); stroke-width: 1.1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.sleeveTop { fill: color-mix(in srgb, var(--ink) 12%, var(--pk-top)); }
+.sleeveSide { fill: color-mix(in srgb, var(--ink) 22%, var(--pk-right)); }
+.span[data-tone="work"] .sleeveSide, .span[data-tone="work"] .sleeveTop { stroke: var(--work); }
+.span[data-tone="work"] .sleeveTop { fill: color-mix(in srgb, var(--work) 22%, var(--pk-top)); }
+.span[data-tone="work"] .sleeveSide { fill: color-mix(in srgb, var(--work) 46%, var(--pk-right)); }
+.span[data-tone="hot"] .sleeveSide, .span[data-tone="hot"] .sleeveTop { stroke: var(--hot); }
+.span[data-tone="hot"] .sleeveTop { fill: color-mix(in srgb, var(--hot) 22%, var(--pk-top)); }
+.span[data-tone="hot"] .sleeveSide { fill: color-mix(in srgb, var(--hot) 46%, var(--pk-right)); }
+.span[data-tone="quiet"] .sleeveSide, .span[data-tone="quiet"] .sleeveTop { stroke: var(--muted); stroke-dasharray: 3 3; }
+.span[data-tone="quiet"] .sleeveTop { fill: var(--pk-top); }
+.span[data-tone="quiet"] .sleeveSide { fill: var(--pk-left); }
+/* a halo in the floor's colour keeps a label clear of the lines it sits over */
+.spanLabel, .axis { paint-order: stroke; stroke: var(--diagram); stroke-width: 3.5px; stroke-linejoin: round; }
+.spanLabel { fill: var(--ink); font-size: 11px; font-weight: 700; letter-spacing: -.003em; }
+.spanLabel[data-tone="work"] { fill: var(--work); }
+.spanLabel[data-tone="hot"] { fill: var(--hot); }
+.spanLabel[data-tone="quiet"] { fill: var(--muted); }
+
+/* focus: a label out of focus stays solid, so nothing shows through its words, and recedes in colour, as the parts'
+   name tags do */
+.labels :is(rect, text, circle) { transition: fill .35s, stroke .35s; }
+.labels .dim :is(.pill, .flag) rect { stroke: var(--line); }
+.labels .dim :is(.pill, .flag) > text { fill: color-mix(in srgb, var(--muted) 75%, var(--surface)); }
+.labels .dim :is(.pill, .flag) circle { fill: var(--line-strong); }
+.labels .dim :is(.pill[data-k="response"], .pill[data-k="work"]) rect { stroke: color-mix(in srgb, var(--work) 30%, var(--line)); }
+.labels .dim :is(.pill[data-k="hot"], .flag[data-tone="hot"]) rect { stroke: color-mix(in srgb, var(--hot) 30%, var(--line)); }
+.labels .dim :is(.pill[data-k="response"], .pill[data-k="work"], .flag[data-tone="work"]) circle { fill: color-mix(in srgb, var(--work) 45%, var(--surface)); }
+.labels .dim :is(.pill[data-k="hot"], .flag[data-tone="hot"]) circle { fill: color-mix(in srgb, var(--hot) 45%, var(--surface)); }
+.labels .dim .spanLabel { fill: color-mix(in srgb, var(--muted) 75%, var(--diagram)); }
+.labels .dim .spanLabel[data-tone="work"] { fill: color-mix(in srgb, var(--work) 50%, var(--diagram)); }
+.labels .dim .spanLabel[data-tone="hot"] { fill: color-mix(in srgb, var(--hot) 50%, var(--diagram)); }
+
+/* a ring where something lands on a rail */
+.pulse { fill: none; stroke: var(--ink); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.pulse[data-k="work"] { stroke: var(--work); }
+.pulse[data-k="hot"] { stroke: var(--hot); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dimmable, .rail, .labels :is(rect, text, circle) { transition: none; }
+}

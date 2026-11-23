@@ -1,0 +1,74 @@
+{
+  "pt-idempotency": {
+    "kind": "flow",
+    "title": "One charge, any number of retries",
+    "description": "The client sends the same key on every retry, the server inserts a key row under a unique constraint, calls the provider with the key, and stores the response to replay to later retries.",
+    "note": "Keep the key with the effect it guards, not in a separate cache.",
+    "items": [
+      { "title": "Client sends key", "detail": "same key on every retry" },
+      { "title": "Insert key row", "detail": "unique (account, key)" },
+      { "title": "Call provider", "detail": "pass the key along" },
+      { "title": "Store response", "detail": "replay it to any retry" }
+    ]
+  },
+  "pt-outbox": {
+    "kind": "flow",
+    "title": "An order and its event commit together",
+    "description": "The order and an outbox row commit in one transaction, a relay publishes the row and marks it sent, and consumers deduplicate by event ID in case it is published twice.",
+    "note": "A crash can repeat an event on this path but cannot lose a committed one.",
+    "items": [
+      { "title": "Business write", "detail": "order row in a transaction" },
+      { "title": "Outbox row", "detail": "same commit as the order" },
+      { "title": "Relay publishes", "detail": "then marks the row sent" },
+      { "title": "Consumer dedupes", "detail": "by stable event ID" }
+    ]
+  },
+  "pt-retries": {
+    "kind": "flow",
+    "title": "How a 30-second slowdown becomes a lasting outage",
+    "description": "A brief slowdown causes timeouts, retries raise load from 800 to 3,200 requests per second, the queue stays full of work for callers who left, and a retry budget caps load at 880 so the queue drains.",
+    "note": "Backoff spreads retries, jitter decorrelates them, a budget caps their total.",
+    "items": [
+      { "title": "Brief slowdown", "detail": "30 s of timeouts" },
+      { "title": "Clients retry", "detail": "800 per second to 3,200" },
+      { "title": "Queue stays full", "detail": "work for callers who left" },
+      { "title": "Budget caps retries", "detail": "880 per second: it drains" }
+    ]
+  },
+  "pt-protect": {
+    "kind": "comparison",
+    "title": "Four ways to keep slow work from spreading",
+    "description": "A timeout stops waiting for one call, a circuit breaker stops calling for a while, a fallback returns a partial page, and load shedding has the server refuse work to save the rest.",
+    "note": "Timeouts and breakers act in the caller; shedding acts in the busy server.",
+    "items": [
+      { "title": "Timeout", "detail": "stop waiting for one call" },
+      { "title": "Circuit breaker", "detail": "stop calling for a while" },
+      { "title": "Fallback", "detail": "a partial page instead" },
+      { "title": "Load shedding", "detail": "refuse work to save the rest" }
+    ]
+  },
+  "pt-backpressure": {
+    "kind": "comparison",
+    "title": "Four answers when the queue is full",
+    "description": "At its limit a queue can block the producer, reject new work with a clear error, drop the oldest items when fresh data replaces stale data, or spill to disk, which is a larger and still finite queue.",
+    "note": "An unbounded queue only defers this choice until memory runs out.",
+    "items": [
+      { "title": "Block the producer", "detail": "it waits; nothing is lost" },
+      { "title": "Reject new work", "detail": "caller gets a clear error" },
+      { "title": "Drop the oldest", "detail": "fresh data replaces stale" },
+      { "title": "Spill to disk", "detail": "a larger queue, still finite" }
+    ]
+  },
+  "pt-stampede": {
+    "kind": "comparison",
+    "title": "What each defense does when keys expire",
+    "description": "With no protection 1,000 readers hit the database, single-flight lets one caller rebuild a key, jittered expiry spreads when keys expire, and serving stale returns the old value while one worker refreshes it.",
+    "note": "Jitter spreads many keys. It does not help one hot key.",
+    "items": [
+      { "title": "No protection", "detail": "1,000 readers hit the DB" },
+      { "title": "Single-flight", "detail": "one caller rebuilds a key" },
+      { "title": "Jittered expiry", "detail": "keys expire at spread times" },
+      { "title": "Serve stale", "detail": "old value, one refresher" }
+    ]
+  }
+}
